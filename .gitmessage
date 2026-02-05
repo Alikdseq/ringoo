@@ -1,0 +1,15 @@
+# <type>(<scope>): <subject>
+# 
+# <body>
+# 
+# <footer>
+#
+# Типы: feat, fix, docs, style, refactor, perf, test, chore, ci, build, revert
+# Область: backend, frontend, api, db, auth, ui, config, deps
+# 
+# Примеры:
+# feat(backend): добавить модель Product
+# fix(api): исправить валидацию телефона
+# docs(readme): обновить инструкции по установке
+#
+# Подробнее: .github/COMMIT_CONVENTION.md

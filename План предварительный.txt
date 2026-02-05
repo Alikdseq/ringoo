@@ -1,0 +1,242 @@
+**Марко Соренсен:**  
+*Снимает очки, внимательно изучает документ. Его взгляд становится острым, архитектурным. Он открывает чистый файл с расширением `.md` и начинает набирать текст с молниеносной скоростью.*  
+
+«Отлично. Техническое задание структурировано — это экономит нам время. Я вижу не просто интернет-магазин, а клиентоцентричную экосистему с элементами CRM и маркетплейса. Это сложнее, чем базовый E-commerce, но тем интереснее.  
+
+Мои выводы после хирургического анализа:  
+
+1.  **Архитектурный стиль:** Выбираем **монолит с четким разделением слоёв**. Это оптимально для старта с предсказуемым масштабированием. Реальный-time (уведомления) реализуем через Django Channels позже, но заложим фундамент сейчас.  
+2.  **Фронтенд-стратегия:** **Next.js 15 (App Router) + TypeScript + Tailwind**. Причина: нужен максимальный Lighthouse Performance (>85), SEO для блога/новостей, современный UX с микроанимациями (Framer Motion). Mobile First.  
+3.  **Критичный риск:** **Интеграция с картами (Yandex/Google) и SMS-сервисом.** Это блокирующие точки. Начнём с API-ключей и заглушек сразу.  
+4.  **Ядро данных:** Товар (`Product`), Категория (`Category`), Заказ (`Order`), Магазин (`Store`), Пользователь (`CustomUser`). Сложность — система наличия товара в магазинах (`Stock`).  
+
+Теперь — таксономия. Это ваш пошаговый план от нуля до продакшена. Каждая задача — атомарна и проверяема.  
+
+---
+
+## **ПРОЕКТ: RINGOO — ВЫСОКОНАГРУЖЕННЫЙ ИНТЕРНЕТ-МАГАЗИН ЭЛЕКТРОНИКИ**  
+**Архитектурный выбор:** Monolith (Django + Next.js) → Microservices-ready.  
+**Бэкенд:** Django 5.0 + DRF + PostgreSQL + Redis + Celery.  
+**Фронтенд:** Next.js 15 (App Router) + TypeScript + Tailwind CSS + Framer Motion + TanStack Query.  
+**Инфраструктура:** Docker, GitHub Actions, VPS (Nginx + Gunicorn), мониторинг.  
+
+---
+
+### **📁 ФАЗА 0: BOOTSTRAP & ENVIRONMENT SETUP**  
+*Цель: Чистый, готовый к разработке стек за 1 день.*  
+
+```bash
+# day_0_bootstrap.sh
+```
+
+-   [ ] **0.1. Инициализация репозитория и структуры проекта**  
+    ```bash
+    mkdir ringoo
+    cd ringoo
+    git init
+    mkdir -p backend/{apps,config} frontend public
+    ```
+-   [ ] **0.2. Настройка Python-окружения (Poetry)**  
+    ```bash
+    cd backend
+    poetry init  # Python 3.11+
+    poetry add django~=5.0 djangorestframework django-cors-headers
+    poetry add --group dev black isort flake8 mypy pytest
+    ```
+-   [ ] **0.3. Базовый Django проект и приложения**  
+    ```bash
+    django-admin startproject config .
+    python manage.py startapp apps.users
+    python manage.py startapp apps.products
+    python manage.py startapp apps.orders
+    python manage.py startapp apps.stores
+    python manage.py startapp apps.content
+    ```
+-   [ ] **0.4. Конфигурация переменных окружения (.env)**  
+    *Создать `.env` с:*  
+    ```
+    DEBUG=True
+    SECRET_KEY=dev-key-change-in-production
+    DB_NAME=ringoo
+    DB_USER=postgres
+    DB_PASSWORD=postgres
+    DB_HOST=localhost
+    DB_PORT=5432
+    REDIS_URL=redis://localhost:6379/0
+    ```
+-   [ ] **0.5. Настройка pre-commit hooks**  
+    *`.pre-commit-config.yaml` с хуками для black, isort, flake8.*  
+
+---
+
+### **📁 ФАЗА 1: CORE MODELS & AUTHENTICATION**  
+*Цель: Работающая база данных и система аутентификации (2 дня).*  
+
+-   [ ] **1.1. Кастомная модель пользователя (AbstractUser)**  
+    *Файл: `apps/users/models.py`*  
+    ```python
+    class CustomUser(AbstractUser):
+        phone = models.CharField(max_length=20, unique=True)
+        email = models.EmailField(unique=True)
+        is_phone_verified = models.BooleanField(default=False)
+        bonus_points = models.IntegerField(default=0)
+        # ... другие поля
+    ```
+    *Настройка `AUTH_USER_MODEL` в `config/settings.py`.*  
+
+-   [ ] **1.2. JWT-аутентификация с подтверждением по SMS/Email**  
+    *Использовать `djangorestframework-simplejwt` с кастомными сериализаторами для входа по номеру телефона.*  
+    *Заглушка для SMS-сервиса (Twilio или sms.ru).*  
+
+-   [ ] **1.3. Профиль пользователя и адрес доставки**  
+    *Отдельная модель `UserProfile` с OneToOne связью.*  
+
+-   [ ] **1.4. Модели каталога: Категория, Товар, Галерея, Характеристики**  
+    *`apps/products/models.py`*  
+    ```python
+    class Product(models.Model):
+        sku = models.CharField(max_length=50, unique=True)
+        name = models.CharField(max_length=255)
+        category = models.ForeignKey(Category, on_delete=models.PROTECT)
+        price = models.DecimalField(max_digits=10, decimal_places=2)
+        rating = models.FloatField(default=0.0)
+        # JSON поле для характеристик (используем django-pg-extra)
+        specs = models.JSONField(default=dict)
+    ```
+-   [ ] **1.5. Модель наличия товара в магазинах (Stock)**  
+    *Ключевая сложность: связь `Product` ↔ `Store` с полем `quantity`.*  
+-   [ ] **1.6. Модели заказа (Order, OrderItem) и корзины (Cart, CartItem)**  
+    *Корзина — отдельная модель для авторизованных и анонимных пользователей (сессии).*  
+-   [ ] **1.7. Модели для блога и новостей (apps/content)**  
+    *`Article`, `News` с тегами и изображениями.*  
+-   [ ] **1.8. Миграции и тестовые данные (Fixtures)**  
+    ```bash
+    python manage.py makemigrations
+    python manage.py migrate
+    python manage.py loaddata test_data.json  # создать скрипт генерации
+    ```
+
+---
+
+### **📁 ФАЗА 2: API DESIGN & BUSINESS LOGIC**  
+*Цель: Полнофункциональное API для фронтенда (3 дня).*  
+
+-   [ ] **2.1. Сервисный слой (services/) для бизнес-логики**  
+    *Пример: `services/cart_service.py` с методами `add_to_cart`, `recalculate_total`.*  
+-   [ ] **2.2. Селекторы (selectors/) для оптимизированных запросов**  
+    *Пример: `selectors/product_selectors.py` с методом `get_products_with_stock()` для избежания N+1.*  
+-   [ ] **2.3. Viewsets и эндпоинты для каталога**  
+    *`/api/v1/products/` — список с фильтрацией (DRF Filter), поиском (SearchFilter) и пагинацией.*  
+    *`/api/v1/products/<slug>/` — детали товара с наличием в магазинах.*  
+-   [ ] **2.4. API для работы с корзиной и заказами**  
+    *`/api/v1/cart/` — GET, POST, DELETE.*  
+    *`/api/v1/orders/` — создание заказа, история.*  
+-   [ ] **2.5. API для магазинов и наличия (Stores)**  
+    *`/api/v1/stores/` — список магазинов с геоданными для карты.*  
+    *`/api/v1/stores/<id>/stock/` — остатки конкретного магазина.*  
+-   [ ] **2.6. Интеграция с картами (Yandex Maps API)**  
+    *Сервис `services/map_service.py` для геокодирования адресов магазинов.*  
+-   [ ] **2.7. Документация API (Swagger/DRF Spectacular)**  
+    *Настроить `/api/schema/` и `/api/docs/`.*  
+
+---
+
+### **📁 ФАЗА 3: FRONTEND NEXT.JS APPLICATION**  
+*Цель: Адаптивный, быстрый интерфейс с подключенным API (4 дня).*  
+
+-   [ ] **3.1. Инициализация Next.js 15 (TypeScript, Tailwind)**  
+    ```bash
+    cd frontend
+    npx create-next-app@latest . --typescript --tailwind --app
+    npm install axios framer-motion @tanstack/react-query
+    ```
+-   [ ] **3.2. Конфигурация axios-инстанса и React Query**  
+    *Файл `lib/api-client.ts` — интерсепторы для JWT, автоматический refresh token.*  
+    *Provider для `QueryClient`.*  
+-   [ ] **3.3. Базовая layout-структура и компоненты дизайн-системы**  
+    *`components/ui/Button`, `Input`, `Card` с поддержкой состояний loading и hover-анимациями.*  
+-   [ ] **3.4. Страница каталога (Mobile First)**  
+    *Grid товаров, бесконечный скролл (useInfiniteQuery), фильтры в off-canvas панели на мобильных.*  
+    *Чипсы выбранных фильтров.*  
+-   [ ] **3.5. Карточка товара (PDP — Product Detail Page)**  
+    *Галерея изображений (Swiper), таблица характеристик, выбор магазина для самовывоза (интеграция с картой).*  
+    *Анимация «летящей иконки» при добавлении в корзину (Framer Motion).*  
+-   [ ] **3.6. Корзина и оформление заказа (Checkout)**  
+    *Многошаговая форма (корзина → доставка → оплата).*  
+    *Расчет стоимости с учетом доставки.*  
+-   [ ] **3.7. Личный кабинет (Dashboard)**  
+    *История заказов, избранное, бонусы.*  
+-   [ ] **3.8. Страницы блога и новостей (SSG — Static Site Generation)**  
+    *Для SEO. Генерация статических страниц в сборке.*  
+
+---
+
+### **📁 ФАЗА 4: ADVANCED FEATURES & INTEGRATIONS**  
+*Цель: Реализация специфических требований TЗ (3 дня).*  
+
+-   [ ] **4.1. Система лояльности (бонусные баллы)**  
+    *Сервис начисления/списания баллов при заказе.*  
+    *Отображение в ЛК.*  
+-   [ ] **4.2. Форма «Не нашли нужный товар?»**  
+    *Модальное окно с отправкой данных в CRM (простой эндпоинт `api/requests/missing-product`).*  
+-   [ ] **4.3. Система оценки менеджеров**  
+    *Модель `ManagerReview`, отправка ссылки по email (Celery task).*  
+-   [ ] **4.4. Реализация акций с таймером**  
+    *Модель `Promotion`, расчет времени до конца акции на фронтенде.*  
+-   [ ] **4.5. Микроанимации и параллакс-эффекты**  
+    *На главной странице — hero-блок с параллаксом (Framer Motion).*  
+    *Плавные переходы между страницами (`next-view-transitions`).*  
+
+---
+
+### **📁 ФАЗА 5: DEPLOYMENT, PERFORMANCE & MONITORING**  
+*Цель: Продакшен-готовый проект (2 дня).*  
+
+-   [ ] **5.1. Docker-контейнеризация (multi-stage)**  
+    *`Dockerfile` для Django и отдельный для Next.js.*  
+    *`docker-compose.prod.yml` с сервисами: db, redis, backend, frontend, nginx.*  
+-   [ ] **5.2. Конфигурация production-среды**  
+    *Настройки `settings/production.py`: DEBUG=False, статика через WhiteNoise/Collectstatic, кэш через Redis.*  
+-   [ ] **5.3. CI/CD (GitHub Actions)**  
+    *Workflow: тесты (pytest), линтинг, сборка Docker-образов, деплой на VPS (via SSH).*  
+-   [ ] **5.4. Оптимизация производительности**  
+    *Кэширование запросов каталога (Redis).*  
+    *Оптимизация изображений (next/image).*  
+    *Lighthouse аудит и исправление проблем.*  
+-   [ ] **5.5. Мониторинг (Healthchecks, логи)**  
+    *Эндпоинт `/health/` для проверки БД и Redis.*  
+    *Настройка Sentry для ошибок фронтенда и бэкенда.*  
+
+---
+
+## **🎯 СПРИНТ НУЛЕВОЙ НЕДЕЛИ (WEEK ZERO SPRINT)**  
+*Ваш план на первые 5 рабочих дней.*
+
+-   **День 1:** Bootstrap + Core Models.  
+    *Задачи 0.1 — 1.5. К концу дня — работающая БД с моделями User, Product, Category.*  
+-   **День 2:** Аутентификация + Базовое API.  
+    *Задачи 1.2, 2.1, 2.3. Готов эндпоинт `/api/v1/products/` с фильтрацией.*  
+-   **День 3:** Фронтенд-каркас и каталог.  
+    *Задачи 3.1 — 3.4. Next.js приложение показывает товары из API.*  
+-   **День 4:** Корзина и карточка товара.  
+    *Задачи 2.4, 3.5, 3.6. Добавление в корзину, анимация, страница товара.*  
+-   **День 5:** Деплой и первый прототип.  
+    *Задачи 5.1, 5.2. Запуск на VPS в демо-режиме. Доступен по IP-адресу.*  
+
+---
+
+## **⚠️ КРИТИЧЕСКИЕ РИСКИ И МОИ РЕКОМЕНДАЦИИ**
+
+1.  **СМС-верификация:** Начните с заглушки (вывод кода в консоль), но сразу договоритесь о выборе провайдера (sms.ru, Twilio). Это критично для регистрации.  
+2.  **Интеграция с картами:** Выберите один сервис (Яндекс.Карты API) и получите API-ключ на этапе разработки.  
+3.  **Система наличия в магазинах:** Это самая сложная бизнес-логика. Проектируйте `Stock` модель сразу с учетом резервирования товара при оформлении заказа.  
+4.  **Производительность:** Для «бесконечной ленты» используйте `cursor-based pagination` в API и `useInfiniteQuery` на фронтенде. Для фильтров — кэширование.  
+5.  **Деплой:** Начните с простого VPS (Hetzner, Selectel). Используйте Docker Compose. Kubernetes пока избыточен.  
+
+---
+
+«Таксономия готова. Это ваш план полного цикла. Каждый пункт — конкретный файл или команда.  
+
+**Мой первый вопрос по проекту:** У вас уже есть доступ к API-ключам (карты, SMS) и выделен тестовый сервер (VPS), или мне нужно предусмотреть этап их получения/настройки в таксономии?  
+
+В зависимости от ответа, я скорректирую приоритеты в Фазе 0.»

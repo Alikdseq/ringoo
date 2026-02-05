@@ -1,0 +1,13 @@
+# Локальная конфигурация Git для проекта Ringoo
+# Для применения выполните:
+# git config --local commit.template .gitmessage
+# git config --local core.editor "code --wait"
+
+[commit]
+    template = .gitmessage
+
+[core]
+    editor = code --wait
+
+[init]
+    defaultBranch = develop
