@@ -1,0 +1,9 @@
+# Пример override: БД и Redis только во внутренней сети compose (порты 5432/6379 не на хост).
+# Запуск: docker compose -f docker-compose.yml -f docker-compose.no-host-db-redis-ports.yml up -d
+# См. §7.1.3 чек-листа безопасности: в публичном окружении не публикуйте эти порты.
+
+services:
+  db:
+    ports: []
+  redis:
+    ports: []

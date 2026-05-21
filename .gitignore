@@ -39,6 +39,8 @@ db.sqlite3-journal
 /media
 /staticfiles
 /static
+backend/tmp
+backend/pgconfig/
 
 # Environment variables
 .env
@@ -109,10 +111,16 @@ Thumbs.db
 secrets/
 *.pem
 *.key
+.pgpass
+backend/.pgpass
 
 # Coverage reports
 coverage/
 .nyc_output/
+backend/coverage.xml
+
+# Backups (см. docs/BACKUP.md)
+backups/
 
 # Misc
 *.bak

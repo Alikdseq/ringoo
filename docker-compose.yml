@@ -1,0 +1,230 @@
+# Локальная разработка: порты БД/Redis на хост — удобно для GUI-клиентов.
+# В публичном/staging окружении не публикуйте 5432/6379 наружу; задайте REDIS_PASSWORD и
+# в корневом .env: REDIS_URL=redis://:ПАРОЛЬ@redis:6379/0 (и то же для CELERY_* при необходимости).
+#
+# Сборка backend: при таймаутах/TLS к pypi.org — в корневом .env:
+#   зеркало: PIP_INDEX_URL=https://<зеркало>/simple и PIP_TRUSTED_HOST=<хост>
+#   или прокси: HTTP_PROXY / HTTPS_PROXY / NO_PROXY (пробрасываются в build)
+# либо VPN на хосте.
+
+x-backend-build: &backend-build
+  context: ./backend
+  dockerfile: Dockerfile.dev
+  args:
+    PIP_INDEX_URL: ${PIP_INDEX_URL:-}
+    PIP_TRUSTED_HOST: ${PIP_TRUSTED_HOST:-}
+    HTTP_PROXY: ${HTTP_PROXY:-}
+    HTTPS_PROXY: ${HTTPS_PROXY:-}
+    NO_PROXY: ${NO_PROXY:-}
+
+x-frontend-build: &frontend-build
+  context: ./frontend
+  dockerfile: Dockerfile.dev
+
+services:
+  # PostgreSQL Database
+  # Порт снаружи (DB_PORT): если 5434/5435 заняты — задайте DB_PORT=5436 в .env в корне проекта
+  db:
+    image: postgres:15-alpine
+    container_name: ringoo_db
+    environment:
+      POSTGRES_DB: ${DB_NAME:-ringoo}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "${DB_PORT:-5436}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ringoo_network
+
+  # Redis Cache & Celery Broker
+  # Опционально: REDIS_PASSWORD в .env в корне — requirepass + смените REDIS_URL на redis://:пароль@redis:6379/0
+  redis:
+    image: redis:7-alpine
+    container_name: ringoo_redis
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+    command:
+      - sh
+      - -c
+      - |
+        if [ -n "$$REDIS_PASSWORD" ]; then
+          exec redis-server --appendonly yes --requirepass "$$REDIS_PASSWORD"
+        else
+          exec redis-server --appendonly yes
+        fi
+    volumes:
+      - redis_data:/data
+    ports:
+      - "${REDIS_PORT:-6380}:6379"
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - |
+          if [ -n "$$REDIS_PASSWORD" ]; then redis-cli -a "$$REDIS_PASSWORD" ping | grep -q PONG; else redis-cli ping | grep -q PONG; fi
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ringoo_network
+
+  # Django Backend
+  web:
+    build:
+      <<: *backend-build
+    container_name: ringoo_backend
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - ./backend:/app
+      - ./frontend/public:/ringoo_catalog_public:ro
+      - static_volume:/app/staticfiles
+      - media_volume:/app/media
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    env_file:
+      - ./backend/.env.development
+    environment:
+      - USE_SQLITE=False
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DATABASE_URL=postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@db:5432/${DB_NAME:-ringoo}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
+      - RINGOO_PUBLIC_CATALOG_ROOT=/ringoo_catalog_public
+      - PUBLIC_API_ORIGIN=http://localhost:${BACKEND_PORT:-8000}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    # Стандартная библиотека urllib (без пакета requests) — работает в любом python-образе
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/', timeout=5)",
+        ]
+      interval: 30s
+      timeout: 10s
+      start_period: 40s
+      retries: 3
+    networks:
+      - ringoo_network
+
+  # Next.js Frontend (dev, hot reload)
+  frontend:
+    build:
+      <<: *frontend-build
+    container_name: ringoo_frontend
+    command:
+      - sh
+      - -c
+      - |
+        node scripts/generate-magazins-manifest.mjs 2>/dev/null || true
+        node scripts/generate-menegers-manifest.mjs 2>/dev/null || true
+        exec npm run dev -- --hostname 0.0.0.0 --port 3000
+    volumes:
+      - ./frontend:/app
+      - frontend_node_modules:/app/node_modules
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    env_file:
+      - path: ./frontend/.env.docker
+        required: false
+      - path: ./frontend/.env.local
+        required: false
+    environment:
+      - NODE_ENV=development
+      - RINGOO_RELAX_CSP=1
+      - WATCHPACK_POLLING=true
+      - CHOKIDAR_USEPOLLING=true
+      - NEXT_TELEMETRY_DISABLED=1
+      - NEXT_PUBLIC_API_V1_URL=http://localhost:${BACKEND_PORT:-8000}/api/v1
+      - NEXT_PUBLIC_API_URL=http://localhost:${BACKEND_PORT:-8000}
+      - NEXT_PUBLIC_SITE_URL=http://localhost:${FRONTEND_PORT:-3000}
+      - API_INTERNAL_V1_URL=http://web:8000/api/v1
+      - IMAGES_ALLOW_LOCAL_IP=true
+    depends_on:
+      web:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "node -e \"fetch('http://127.0.0.1:3000').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\"",
+        ]
+      interval: 30s
+      timeout: 10s
+      start_period: 120s
+      retries: 5
+    networks:
+      - ringoo_network
+
+  # Celery Worker
+  celery:
+    build:
+      <<: *backend-build
+    container_name: ringoo_celery
+    command: celery -A config.celery worker --loglevel=info
+    volumes:
+      - ./backend:/app
+    env_file:
+      - ./backend/.env.development
+    environment:
+      - USE_SQLITE=False
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DATABASE_URL=postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@db:5432/${DB_NAME:-ringoo}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
+    depends_on:
+      - db
+      - redis
+      - web
+    networks:
+      - ringoo_network
+
+  # Celery Beat (Scheduler)
+  celery-beat:
+    build:
+      <<: *backend-build
+    container_name: ringoo_celery_beat
+    command: celery -A config.celery beat --loglevel=info
+    volumes:
+      - ./backend:/app
+    env_file:
+      - ./backend/.env.development
+    environment:
+      - USE_SQLITE=False
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DATABASE_URL=postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@db:5432/${DB_NAME:-ringoo}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
+    depends_on:
+      - db
+      - redis
+      - celery
+    networks:
+      - ringoo_network
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  static_volume:
+    driver: local
+  media_volume:
+    driver: local
+  frontend_node_modules:
+    driver: local
+
+networks:
+  ringoo_network:
+    driver: bridge

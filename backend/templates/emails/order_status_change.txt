@@ -1,0 +1,8 @@
+Здравствуйте, {{ full_name }}!
+
+Статус вашего заказа {{ order_number }} изменён.
+
+Было: {{ old_status_display }}
+Стало: {{ new_status_display }}
+
+Команда Ringoo

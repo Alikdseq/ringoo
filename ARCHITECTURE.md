@@ -153,7 +153,7 @@
 ### Описание компонентов:
 
 #### 1. **Client Layer (Frontend)**
-- **Next.js 15** - SSR/SSG для SEO и производительности
+- **Next.js 16**, **React 19** — SSR/SSG для SEO и производительности (зафиксировано в `frontend/package.json`)
 - **TypeScript** - типобезопасность
 - **Tailwind CSS** - utility-first стилизация
 - **Framer Motion** - микроанимации
@@ -549,6 +549,7 @@
 ## 📚 ДОПОЛНИТЕЛЬНЫЕ РЕСУРСЫ
 
 ### Документация:
+- Производительность Admin API и отчётов: `docs/ADMIN_API_PERFORMANCE.md`
 - Django: https://docs.djangoproject.com/
 - Django REST Framework: https://www.django-rest-framework.org/
 - Next.js: https://nextjs.org/docs

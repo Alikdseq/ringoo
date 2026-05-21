@@ -1,0 +1,160 @@
+{
+  "official": {
+    "promo": {
+      "sectionTitle": "Акции дня",
+      "slideEyebrow": "Акции дня"
+    },
+    "todayProducts": {
+      "title": "Товары дня",
+      "subtitle": "Смотри. Листай. Бери.",
+      "seeAll": "Смотреть всё"
+    },
+    "installment": {
+      "title": "0% — это не шутка",
+      "lead": "Переплата — 0 рублей. Одобрение за 5 минут.",
+      "calculateCta": "Рассчитать платёж",
+      "footnote": "Предварительный расчёт. Итоговые условия зависят от банка-партнёра.",
+      "partnersLabel": "Банки-партнёры",
+      "calculatorHeader": "Калькулятор",
+      "collapse": "Свернуть",
+      "priceLabel": "Стоимость покупки",
+      "priceAria": "Стоимость покупки",
+      "termLabel": "Срок",
+      "monthlyLabel": "Ежемесячный платёж",
+      "disclaimer": "Расчёт примерный и не является офертой. Одобрение и условия зависят от банка.",
+      "checkoutCta": "Перейти к оформлению",
+      "pickProductsCta": "Выбрать товары",
+      "ringikBubble": "Реально 0%. Честно."
+    },
+    "nearbyStores": {
+      "title": "Товар рядом с тобой",
+      "subtitle": "Забери сегодня — покажем ближайшие магазины.",
+      "detectLocation": "Определить",
+      "allStores": "Все магазины",
+      "route": "Маршрут"
+    },
+    "heroSideCategoriesLeft": [
+      { "label": "iPhone", "slug": "iphone", "href": "/catalog?category=iphone" },
+      { "label": "Huawei", "slug": "huawei", "href": "/catalog?category=huawei" },
+      { "label": "Realme", "slug": "realme", "href": "/catalog?category=realme" }
+    ],
+    "heroSideCategoriesRight": [
+      { "label": "Samsung", "slug": "samsung", "href": "/catalog?category=samsung" },
+      { "label": "Xiaomi", "slug": "xiaomi", "href": "/catalog?category=xiaomi" },
+      { "label": "Tecno", "slug": "tecno", "href": "/catalog?category=tecno" }
+    ],
+    "heroFullWidthCategory": {
+      "label": "Infinix",
+      "slug": "infinix",
+      "href": "/catalog?category=infinix"
+    },
+    "hero": {
+      "block1Note": "Блок херо: финальная вёрстка (видео/Зина и Бола) — по макету из Figma."
+    }
+  },
+  "svoi": {
+    "promo": {
+      "sectionTitle": "Халява, брат! (но не совсем)",
+      "slideEyebrow": "Акции дня"
+    },
+    "quickCatalog": {
+      "bolaTitle": "Крутые товары / для понтов",
+      "bolaSubtitle": "От Болы",
+      "zinaTitle": "Консервативное / для души",
+      "zinaSubtitle": "От Зины",
+      "bola": [
+        {
+          "icon": "smartphone",
+          "label": "Айфон для понтов",
+          "href": "/catalog?category=iphone"
+        },
+        {
+          "icon": "laptop",
+          "label": "Макбук чтобы гонять воздух в кофейнях",
+          "href": "/catalog?category=mac"
+        },
+        {
+          "icon": "wind",
+          "label": "Дайсон для девочек чтобы снять рилс",
+          "href": "/catalog?category=dyson"
+        },
+        {
+          "icon": "headphones",
+          "label": "Эйрподс чтобы слушать дорогую музыку",
+          "href": "/catalog?category=airpods"
+        },
+        {
+          "icon": "watch",
+          "label": "Эпл вотч типо деловой",
+          "href": "/catalog?category=watch"
+        }
+      ],
+      "zina": [
+        {
+          "icon": "smartphone",
+          "label": "Андроид для работы",
+          "href": "/catalog?category=android"
+        },
+        {
+          "icon": "volume",
+          "label": "Колонки на кухню",
+          "href": "/catalog?search=колонка"
+        },
+        {
+          "icon": "gift",
+          "label": "Подарок для неё",
+          "href": "/catalog?category=dyson"
+        },
+        {
+          "icon": "sparkles",
+          "label": "Зина советует",
+          "href": "/promotions"
+        },
+        {
+          "icon": "tablet",
+          "label": "Айпад чтобы смотреть сериалы",
+          "href": "/catalog?category=ipad"
+        }
+      ]
+    },
+    "todayProducts": {
+      "title": "Сегодня надо забирать 100%",
+      "subtitle": "Смотри. Листай. Бери.",
+      "seeAll": "Смотреть всё"
+    },
+    "installment": {
+      "title": "Братская рассрочка",
+      "lead": "Переплата — 0 рублей. Одобрение за 5 минут.",
+      "calculateCta": "Ану-ка, сколько получится?",
+      "footnote": "Предварительный расчёт. Итоговые условия зависят от банка-партнёра.",
+      "partnersLabel": "Банки-партнёры",
+      "calculatorHeader": "Калькулятор",
+      "collapse": "Свернуть",
+      "priceLabel": "Сколько надо, пиши тут",
+      "priceAria": "Сумма покупки",
+      "termLabel": "Срок",
+      "monthlyLabel": "Короче, в месяц получилось",
+      "disclaimer": "Расчёт примерный и не является офертой. Одобрение и условия зависят от банка.",
+      "checkoutCta": "Оформляем",
+      "pickProductsCta": "Выбрать товары",
+      "ringikBubble": "По-братски, ноль процентов."
+    },
+    "nearbyStores": {
+      "title": "Забери сегодня — Зина покажет, в каком магазине",
+      "subtitle": "Карта и список те же, что всегда — только мы теплее подсказали.",
+      "detectLocation": "Определить",
+      "allStores": "Все магазины",
+      "route": "Маршрут"
+    },
+    "heroDialogue": {
+      "headlineLine1": "Техника без понтов,",
+      "headlineLine2": "но со статусом.",
+      "zinaBubble1": "Бола, это точно ко мне",
+      "bolaBubble": "О, ед.\nЗа телефоном они",
+      "zinaBubble2": "Ты и мне ничего не подарил"
+    },
+    "hero": {
+      "block1Note": "Блок херо: финальная вёрстка (видео/Зина и Бола) — по макету из Figma."
+    }
+  }
+}

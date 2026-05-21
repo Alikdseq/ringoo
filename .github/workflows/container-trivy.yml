@@ -1,0 +1,32 @@
+# Сканирование образа backend (HIGH/CRITICAL). При сбое — смотрите лог job; при необходимости добавьте .trivyignore.
+name: Container (Trivy)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/Dockerfile"
+      - "backend/requirements.txt"
+      - ".github/workflows/container-trivy.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  trivy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build image
+        run: docker build -t ringoo-backend:ci ./backend
+
+      - name: Trivy image
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: image
+          image-ref: ringoo-backend:ci
+          severity: "CRITICAL,HIGH"
+          ignore-unfixed: true
+          exit-code: "1"

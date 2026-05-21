@@ -1,0 +1,53 @@
+# Git / IDE
+.git
+.gitignore
+.idea
+.vscode
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv
+venv
+env
+*.egg-info
+.eggs
+dist
+build
+
+# Tests & coverage (в образ не нужны для runtime)
+.pytest_cache
+.coverage
+htmlcov
+coverage.xml
+.tox
+.mypy_cache
+
+# Секреты и локальные env (монтируются с хоста в compose)
+.env
+.env.*
+!.env.example
+
+# Логи и временные файлы
+*.log
+tmp
+temp
+
+# Локальные креды PostgreSQL (не попадать в образ)
+.pgpass
+pgconfig
+
+# Локальная SQLite (не в образ)
+*.sqlite3
+db.sqlite3
+
+# Артефакты, собираемые внутри контейнера или с хоста
+staticfiles
+media
+
+# Docker (избежать рекурсии контекста)
+Dockerfile*
+.dockerignore

@@ -1,0 +1,55 @@
+# Django Core
+Django>=5.0,<6.0
+djangorestframework>=3.14.0
+djangorestframework-simplejwt>=5.3.0
+# Хеширование паролей: Argon2 (первый в PASSWORD_HASHERS)
+argon2-cffi>=23.1.0
+
+# Database: psycopg3 в приоритете (нет UnicodeDecodeError на Windows при кириллице в путях)
+psycopg[binary]>=3.1.8
+# Fallback для окружений, где используют только psycopg2
+psycopg2-binary>=2.9.9
+
+# Cache & Task Queue
+redis>=5.0.1
+celery[redis]>=5.3.4
+django-redis>=5.4.0
+
+# API Documentation
+drf-spectacular>=0.26.5
+
+# CORS
+django-cors-headers>=4.3.1
+
+# Environment Variables
+python-dotenv>=1.2.0
+
+# Image Processing
+Pillow>=10.2.0
+openpyxl>=3.1.0
+
+# Monitoring & Error Tracking
+sentry-sdk>=1.38.0
+
+# File Storage (Optional - для S3)
+django-storages>=1.14.2
+boto3>=1.34.0
+
+# Static files (Production)
+whitenoise>=6.6.0
+
+# WSGI server (Production Docker / deploy)
+gunicorn>=22.0.0
+
+# JSON logging formatter (config.settings.production)
+python-json-logger>=2.0.7
+
+# Utilities
+python-dateutil>=2.8.2
+tenacity>=8.2.0
+
+# Security: блокировка после неудачных входов (API + админка)
+django-axes>=6.4,<7
+# Опционально: TOTP для Django admin (ADMIN_OTP_ENABLED=1)
+django-otp>=1.5,<2
+qrcode[pil]>=7.4

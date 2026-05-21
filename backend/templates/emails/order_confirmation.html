@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Подтверждение заказа {{ order_number }}</title>
+</head>
+<body>
+    <p>Здравствуйте, {{ full_name }}!</p>
+    <p>Ваш заказ <strong>{{ order_number }}</strong> принят.</p>
+    <p>Сумма заказа: {{ total_amount }} ₽<br>
+    {% if delivery_cost %}Доставка: {{ delivery_cost }} ₽<br>{% endif %}
+    <strong>Итого: {{ total_with_delivery }} ₽</strong></p>
+    <p>Когда получите заказ, <a href="{{ rating_link }}">оцените работу менеджера</a>.</p>
+    <p>Спасибо за заказ!<br>Команда Ringoo</p>
+</body>
+</html>

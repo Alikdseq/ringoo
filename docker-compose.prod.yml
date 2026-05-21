@@ -1,0 +1,27 @@
+# Production override: собранный Next.js + gunicorn-ready backend (без dev runserver).
+# Запуск: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+#
+# Перед первым запуском задайте в корневом .env:
+#   NEXT_PUBLIC_API_V1_URL=https://api.example.com/api/v1
+#   NEXT_PUBLIC_SITE_URL=https://example.com
+
+services:
+  web:
+    command: gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 2 --timeout 120
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings.production
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_V1_URL: ${NEXT_PUBLIC_API_V1_URL:-http://localhost:8000/api/v1}
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
+        NEXT_PUBLIC_USE_AUTH_COOKIES: ${NEXT_PUBLIC_USE_AUTH_COOKIES:-1}
+    command: node server.js
+    volumes: []
+    environment:
+      - NODE_ENV=production
+      - API_INTERNAL_V1_URL=http://web:8000/api/v1
+    env_file: []

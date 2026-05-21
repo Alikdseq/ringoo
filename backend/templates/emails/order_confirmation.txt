@@ -1,0 +1,12 @@
+Здравствуйте, {{ full_name }}!
+
+Ваш заказ {{ order_number }} принят.
+
+Сумма заказа: {{ total_amount }} ₽
+{% if delivery_cost %}Доставка: {{ delivery_cost }} ₽{% endif %}
+Итого: {{ total_with_delivery }} ₽
+
+Когда получите заказ, оцените работу менеджера: {{ rating_link }}
+
+Спасибо за заказ!
+Команда Ringoo

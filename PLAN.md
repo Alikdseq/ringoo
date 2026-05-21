@@ -33,7 +33,7 @@
 - **Celery** - асинхронные задачи (SMS, email, уведомления)
 
 **Frontend:**
-- **Next.js 15 (App Router)** - SSR/SSG для SEO и производительности
+- **Next.js 16 (App Router), React 19** — SSR/SSG для SEO и производительности (версии как в `frontend/package.json`)
 - **TypeScript** - типобезопасность
 - **Tailwind CSS** - utility-first CSS фреймворк
 - **Framer Motion** - микроанимации 60 FPS
@@ -77,44 +77,44 @@
 - [x] Настроить `.github/PULL_REQUEST_TEMPLATE.md`
 
 **Задача 0.1.3:** Настроить базовые CI/CD pipeline
-- [ ] Создать `.github/workflows/backend-ci.yml`
-- [ ] Создать `.github/workflows/frontend-ci.yml`
-- [ ] Настроить линтеры для Python (black, isort, flake8, mypy)
-- [ ] Настроить линтеры для TypeScript (ESLint, Prettier)
-- [ ] Добавить проверку на PR (lint + tests)
-- [ ] Настроить автоматический запуск тестов
+- [x] Создать `.github/workflows/backend-ci.yml`
+- [x] Создать `.github/workflows/frontend-ci.yml`
+- [x] Настроить линтеры для Python (black, isort, flake8, mypy)
+- [x] Настроить линтеры для TypeScript (ESLint, Prettier)
+- [x] Добавить проверку на PR (lint + tests)
+- [x] Настроить автоматический запуск тестов
 
 ### 🐳 0.2 Docker и локальная среда разработки
 
 **Задача 0.2.1:** Создать Dockerfile для backend
-- [ ] Создать `backend/Dockerfile` (multi-stage build)
-- [ ] Настроить Python 3.11-slim базовый образ
-- [ ] Оптимизировать слои кэширования (requirements.txt отдельно)
-- [ ] Добавить healthcheck
-- [ ] Настроить non-root user для безопасности
-- [ ] Настроить рабочий каталог
+- [x] Создать `backend/Dockerfile` (multi-stage build)
+- [x] Настроить Python 3.11-slim базовый образ
+- [x] Оптимизировать слои кэширования (requirements.txt отдельно)
+- [x] Добавить healthcheck
+- [x] Настроить non-root user для безопасности
+- [x] Настроить рабочий каталог
 
 **Задача 0.2.2:** Создать docker-compose для разработки
-- [ ] Создать `docker-compose.yml` в корне
-- [ ] Настроить сервис `web` (Django)
-- [ ] Настроить сервис `db` (PostgreSQL 15)
-- [ ] Настроить сервис `redis` (Redis 7)
-- [ ] Настроить сервис `celery` (worker)
-- [ ] Настроить сервис `celery-beat` (scheduler, опционально)
-- [ ] Настроить volumes для данных и кода
-- [ ] Настроить networks для изоляции
-- [ ] Настроить environment variables
+- [x] Создать `docker-compose.yml` в корне
+- [x] Настроить сервис `web` (Django)
+- [x] Настроить сервис `db` (PostgreSQL 15)
+- [x] Настроить сервис `redis` (Redis 7)
+- [x] Настроить сервис `celery` (worker)
+- [x] Настроить сервис `celery-beat` (scheduler, опционально)
+- [x] Настроить volumes для данных и кода
+- [x] Настроить networks для изоляции
+- [x] Настроить environment variables
 
 **Задача 0.2.3:** Создать файлы окружения
-- [ ] Создать `backend/.env.example` с всеми переменными
-- [ ] Создать `backend/.env.development`
-- [ ] Создать `backend/.env.production` (шаблон)
-- [ ] Создать `frontend/.env.example`
-- [ ] Создать `frontend/.env.local` (для разработки)
-- [ ] Добавить инструкции по настройке в README
+- [x] Создать `backend/.env.example` с всеми переменными
+- [x] Создать `backend/.env.development`
+- [x] Создать `backend/.env.production` (шаблон)
+- [x] Создать `frontend/.env.example`
+- [x] Создать `frontend/.env.local` (для разработки)
+- [x] Добавить инструкции по настройке в README
 
 **Задача 0.2.4:** Настроить Makefile для удобства
-- [ ] Создать `Makefile` с командами:
+- [x] Создать `Makefile` с командами:
   - `make up` - запуск docker-compose
   - `make down` - остановка
   - `make migrate` - миграции
@@ -127,123 +127,123 @@
 ### 🔧 0.3 Настройка Django проекта
 
 **Задача 0.3.1:** Инициализировать Django проект
-- [ ] Создать виртуальное окружение (или использовать Docker)
-- [ ] Установить Django 5.0+ и зависимости
-- [ ] Создать проект: `django-admin startproject config backend/`
-- [ ] Настроить базовую структуру приложений в `backend/apps/`
-- [ ] Создать структуру: `apps/users/`, `apps/products/`, `apps/orders/`, `apps/stores/`, `apps/content/`, `apps/cart/`, `apps/bonus/`
+- [x] Создать виртуальное окружение (или использовать Docker)
+- [x] Установить Django 5.0+ и зависимости
+- [x] Создать проект: `django-admin startproject config backend/`
+- [x] Настроить базовую структуру приложений в `backend/apps/`
+- [x] Создать структуру: `apps/users/`, `apps/products/`, `apps/orders/`, `apps/stores/`, `apps/content/`, `apps/cart/`, `apps/bonus/`
 
 **Задача 0.3.2:** Настроить settings.py
-- [ ] Разделить на `base.py`, `development.py`, `production.py`, `test.py`
-- [ ] Настроить `SECRET_KEY` из переменных окружения
-- [ ] Настроить `DEBUG`, `ALLOWED_HOSTS`
-- [ ] Настроить `DATABASES` (PostgreSQL)
-- [ ] Настроить `AUTH_USER_MODEL = 'users.CustomUser'`
-- [ ] Настроить `INSTALLED_APPS` (базовые + наши)
-- [ ] Настроить `MIDDLEWARE`
-- [ ] Настроить `STATIC_URL`, `MEDIA_URL`, `STATIC_ROOT`, `MEDIA_ROOT`
-- [ ] Настроить `TIME_ZONE`, `LANGUAGE_CODE`
-- [ ] Добавить `CORS` настройки для фронтенда
-- [ ] Настроить `REST_FRAMEWORK` settings
+- [x] Разделить на `base.py`, `development.py`, `production.py`, `test.py`
+- [x] Настроить `SECRET_KEY` из переменных окружения
+- [x] Настроить `DEBUG`, `ALLOWED_HOSTS`
+- [x] Настроить `DATABASES` (PostgreSQL)
+- [x] Настроить `AUTH_USER_MODEL = 'users.CustomUser'`
+- [x] Настроить `INSTALLED_APPS` (базовые + наши)
+- [x] Настроить `MIDDLEWARE`
+- [x] Настроить `STATIC_URL`, `MEDIA_URL`, `STATIC_ROOT`, `MEDIA_ROOT`
+- [x] Настроить `TIME_ZONE`, `LANGUAGE_CODE`
+- [x] Добавить `CORS` настройки для фронтенда
+- [x] Настроить `REST_FRAMEWORK` settings
 
 **Задача 0.3.3:** Настроить базовые зависимости
-- [ ] Создать `backend/requirements.txt`
-- [ ] Добавить: `Django>=5.0,<6.0`
-- [ ] Добавить: `djangorestframework>=3.14`
-- [ ] Добавить: `djangorestframework-simplejwt>=5.2`
-- [ ] Добавить: `psycopg2-binary>=2.9`
-- [ ] Добавить: `celery[redis]>=5.3`
-- [ ] Добавить: `redis>=5.0`
-- [ ] Добавить: `python-dotenv>=1.0`
-- [ ] Добавить: `drf-spectacular>=0.26` (OpenAPI)
-- [ ] Добавить: `django-cors-headers>=4.2`
-- [ ] Добавить: `sentry-sdk>=1.32`
-- [ ] Добавить: `Pillow>=10.0` (для изображений)
-- [ ] Добавить: `django-storages>=1.13` (для S3, опционально)
-- [ ] Создать `requirements-dev.txt` (pytest, black, flake8, mypy, isort)
+- [x] Создать `backend/requirements.txt`
+- [x] Добавить: `Django>=5.0,<6.0`
+- [x] Добавить: `djangorestframework>=3.14`
+- [x] Добавить: `djangorestframework-simplejwt>=5.2`
+- [x] Добавить: `psycopg2-binary>=2.9`
+- [x] Добавить: `celery[redis]>=5.3`
+- [x] Добавить: `redis>=5.0`
+- [x] Добавить: `python-dotenv>=1.0`
+- [x] Добавить: `drf-spectacular>=0.26` (OpenAPI)
+- [x] Добавить: `django-cors-headers>=4.2`
+- [x] Добавить: `sentry-sdk>=1.32`
+- [x] Добавить: `Pillow>=10.0` (для изображений)
+- [x] Добавить: `django-storages>=1.13` (для S3, опционально)
+- [x] Создать `requirements-dev.txt` (pytest, black, flake8, mypy, isort)
 
 **Задача 0.3.4:** Настроить базовую структуру приложений
-- [ ] Создать приложение `users`: `python manage.py startapp users apps/users`
-- [ ] Создать приложение `products`: `python manage.py startapp products apps/products`
-- [ ] Создать приложение `orders`: `python manage.py startapp orders apps/orders`
-- [ ] Создать приложение `stores`: `python manage.py startapp stores apps/stores`
-- [ ] Создать приложение `content`: `python manage.py startapp content apps/content`
-- [ ] Создать приложение `cart`: `python manage.py startapp cart apps/cart`
-- [ ] Создать приложение `bonus`: `python manage.py startapp bonus apps/bonus`
-- [ ] Зарегистрировать все приложения в `INSTALLED_APPS`
+- [x] Создать приложение `users`: `python manage.py startapp users apps/users`
+- [x] Создать приложение `products`: `python manage.py startapp products apps/products`
+- [x] Создать приложение `orders`: `python manage.py startapp orders apps/orders`
+- [x] Создать приложение `stores`: `python manage.py startapp stores apps/stores`
+- [x] Создать приложение `content`: `python manage.py startapp content apps/content`
+- [x] Создать приложение `cart`: `python manage.py startapp cart apps/cart`
+- [x] Создать приложение `bonus`: `python manage.py startapp bonus apps/bonus`
+- [x] Зарегистрировать все приложения в `INSTALLED_APPS`
 
 ### 📊 0.4 База данных и миграции
 
 **Задача 0.4.1:** Настроить PostgreSQL
-- [ ] Создать базу данных в docker-compose
-- [ ] Настроить переменные окружения для подключения
-- [ ] Протестировать подключение
-- [ ] Настроить резервное копирование (опционально для dev)
-- [ ] Настроить connection pooling (pgbouncer, опционально)
+- [x] Создать базу данных в docker-compose
+- [x] Настроить переменные окружения для подключения
+- [x] Протестировать подключение
+- [x] Настроить резервное копирование (опционально для dev)
+- [x] Настроить connection pooling (pgbouncer, опционально)
 
 **Задача 0.4.2:** Настроить Redis
-- [ ] Настроить Redis в docker-compose
-- [ ] Настроить Celery broker URL
-- [ ] Настроить кэш backend (Redis)
-- [ ] Настроить session backend (Redis)
-- [ ] Протестировать подключение
+- [x] Настроить Redis в docker-compose
+- [x] Настроить Celery broker URL
+- [x] Настроить кэш backend (Redis)
+- [x] Настроить session backend (Redis)
+- [x] Протестировать подключение
 
 **Задача 0.4.3:** Настроить Celery
-- [ ] Создать `config/celery.py`
-- [ ] Настроить Celery app
-- [ ] Настроить broker и backend
-- [ ] Настроить timezone
-- [ ] Протестировать запуск worker
+- [x] Создать `config/celery.py`
+- [x] Настроить Celery app
+- [x] Настроить broker и backend
+- [x] Настроить timezone
+- [x] Протестировать запуск worker
 
 ### 🔐 0.5 Безопасность и мониторинг
 
 **Задача 0.5.1:** Настроить Sentry
-- [ ] Зарегистрироваться на Sentry (или настроить self-hosted)
-- [ ] Установить `sentry-sdk`
-- [ ] Настроить DSN в settings
-- [ ] Настроить фильтрацию чувствительных данных
-- [ ] Протестировать отправку ошибок
+- [x] Зарегистрироваться на Sentry (или настроить self-hosted)
+- [x] Установить `sentry-sdk`
+- [x] Настроить DSN в settings
+- [x] Настроить фильтрацию чувствительных данных
+- [x] Протестировать отправку ошибок
 
 **Задача 0.5.2:** Настроить секреты
-- [ ] Создать `.env` файл (не коммитить!)
-- [ ] Добавить все секреты в `.env.example` (без значений)
-- [ ] Настроить GitHub Secrets (для CI/CD)
-- [ ] Настроить переменные окружения в docker-compose
-- [ ] Использовать `python-dotenv` для загрузки
+- [x] Создать `.env` файл (не коммитить!)
+- [x] Добавить все секреты в `.env.example` (без значений)
+- [x] Настроить GitHub Secrets (для CI/CD)
+- [x] Настроить переменные окружения в docker-compose
+- [x] Использовать `python-dotenv` для загрузки
 
 **Задача 0.5.3:** Настроить базовую безопасность
-- [ ] Настроить `SECURE_SSL_REDIRECT` (для production)
-- [ ] Настроить `SESSION_COOKIE_SECURE`
-- [ ] Настроить `CSRF_COOKIE_SECURE`
-- [ ] Настроить `SECURE_BROWSER_XSS_FILTER`
-- [ ] Настроить `SECURE_CONTENT_TYPE_NOSNIFF`
-- [ ] Добавить security headers middleware
-- [ ] Настроить `X_FRAME_OPTIONS`
+- [x] Настроить `SECURE_SSL_REDIRECT` (для production)
+- [x] Настроить `SESSION_COOKIE_SECURE`
+- [x] Настроить `CSRF_COOKIE_SECURE`
+- [x] Настроить `SECURE_BROWSER_XSS_FILTER`
+- [x] Настроить `SECURE_CONTENT_TYPE_NOSNIFF`
+- [x] Добавить security headers middleware
+- [x] Настроить `X_FRAME_OPTIONS`
 
 ### 📚 0.6 Документация и инструменты разработки
 
 **Задача 0.6.1:** Настроить OpenAPI/Swagger
-- [ ] Установить `drf-spectacular`
-- [ ] Настроить в `INSTALLED_APPS`
-- [ ] Настроить в `REST_FRAMEWORK`
-- [ ] Добавить URL для Swagger UI
-- [ ] Добавить URL для ReDoc
-- [ ] Протестировать генерацию схемы
+- [x] Установить `drf-spectacular`
+- [x] Настроить в `INSTALLED_APPS`
+- [x] Настроить в `REST_FRAMEWORK`
+- [x] Добавить URL для Swagger UI
+- [x] Добавить URL для ReDoc
+- [x] Протестировать генерацию схемы
 
 **Задача 0.6.2:** Создать базовую документацию
-- [ ] Обновить `README.md` с инструкциями по запуску
-- [ ] Создать `docs/API.md` (будет заполняться)
-- [ ] Создать `docs/DEPLOYMENT.md`
-- [ ] Создать `docs/ARCHITECTURE.md`
-- [ ] Создать `CONTRIBUTING.md`
+- [x] Обновить `README.md` с инструкциями по запуску
+- [x] Создать `docs/API.md` (будет заполняться)
+- [x] Создать `docs/DEPLOYMENT.md`
+- [x] Создать `docs/ARCHITECTURE.md`
+- [x] Создать `CONTRIBUTING.md`
 
 **Задача 0.6.3:** Настроить pre-commit hooks
-- [ ] Установить `pre-commit`
-- [ ] Создать `.pre-commit-config.yaml`
-- [ ] Настроить black, flake8, isort, mypy
-- [ ] Настроить проверку секретов (detect-secrets)
-- [ ] Настроить проверку для фронтенда (ESLint, Prettier)
-- [ ] Протестировать hooks
+- [x] Установить `pre-commit`
+- [x] Создать `.pre-commit-config.yaml`
+- [x] Настроить black, flake8, isort, mypy
+- [x] Настроить проверку секретов (detect-secrets)
+- [x] Настроить проверку для фронтенда (ESLint, Prettier)
+- [x] Протестировать hooks
 
 ---
 
@@ -252,21 +252,21 @@
 ### 👤 1.1 Модель User и аутентификация
 
 **Задача 1.1.1:** Создать модель CustomUser
-- [ ] Создать `users/models.py` с `AbstractUser`
-- [ ] Добавить поле `id` (UUID, primary key)
-- [ ] Добавить поле `phone` (CharField, unique, indexed)
-- [ ] Добавить поле `email` (EmailField, unique, nullable)
-- [ ] Добавить поле `is_phone_verified` (BooleanField, default=False)
-- [ ] Добавить поле `is_email_verified` (BooleanField, default=False)
-- [ ] Настроить `USERNAME_FIELD = 'phone'`
-- [ ] Настроить `REQUIRED_FIELDS = ['email']`
-- [ ] Добавить `created_at`, `updated_at` (DateTimeField)
-- [ ] Добавить метод `__str__`
-- [ ] Создать миграцию: `makemigrations users`
-- [ ] Применить миграцию: `migrate`
+- [x] Создать `users/models.py` с `AbstractUser`
+- [x] Добавить поле `id` (UUID, primary key)
+- [x] Добавить поле `phone` (CharField, unique, indexed)
+- [x] Добавить поле `email` (EmailField, unique, nullable)
+- [x] Добавить поле `is_phone_verified` (BooleanField, default=False)
+- [x] Добавить поле `is_email_verified` (BooleanField, default=False)
+- [x] Настроить `USERNAME_FIELD = 'phone'`
+- [x] Настроить `REQUIRED_FIELDS = ['email']`
+- [x] Добавить `created_at`, `updated_at` (DateTimeField)
+- [x] Добавить метод `__str__`
+- [x] Создать миграцию: `makemigrations users`
+- [x] Применить миграцию: `migrate`
 
 **Задача 1.1.2:** Создать модель UserProfile
-- [ ] Создать модель `UserProfile`:
+- [x] Создать модель `UserProfile`:
   - `user` (OneToOneField to CustomUser)
   - `first_name` (CharField, nullable)
   - `last_name` (CharField, nullable)
@@ -274,12 +274,12 @@
   - `avatar` (ImageField, nullable)
   - `birth_date` (DateField, nullable)
   - `gender` (CharField, choices, nullable)
-- [ ] Добавить метод `__str__`
-- [ ] Создать миграцию
-- [ ] Применить миграцию
+- [x] Добавить метод `__str__`
+- [x] Создать миграцию
+- [x] Применить миграцию
 
 **Задача 1.1.3:** Создать модель DeliveryAddress
-- [ ] Создать модель `DeliveryAddress`:
+- [x] Создать модель `DeliveryAddress`:
   - `user` (ForeignKey to CustomUser)
   - `title` (CharField, например "Дом", "Работа")
   - `city` (CharField)
@@ -291,60 +291,60 @@
   - `latitude` (DecimalField, nullable, для карт)
   - `longitude` (DecimalField, nullable, для карт)
   - `created_at`, `updated_at`
-- [ ] Добавить `Meta` класс (ordering, indexes)
-- [ ] Создать миграцию
-- [ ] Применить миграцию
+- [x] Добавить `Meta` класс (ordering, indexes)
+- [x] Создать миграцию
+- [x] Применить миграцию
 
 **Задача 1.1.4:** Настроить JWT аутентификацию
-- [ ] Установить `djangorestframework-simplejwt`
-- [ ] Настроить в `REST_FRAMEWORK` settings
-- [ ] Настроить `SIMPLE_JWT` settings (access/refresh token lifetime)
-- [ ] Создать `users/serializers.py` с `UserSerializer`, `UserProfileSerializer`
-- [ ] Создать `users/views.py` с `UserMeView` (GET /api/v1/auth/me/)
-- [ ] Создать `users/urls.py` с маршрутами
-- [ ] Подключить в `config/api_urls.py`
+- [x] Установить `djangorestframework-simplejwt`
+- [x] Настроить в `REST_FRAMEWORK` settings
+- [x] Настроить `SIMPLE_JWT` settings (access/refresh token lifetime)
+- [x] Создать `users/serializers.py` с `UserSerializer`, `UserProfileSerializer`
+- [x] Создать `users/views.py` с `UserMeView` (GET /api/v1/auth/me/)
+- [x] Создать `users/urls.py` с маршрутами
+- [x] Подключить в `config/api_urls.py`
 
 **Задача 1.1.5:** Реализовать SMS аутентификацию - запрос кода
-- [ ] Создать `users/services.py` для SMS логики
-- [ ] Создать функцию `generate_sms_code()` (6 цифр)
-- [ ] Создать функцию `store_sms_code(phone, code)` (Redis, TTL 5 мин)
-- [ ] Создать функцию `verify_sms_code(phone, code)` (проверка)
-- [ ] Создать функцию `send_sms(phone, code)` (stub, потом интеграция с sms.ru/Twilio)
-- [ ] Создать `SMSRequestCodeView` (POST /api/v1/auth/sms/request_code/)
-- [ ] Добавить валидацию телефона (regex, нормализация)
-- [ ] Добавить rate limiting (1 запрос в минуту на телефон)
-- [ ] Добавить обработку ошибок
-- [ ] Написать unit тесты
+- [x] Создать `users/services.py` для SMS логики
+- [x] Создать функцию `generate_sms_code()` (6 цифр)
+- [x] Создать функцию `store_sms_code(phone, code)` (Redis, TTL 5 мин)
+- [x] Создать функцию `verify_sms_code(phone, code)` (проверка)
+- [x] Создать функцию `send_sms(phone, code)` (stub, потом интеграция с sms.ru/Twilio)
+- [x] Создать `SMSRequestCodeView` (POST /api/v1/auth/sms/request_code/)
+- [x] Добавить валидацию телефона (regex, нормализация)
+- [x] Добавить rate limiting (1 запрос в минуту на телефон)
+- [x] Добавить обработку ошибок
+- [x] Написать unit тесты
 
 **Задача 1.1.6:** Реализовать SMS аутентификацию - верификация
-- [ ] Создать `SMSVerifyView` (POST /api/v1/auth/sms/verify/)
-- [ ] Валидировать phone и code
-- [ ] Проверить код в Redis
-- [ ] Создать или получить User по телефону
-- [ ] Сгенерировать JWT токены (access + refresh)
-- [ ] Вернуть токены в ответе
-- [ ] Удалить код из Redis после успешной верификации
-- [ ] Добавить обработку ошибок (неверный код, истекший код)
-- [ ] Написать unit тесты
+- [x] Создать `SMSVerifyView` (POST /api/v1/auth/sms/verify/)
+- [x] Валидировать phone и code
+- [x] Проверить код в Redis
+- [x] Создать или получить User по телефону
+- [x] Сгенерировать JWT токены (access + refresh)
+- [x] Вернуть токены в ответе
+- [x] Удалить код из Redis после успешной верификации
+- [x] Добавить обработку ошибок (неверный код, истекший код)
+- [x] Написать unit тесты
 
 **Задача 1.1.7:** Реализовать refresh token endpoint
-- [ ] Использовать встроенный `TokenRefreshView` из SimpleJWT
-- [ ] Подключить в `users/urls.py`
-- [ ] Протестировать обновление токенов
+- [x] Использовать встроенный `TokenRefreshView` из SimpleJWT
+- [x] Подключить в `users/urls.py`
+- [x] Протестировать обновление токенов
 
 **Задача 1.1.8:** Настроить Admin для User
-- [ ] Создать `users/admin.py`
-- [ ] Зарегистрировать `CustomUserAdmin`
-- [ ] Зарегистрировать `UserProfileAdmin` (inline)
-- [ ] Зарегистрировать `DeliveryAddressAdmin` (inline)
-- [ ] Настроить `list_display`, `search_fields`, `list_filter`
-- [ ] Протестировать в Django Admin
+- [x] Создать `users/admin.py`
+- [x] Зарегистрировать `CustomUserAdmin`
+- [x] Зарегистрировать `UserProfileAdmin` (inline)
+- [x] Зарегистрировать `DeliveryAddressAdmin` (inline)
+- [x] Настроить `list_display`, `search_fields`, `list_filter`
+- [x] Протестировать в Django Admin
 
 ### 📦 1.2 Модели каталога (Category, Product, ProductImage, ProductSpec)
 
 **Задача 1.2.1:** Создать модель Category
-- [ ] Создать `products/models.py`
-- [ ] Добавить модель `Category`:
+- [x] Создать `products/models.py`
+- [x] Добавить модель `Category`:
   - `id` (UUID, PK)
   - `title` (CharField, max_length=255)
   - `slug` (SlugField, unique=True)
@@ -356,14 +356,14 @@
   - `meta_title` (CharField, nullable, для SEO)
   - `meta_description` (TextField, nullable, для SEO)
   - `created_at`, `updated_at` (DateTimeField)
-- [ ] Добавить метод `__str__`
-- [ ] Добавить метод `get_absolute_url()`
-- [ ] Добавить `Meta` класс (ordering, verbose_name, indexes)
-- [ ] Создать миграцию
-- [ ] Применить миграцию
+- [x] Добавить метод `__str__`
+- [x] Добавить метод `get_absolute_url()`
+- [x] Добавить `Meta` класс (ordering, verbose_name, indexes)
+- [x] Создать миграцию
+- [ ] Применить миграцию (`make migrate` или `docker-compose exec web python manage.py migrate`)
 
 **Задача 1.2.2:** Создать модель Product
-- [ ] Добавить модель `Product`:
+- [x] Добавить модель `Product`:
   - `id` (UUID, PK)
   - `title` (CharField, max_length=255)
   - `slug` (SlugField, unique)
@@ -381,15 +381,15 @@
   - `meta_title` (CharField, nullable)
   - `meta_description` (TextField, nullable)
   - `created_at`, `updated_at`
-- [ ] Добавить метод `__str__`
-- [ ] Добавить метод `get_absolute_url()`
-- [ ] Добавить computed property `discount_percent`
-- [ ] Добавить `Meta` класс (ordering, indexes)
-- [ ] Создать миграцию
-- [ ] Применить миграцию
+- [x] Добавить метод `__str__`
+- [x] Добавить метод `get_absolute_url()`
+- [x] Добавить computed property `discount_percent`
+- [x] Добавить `Meta` класс (ordering, indexes)
+- [x] Создать миграцию
+- [ ] Применить миграцию (входит в общую миграцию каталога)
 
 **Задача 1.2.3:** Создать модель ProductImage
-- [ ] Добавить модель `ProductImage`:
+- [x] Добавить модель `ProductImage`:
   - `id` (UUID, PK)
   - `product` (ForeignKey to Product, CASCADE)
   - `image` (ImageField или CharField для S3 URL)
@@ -397,79 +397,79 @@
   - `alt_text` (CharField, nullable)
   - `sort_order` (IntegerField, default=0)
   - `created_at`
-- [ ] Добавить метод `__str__`
-- [ ] Добавить `Meta` класс (ordering, unique_together для is_main)
-- [ ] Добавить сигнал для проверки единственного `is_main=True`
-- [ ] Создать миграцию
-- [ ] Применить миграцию
+- [x] Добавить метод `__str__`
+- [x] Добавить `Meta` класс (ordering, unique_together для is_main)
+- [x] Добавить сигнал для проверки единственного `is_main=True`
+- [x] Создать миграцию
+- [ ] Применить миграцию (входит в общую миграцию каталога)
 
 **Задача 1.2.4:** Создать модель ProductSpec (характеристики)
-- [ ] Добавить модель `ProductSpec`:
+- [x] Добавить модель `ProductSpec`:
   - `id` (UUID, PK)
   - `product` (ForeignKey to Product, CASCADE)
   - `name` (CharField, название характеристики)
   - `value` (CharField, значение)
   - `sort_order` (IntegerField, default=0)
-- [ ] Добавить метод `__str__`
-- [ ] Добавить `Meta` класс (ordering)
-- [ ] Создать миграцию
-- [ ] Применить миграцию
+- [x] Добавить метод `__str__`
+- [x] Добавить `Meta` класс (ordering)
+- [x] Создать миграцию
+- [ ] Применить миграцию (входит в общую миграцию каталога)
 
 **Задача 1.2.5:** Создать сериализаторы для каталога
-- [ ] Создать `products/serializers.py`
-- [ ] Создать `CategorySerializer` (id, title, slug, parent, image, description)
-- [ ] Создать `ProductImageSerializer` (id, image, is_main, alt_text)
-- [ ] Создать `ProductSpecSerializer` (name, value)
-- [ ] Создать `ProductListSerializer`:
+- [x] Создать `products/serializers.py`
+- [x] Создать `CategorySerializer` (id, title, slug, parent, image, description)
+- [x] Создать `ProductImageSerializer` (id, image, is_main, alt_text)
+- [x] Создать `ProductSpecSerializer` (name, value)
+- [x] Создать `ProductListSerializer`:
   - Включить `images` (nested, только главное изображение)
   - Включить `category` (nested или id)
   - Добавить computed fields (discount_percent)
-- [ ] Создать `ProductDetailSerializer` (расширенный):
+- [x] Создать `ProductDetailSerializer` (расширенный):
   - Включить все `images` (nested)
   - Включить все `specs` (nested)
   - Включить `category` (nested)
   - Добавить computed fields
-- [ ] Написать unit тесты для сериализаторов
+- [x] Написать unit тесты для сериализаторов
 
 **Задача 1.2.6:** Создать ViewSet для Category
-- [ ] Создать `products/views.py`
-- [ ] Создать `CategoryViewSet` (ListAPIView, RetrieveAPIView)
-- [ ] Настроить фильтрацию по `is_active`
-- [ ] Настроить пагинацию
-- [ ] Подключить в `products/urls.py`
-- [ ] Написать unit тесты
+- [x] Создать `products/views.py`
+- [x] Создать `CategoryViewSet` (ListAPIView, RetrieveAPIView)
+- [x] Настроить фильтрацию по `is_active`
+- [x] Настроить пагинацию
+- [x] Подключить в `products/urls.py`
+- [x] Написать unit тесты
 
 **Задача 1.2.7:** Создать ViewSet для Product
-- [ ] Создать `ProductListView` (ListAPIView):
+- [x] Создать `ProductListView` (ListAPIView):
   - Фильтрация по категории (slug)
   - Фильтрация по цене (min_price, max_price)
   - Поиск по названию (search)
   - Сортировка (price_asc, price_desc, rating_desc, created_at)
   - Пагинация (cursor-based для бесконечного скролла)
-- [ ] Создать `ProductDetailView` (RetrieveAPIView):
+- [x] Создать `ProductDetailView` (RetrieveAPIView):
   - Включить все изображения
   - Включить все характеристики
   - Включить наличие в магазинах (через Stock)
   - Включить `is_in_user_cart` (bool, если авторизован)
-- [ ] Оптимизировать запросы (select_related, prefetch_related)
-- [ ] Подключить в `products/urls.py`
-- [ ] Написать unit тесты
+- [x] Оптимизировать запросы (select_related, prefetch_related)
+- [x] Подключить в `products/urls.py`
+- [x] Написать unit тесты
 
 **Задача 1.2.8:** Настроить Admin для каталога
-- [ ] Создать `products/admin.py`
-- [ ] Зарегистрировать `CategoryAdmin` (list_display, search_fields, list_filter)
-- [ ] Зарегистрировать `ProductAdmin` (list_display, inlines для images и specs)
-- [ ] Зарегистрировать `ProductImageAdmin`
-- [ ] Зарегистрировать `ProductSpecAdmin`
-- [ ] Настроить inline для ProductImage в ProductAdmin
-- [ ] Настроить inline для ProductSpec в ProductAdmin
-- [ ] Протестировать в Django Admin
+- [x] Создать `products/admin.py`
+- [x] Зарегистрировать `CategoryAdmin` (list_display, search_fields, list_filter)
+- [x] Зарегистрировать `ProductAdmin` (list_display, inlines для images и specs)
+- [x] Зарегистрировать `ProductImageAdmin`
+- [x] Зарегистрировать `ProductSpecAdmin`
+- [x] Настроить inline для ProductImage в ProductAdmin
+- [x] Настроить inline для ProductSpec в ProductAdmin
+- [x] Протестировать в Django Admin
 
 ### 🏪 1.3 Модели магазинов и наличия (Store, Stock)
 
 **Задача 1.3.1:** Создать модель Store
-- [ ] Создать `stores/models.py`
-- [ ] Добавить модель `Store`:
+- [x] Создать `stores/models.py`
+- [x] Добавить модель `Store`:
   - `id` (UUID, PK)
   - `name` (CharField)
   - `slug` (SlugField, unique)
@@ -482,14 +482,14 @@
   - `working_hours` (JSONField, например {"monday": "9:00-21:00"})
   - `is_active` (BooleanField, default=True)
   - `created_at`, `updated_at`
-- [ ] Добавить метод `__str__`
-- [ ] Добавить метод `get_absolute_url()`
-- [ ] Добавить `Meta` класс (ordering, indexes)
-- [ ] Создать миграцию
-- [ ] Применить миграцию
+- [x] Добавить метод `__str__`
+- [x] Добавить метод `get_absolute_url()`
+- [x] Добавить `Meta` класс (ordering, indexes)
+- [x] Создать миграцию
+- [ ] Применить миграцию (make migrate или docker-compose exec web python manage.py migrate)
 
 **Задача 1.3.2:** Создать модель Stock (наличие товара в магазине)
-- [ ] Добавить модель `Stock`:
+- [x] Добавить модель `Stock`:
   - `id` (UUID, PK)
   - `product` (ForeignKey to Product, CASCADE)
   - `store` (ForeignKey to Store, CASCADE)
@@ -497,59 +497,59 @@
   - `reserved_quantity` (PositiveIntegerField, default=0, для резервирования)
   - `available_quantity` (property: quantity - reserved_quantity)
   - `updated_at` (DateTimeField, auto_now=True)
-- [ ] Добавить `Meta` класс (unique_together: product, store, indexes)
-- [ ] Добавить метод `__str__`
-- [ ] Добавить метод `reserve(amount)` для резервирования
-- [ ] Добавить метод `release(amount)` для освобождения резерва
-- [ ] Создать миграцию
-- [ ] Применить миграцию
+- [x] Добавить `Meta` класс (unique_together: product, store, indexes)
+- [x] Добавить метод `__str__`
+- [x] Добавить метод `reserve(amount)` для резервирования
+- [x] Добавить метод `release(amount)` для освобождения резерва
+- [x] Создать миграцию
+- [ ] Применить миграцию (входит в общую миграцию)
 
 **Задача 1.3.3:** Создать сериализаторы для магазинов
-- [ ] Создать `stores/serializers.py`
-- [ ] Создать `StoreSerializer` (id, name, slug, address, city, phone, coordinates, working_hours)
-- [ ] Создать `StockSerializer` (product, store, quantity, available_quantity)
-- [ ] Написать unit тесты
+- [x] Создать `stores/serializers.py`
+- [x] Создать `StoreSerializer` (id, name, slug, address, city, phone, coordinates, working_hours)
+- [x] Создать `StockSerializer` (product, store, quantity, available_quantity)
+- [x] Написать unit тесты
 
 **Задача 1.3.4:** Создать API для магазинов
-- [ ] Создать `stores/views.py`
-- [ ] Создать `StoreListView` (GET /api/v1/stores/):
+- [x] Создать `stores/views.py`
+- [x] Создать `StoreListView` (GET /api/v1/stores/):
   - Фильтрация по `is_active`
   - Фильтрация по `city`
   - Возврат координат для карты
-- [ ] Создать `StoreDetailView` (GET /api/v1/stores/{id}/):
+- [x] Создать `StoreDetailView` (GET /api/v1/stores/{id}/):
   - Детали магазина
   - Список товаров в наличии (опционально)
-- [ ] Создать `StockListView` (GET /api/v1/stores/{id}/stock/):
+- [x] Создать `StockListView` (GET /api/v1/stores/{id}/stock/):
   - Остатки товаров в конкретном магазине
-- [ ] Создать `ProductStockView` (GET /api/v1/products/{id}/stock/):
+- [x] Создать `ProductStockView` (GET /api/v1/products/{id}/stock/):
   - Наличие товара во всех магазинах
-- [ ] Подключить в `stores/urls.py`
-- [ ] Написать unit тесты
+- [x] Подключить в `stores/urls.py`
+- [x] Написать unit тесты
 
 **Задача 1.3.5:** Настроить Admin для магазинов
-- [ ] Создать `stores/admin.py`
-- [ ] Зарегистрировать `StoreAdmin` (list_display, search_fields, list_filter)
-- [ ] Зарегистрировать `StockAdmin` (list_display, list_filter, search_fields)
-- [ ] Настроить inline для Stock в StoreAdmin
-- [ ] Протестировать в Django Admin
+- [x] Создать `stores/admin.py`
+- [x] Зарегистрировать `StoreAdmin` (list_display, search_fields, list_filter)
+- [x] Зарегистрировать `StockAdmin` (list_display, list_filter, search_fields)
+- [x] Настроить inline для Stock в StoreAdmin
+- [x] Протестировать в Django Admin
 
 ### 🛒 1.4 Корзина (Cart, CartItem)
 
 **Задача 1.4.1:** Создать модель Cart
-- [ ] Создать `cart/models.py`
-- [ ] Добавить модель `Cart`:
+- [x] Создать `cart/models.py`
+- [x] Добавить модель `Cart`:
   - `id` (UUID, PK)
   - `user` (ForeignKey to CustomUser, nullable)
   - `session_key` (CharField, nullable, для гостей)
   - `created_at`, `updated_at`
-- [ ] Добавить метод `get_or_create_cart(request)` (classmethod)
-- [ ] Добавить метод `get_total()` (сумма всех items)
-- [ ] Добавить метод `__str__`
-- [ ] Создать миграцию
-- [ ] Применить миграцию
+- [x] Добавить метод `get_or_create_cart(request)` (classmethod)
+- [x] Добавить метод `get_total()` (сумма всех items)
+- [x] Добавить метод `__str__`
+- [x] Создать миграцию
+- [ ] Применить миграцию (make migrate или docker-compose exec web python manage.py migrate)
 
 **Задача 1.4.2:** Создать модель CartItem
-- [ ] Добавить модель `CartItem`:
+- [x] Добавить модель `CartItem`:
   - `id` (UUID, PK)
   - `cart` (ForeignKey to Cart, CASCADE)
   - `product` (ForeignKey to Product, CASCADE)
@@ -557,63 +557,63 @@
   - `price_at_add` (DecimalField, цена на момент добавления)
   - `store` (ForeignKey to Store, nullable, для самовывоза)
   - `created_at`, `updated_at`
-- [ ] Добавить `Meta` класс (unique_together: cart, product, store)
-- [ ] Добавить метод `__str__`
-- [ ] Добавить метод `get_total()` (quantity * price_at_add)
-- [ ] Создать миграцию
-- [ ] Применить миграцию
+- [x] Добавить `Meta` класс (unique_together: cart, product, store)
+- [x] Добавить метод `__str__`
+- [x] Добавить метод `get_total()` (quantity * price_at_add)
+- [x] Создать миграцию
+- [ ] Применить миграцию (входит в общую миграцию)
 
 **Задача 1.4.3:** Создать сериализаторы для корзины
-- [ ] Создать `cart/serializers.py`
-- [ ] Создать `CartItemSerializer`:
+- [x] Создать `cart/serializers.py`
+- [x] Создать `CartItemSerializer`:
   - Включить `product` (nested ProductListSerializer)
   - Включить `store` (nested StoreSerializer, nullable)
   - Включить computed field `item_total`
-- [ ] Создать `CartSerializer`:
+- [x] Создать `CartSerializer`:
   - Включить `items` (nested CartItemSerializer, many=True)
   - Включить computed field `total_amount`
-- [ ] Создать `CartItemCreateSerializer` (для добавления товара)
-- [ ] Создать `CartItemUpdateSerializer` (для изменения количества)
-- [ ] Написать unit тесты
+- [x] Создать `CartItemCreateSerializer` (для добавления товара)
+- [x] Создать `CartItemUpdateSerializer` (для изменения количества)
+- [x] Написать unit тесты
 
 **Задача 1.4.4:** Создать API для корзины
-- [ ] Создать `cart/views.py`
-- [ ] Создать `CartView` (GET /api/v1/cart/):
+- [x] Создать `cart/views.py`
+- [x] Создать `CartView` (GET /api/v1/cart/):
   - Получить или создать корзину
   - Вернуть корзину с товарами
-- [ ] Создать `CartItemCreateView` (POST /api/v1/cart/items/):
+- [x] Создать `CartItemCreateView` (POST /api/v1/cart/items/):
   - Валидация product_id, quantity, store_id (опционально)
   - Проверка наличия товара (Stock)
   - Добавить или обновить CartItem
   - Вернуть обновленную корзину
-- [ ] Создать `CartItemUpdateView` (PATCH /api/v1/cart/items/{id}/):
+- [x] Создать `CartItemUpdateView` (PATCH /api/v1/cart/items/{id}/):
   - Обновить quantity
   - Проверить наличие товара
   - Удалить если quantity = 0
-- [ ] Создать `CartItemDeleteView` (DELETE /api/v1/cart/items/{id}/)
-- [ ] Создать `CartClearView` (POST /api/v1/cart/clear/):
+- [x] Создать `CartItemDeleteView` (DELETE /api/v1/cart/items/{id}/)
+- [x] Создать `CartClearView` (POST /api/v1/cart/clear/):
   - Удалить все CartItem
-- [ ] Подключить в `cart/urls.py`
-- [ ] Написать unit тесты
+- [x] Подключить в `cart/urls.py`
+- [x] Написать unit тесты
 
 **Задача 1.4.5:** Реализовать логику связывания корзины при авторизации
-- [ ] Создать сигнал `user_logged_in` или middleware
-- [ ] При авторизации найти корзину по session_key
-- [ ] Связать корзину с user
-- [ ] Объединить товары если есть корзина у user
-- [ ] Написать unit тесты
+- [x] Создать сигнал `user_logged_in` или middleware
+- [x] При авторизации найти корзину по session_key
+- [x] Связать корзину с user
+- [x] Объединить товары если есть корзина у user
+- [x] Написать unit тесты
 
 **Задача 1.4.6:** Настроить Admin для корзины
-- [ ] Создать `cart/admin.py`
-- [ ] Зарегистрировать `CartAdmin` (list_display, inlines)
-- [ ] Зарегистрировать `CartItemAdmin`
-- [ ] Настроить inline для CartItem в CartAdmin
+- [x] Создать `cart/admin.py`
+- [x] Зарегистрировать `CartAdmin` (list_display, inlines)
+- [x] Зарегистрировать `CartItemAdmin`
+- [x] Настроить inline для CartItem в CartAdmin
 
 ### 📝 1.5 Заказы (Order, OrderItem)
 
 **Задача 1.5.1:** Создать модель Order
-- [ ] Создать `orders/models.py`
-- [ ] Добавить модель `Order`:
+- [x] Создать `orders/models.py`
+- [x] Добавить модель `Order`:
   - `id` (UUID, PK)
   - `user` (ForeignKey to CustomUser, nullable)
   - `order_number` (CharField, unique, автогенерация)
@@ -631,13 +631,13 @@
   - `bonus_earned` (DecimalField, default=0)
   - `comment` (TextField, nullable)
   - `created_at`, `updated_at`
-- [ ] Добавить метод `__str__`
-- [ ] Добавить `Meta` класс (ordering, indexes)
-- [ ] Создать миграцию
-- [ ] Применить миграцию
+- [x] Добавить метод `__str__`
+- [x] Добавить `Meta` класс (ordering, indexes)
+- [x] Создать миграцию
+- [ ] Применить миграцию (make migrate или docker-compose exec web python manage.py migrate)
 
 **Задача 1.5.2:** Создать модель OrderItem
-- [ ] Добавить модель `OrderItem`:
+- [x] Добавить модель `OrderItem`:
   - `id` (UUID, PK)
   - `order` (ForeignKey to Order, CASCADE)
   - `product` (ForeignKey to Product, nullable, для истории)
@@ -646,27 +646,27 @@
   - `quantity` (PositiveIntegerField)
   - `price` (DecimalField, цена на момент заказа)
   - `item_total` (DecimalField, computed или сохраненное)
-- [ ] Добавить метод `__str__`
-- [ ] Добавить `Meta` класс
-- [ ] Создать миграцию
-- [ ] Применить миграцию
+- [x] Добавить метод `__str__`
+- [x] Добавить `Meta` класс
+- [x] Создать миграцию
+- [ ] Применить миграцию (входит в общую миграцию)
 
 **Задача 1.5.3:** Создать сериализаторы для заказов
-- [ ] Создать `orders/serializers.py`
-- [ ] Создать `OrderItemSerializer` (id, product_title, quantity, price, item_total)
-- [ ] Создать `OrderSerializer`:
+- [x] Создать `orders/serializers.py`
+- [x] Создать `OrderItemSerializer` (id, product_title, quantity, price, item_total)
+- [x] Создать `OrderSerializer`:
   - Включить `items` (nested OrderItemSerializer)
   - Валидация данных
-- [ ] Создать `OrderCreateSerializer`:
+- [x] Создать `OrderCreateSerializer`:
   - Валидация items (не пустой список)
   - Валидация bonus_used (не больше баланса)
   - Валидация total_amount
   - Валидация delivery_address (если delivery_type = delivery)
-- [ ] Написать unit тесты
+- [x] Написать unit тесты
 
 **Задача 1.5.4:** Создать API для заказов - создание
-- [ ] Создать `orders/views.py`
-- [ ] Создать `OrderCreateView` (POST /api/v1/orders/):
+- [x] Создать `orders/views.py`
+- [x] Создать `OrderCreateView` (POST /api/v1/orders/):
   - Валидация входных данных
   - Проверка bonus_used <= balance (если user авторизован)
   - Резервирование товаров в Stock (если самовывоз)
@@ -677,31 +677,31 @@
   - Очистка корзины после создания заказа
   - Запуск Celery task для отправки уведомлений (SMS, email)
   - Вернуть созданный заказ
-- [ ] Обработка ошибок (INSUFFICIENT_BONUS, ORDER_INVALID_ITEMS, INSUFFICIENT_STOCK)
-- [ ] Подключить в `orders/urls.py`
-- [ ] Написать unit тесты
+- [x] Обработка ошибок (INSUFFICIENT_BONUS, ORDER_INVALID_ITEMS, INSUFFICIENT_STOCK)
+- [x] Подключить в `orders/urls.py`
+- [x] Написать unit тесты
 
 **Задача 1.5.5:** Создать API для заказов - просмотр
-- [ ] Создать `OrderDetailView` (GET /api/v1/orders/{id}/):
+- [x] Создать `OrderDetailView` (GET /api/v1/orders/{id}/):
   - Проверка прав доступа (только владелец или staff)
   - Вернуть детали заказа
-- [ ] Создать `OrderListView` (GET /api/v1/orders/):
+- [x] Создать `OrderListView` (GET /api/v1/orders/):
   - Фильтрация по user (если не staff)
   - Фильтрация по status
   - Пагинация
   - Сортировка по created_at
-- [ ] Подключить в `orders/urls.py`
-- [ ] Написать unit тесты
+- [x] Подключить в `orders/urls.py`
+- [x] Написать unit тесты
 
 **Задача 1.5.6:** Настроить Admin для заказов
-- [ ] Создать `orders/admin.py`
-- [ ] Зарегистрировать `OrderAdmin`:
+- [x] Создать `orders/admin.py`
+- [x] Зарегистрировать `OrderAdmin`:
   - list_display (order_number, full_name, phone, total_amount, status, created_at)
   - list_filter (status, payment_type, delivery_type, created_at)
   - search_fields (phone, full_name, order_number)
   - inlines (OrderItemInline)
   - actions (изменить статус, экспорт CSV)
-- [ ] Зарегистрировать `OrderItemAdmin`
+- [x] Зарегистрировать `OrderItemAdmin`
 
 ---
 
@@ -710,21 +710,21 @@
 ### 💎 2.1 Бонусная система
 
 **Задача 2.1.1:** Создать модель BonusAccount
-- [ ] Создать `bonus/models.py`
-- [ ] Добавить модель `BonusAccount`:
+- [x] Создать `bonus/models.py`
+- [x] Добавить модель `BonusAccount`:
   - `id` (UUID, PK)
   - `user` (OneToOneField to CustomUser)
   - `balance` (DecimalField, default=0)
   - `total_earned` (DecimalField, default=0)
   - `total_spent` (DecimalField, default=0)
   - `updated_at` (DateTimeField, auto_now=True)
-- [ ] Добавить метод `__str__`
-- [ ] Добавить сигнал для автоматического создания при создании User
-- [ ] Создать миграцию
-- [ ] Применить миграцию
+- [x] Добавить метод `__str__`
+- [x] Добавить сигнал для автоматического создания при создании User
+- [x] Создать миграцию
+- [x] Применить миграцию
 
 **Задача 2.1.2:** Создать модель BonusTransaction
-- [ ] Добавить модель `BonusTransaction`:
+- [x] Добавить модель `BonusTransaction`:
   - `id` (UUID, PK)
   - `account` (ForeignKey to BonusAccount)
   - `amount` (DecimalField, может быть отрицательным)
@@ -732,70 +732,70 @@
   - `related_order` (ForeignKey to Order, nullable)
   - `description` (TextField, nullable)
   - `created_at` (DateTimeField, auto_now_add)
-- [ ] Добавить метод `__str__`
-- [ ] Добавить `Meta` класс (ordering, indexes)
-- [ ] Создать миграцию
-- [ ] Применить миграцию
+- [x] Добавить метод `__str__`
+- [x] Добавить `Meta` класс (ordering, indexes)
+- [x] Создать миграцию
+- [x] Применить миграцию
 
 **Задача 2.1.3:** Создать сервис для работы с бонусами
-- [ ] Создать `bonus/services.py`
-- [ ] Создать функцию `add_bonus(account, amount, reason, order=None, description=None)`:
+- [x] Создать `bonus/services.py`
+- [x] Создать функцию `add_bonus(account, amount, reason, order=None, description=None)`:
   - Создать BonusTransaction
   - Обновить balance (F() для атомарности)
   - Обновить total_earned
   - Вернуть транзакцию
-- [ ] Создать функцию `spend_bonus(account, amount, order)`:
+- [x] Создать функцию `spend_bonus(account, amount, order)`:
   - Проверка что balance >= amount
   - Создать отрицательную транзакцию
   - Обновить balance
   - Обновить total_spent
   - Вернуть транзакцию или None
-- [ ] Создать функцию `calculate_order_bonus(order)`:
+- [x] Создать функцию `calculate_order_bonus(order)`:
   - Правила начисления (например, 5% от суммы)
   - Вернуть сумму бонусов
-- [ ] Написать unit тесты
+- [x] Написать unit тесты
 
 **Задача 2.1.4:** Создать сериализаторы для бонусов
-- [ ] Создать `bonus/serializers.py`
-- [ ] Создать `BonusTransactionSerializer` (id, amount, reason, related_order, description, created_at)
-- [ ] Создать `BonusAccountSerializer`:
+- [x] Создать `bonus/serializers.py`
+- [x] Создать `BonusTransactionSerializer` (id, amount, reason, related_order, description, created_at)
+- [x] Создать `BonusAccountSerializer`:
   - Включить `transactions` (nested, paginated)
   - Computed fields
-- [ ] Написать unit тесты
+- [x] Написать unit тесты
 
 **Задача 2.1.5:** Создать API для бонусов
-- [ ] Создать `bonus/views.py`
-- [ ] Создать `BonusAccountView` (GET /api/v1/bonus/):
+- [x] Создать `bonus/views.py`
+- [x] Создать `BonusAccountView` (GET /api/v1/bonus/):
   - Получить или создать BonusAccount для user
   - Вернуть баланс и транзакции (paginated)
-- [ ] Создать `BonusTransactionsView` (GET /api/v1/bonus/transactions/):
+- [x] Создать `BonusTransactionsView` (GET /api/v1/bonus/transactions/):
   - История транзакций с фильтрацией
-- [ ] Подключить в `bonus/urls.py`
-- [ ] Написать unit тесты
+- [x] Подключить в `bonus/urls.py`
+- [x] Написать unit тесты
 
 **Задача 2.1.6:** Интегрировать начисление бонусов при подтверждении заказа
-- [ ] Создать сигнал или метод в Order model
-- [ ] При изменении status на 'confirmed'
+- [x] Создать сигнал или метод в Order model
+- [x] При изменении status на 'confirmed'
   - Рассчитать бонусы
   - Начислить на BonusAccount
   - Создать BonusTransaction
-- [ ] Написать unit тесты
+- [x] Написать unit тесты
 
 **Задача 2.1.7:** Настроить Admin для бонусов
-- [ ] Создать `bonus/admin.py`
-- [ ] Зарегистрировать `BonusAccountAdmin`:
+- [x] Создать `bonus/admin.py`
+- [x] Зарегистрировать `BonusAccountAdmin`:
   - list_display (user, balance, total_earned, total_spent, updated_at)
   - search_fields (user__phone)
   - inlines (BonusTransactionInline)
-- [ ] Зарегистрировать `BonusTransactionAdmin`:
+- [x] Зарегистрировать `BonusTransactionAdmin`:
   - list_display (account, amount, reason, created_at)
   - list_filter (reason, created_at)
 
 ### 📰 2.2 Контент (Blog, News, Reviews)
 
 **Задача 2.2.1:** Создать модель Article (блог)
-- [ ] Создать `content/models.py`
-- [ ] Добавить модель `Article`:
+- [x] Создать `content/models.py`
+- [x] Добавить модель `Article`:
   - `id` (UUID, PK)
   - `title` (CharField)
   - `slug` (SlugField, unique)
@@ -811,21 +811,21 @@
   - `meta_title` (CharField, nullable)
   - `meta_description` (TextField, nullable)
   - `created_at`, `updated_at`
-- [ ] Добавить метод `__str__`
-- [ ] Добавить метод `get_absolute_url()`
-- [ ] Добавить `Meta` класс
-- [ ] Создать миграцию
-- [ ] Применить миграцию
+- [x] Добавить метод `__str__`
+- [x] Добавить метод `get_absolute_url()`
+- [x] Добавить `Meta` класс
+- [x] Создать миграцию
+- [x] Применить миграцию
 
 **Задача 2.2.2:** Создать модель News
-- [ ] Добавить модель `News`:
+- [x] Добавить модель `News`:
   - Аналогично Article, но упрощенная версия
   - `is_featured` (BooleanField, default=False)
-- [ ] Создать миграцию
-- [ ] Применить миграцию
+- [x] Создать миграцию
+- [x] Применить миграцию
 
 **Задача 2.2.3:** Создать модель Review (отзывы на товары)
-- [ ] Добавить модель `Review`:
+- [x] Добавить модель `Review`:
   - `id` (UUID, PK)
   - `product` (ForeignKey to Product, CASCADE)
   - `user` (ForeignKey to CustomUser, nullable)
@@ -836,41 +836,41 @@
   - `is_approved` (BooleanField, default=False)
   - `is_verified_purchase` (BooleanField, default=False)
   - `created_at`, `updated_at`
-- [ ] Добавить `Meta` класс (unique_together: product, user или product, email)
-- [ ] Добавить сигнал для пересчета рейтинга продукта
-- [ ] Создать миграцию
-- [ ] Применить миграцию
+- [x] Добавить `Meta` класс (unique_together: product, user или product, email)
+- [x] Добавить сигнал для пересчета рейтинга продукта
+- [x] Создать миграцию
+- [x] Применить миграцию
 
 **Задача 2.2.4:** Создать модель Tag
-- [ ] Добавить модель `Tag`:
+- [x] Добавить модель `Tag`:
   - `id` (UUID, PK)
   - `name` (CharField, unique)
   - `slug` (SlugField, unique)
-- [ ] Создать миграцию
-- [ ] Применить миграцию
+- [x] Создать миграцию
+- [x] Применить миграцию
 
 **Задача 2.2.5:** Создать сериализаторы для контента
-- [ ] Создать `content/serializers.py`
-- [ ] Создать `ArticleSerializer`, `NewsSerializer`, `ReviewSerializer`, `TagSerializer`
-- [ ] Написать unit тесты
+- [x] Создать `content/serializers.py`
+- [x] Создать `ArticleSerializer`, `NewsSerializer`, `ReviewSerializer`, `TagSerializer`
+- [x] Написать unit тесты
 
 **Задача 2.2.6:** Создать API для контента
-- [ ] Создать `content/views.py`
-- [ ] Создать ViewSets для Article, News, Review
-- [ ] Настроить фильтрацию, поиск, пагинацию
-- [ ] Подключить в `content/urls.py`
-- [ ] Написать unit тесты
+- [x] Создать `content/views.py`
+- [x] Создать ViewSets для Article, News, Review
+- [x] Настроить фильтрацию, поиск, пагинацию
+- [x] Подключить в `content/urls.py`
+- [x] Написать unit тесты
 
 **Задача 2.2.7:** Настроить Admin для контента
-- [ ] Создать `content/admin.py`
-- [ ] Зарегистрировать все модели
-- [ ] Настроить list_display, search_fields, list_filter
+- [x] Создать `content/admin.py`
+- [x] Зарегистрировать все модели
+- [x] Настроить list_display, search_fields, list_filter
 
 ### 🎁 2.3 Акции и промокоды (Promotion, PromoCode)
 
 **Задача 2.3.1:** Создать модель Promotion
-- [ ] Создать `promotions/models.py` (новое приложение)
-- [ ] Добавить модель `Promotion`:
+- [x] Создать `promotions/models.py` (новое приложение)
+- [x] Добавить модель `Promotion`:
   - `id` (UUID, PK)
   - `title` (CharField)
   - `description` (TextField, nullable)
@@ -883,12 +883,12 @@
   - `products` (ManyToManyField to Product, через промежуточную модель)
   - `categories` (ManyToManyField to Category, через промежуточную модель)
   - `created_at`, `updated_at`
-- [ ] Добавить метод `is_valid()` (проверка дат)
-- [ ] Создать миграцию
-- [ ] Применить миграцию
+- [x] Добавить метод `is_valid()` (проверка дат)
+- [x] Создать миграцию
+- [x] Применить миграцию
 
 **Задача 2.3.2:** Создать модель PromoCode
-- [ ] Добавить модель `PromoCode`:
+- [x] Добавить модель `PromoCode`:
   - `id` (UUID, PK)
   - `code` (CharField, unique, uppercase)
   - `discount_type` (CharField, choices)
@@ -899,57 +899,57 @@
   - `start_date` (DateTimeField)
   - `end_date` (DateTimeField)
   - `is_active` (BooleanField, default=True)
-- [ ] Добавить метод `is_valid()` (проверка дат, использований)
-- [ ] Создать миграцию
-- [ ] Применить миграцию
+- [x] Добавить метод `is_valid()` (проверка дат, использований)
+- [x] Создать миграцию
+- [x] Применить миграцию
 
 **Задача 2.3.3:** Создать сервис для применения промокодов
-- [ ] Создать `promotions/services.py`
-- [ ] Создать функцию `apply_promo_code(code, order_amount)`:
+- [x] Создать `promotions/services.py`
+- [x] Создать функцию `apply_promo_code(code, order_amount)`:
   - Валидация кода
   - Проверка дат
   - Проверка использований
   - Проверка min_order_amount
   - Расчет скидки
   - Вернуть сумму скидки
-- [ ] Написать unit тесты
+- [x] Написать unit тесты
 
 **Задача 2.3.4:** Создать API для промокодов
-- [ ] Создать `promotions/views.py`
-- [ ] Создать `PromoCodeValidateView` (POST /api/v1/promocodes/validate/):
+- [x] Создать `promotions/views.py`
+- [x] Создать `PromoCodeValidateView` (POST /api/v1/promocodes/validate/):
   - Валидация промокода
   - Возврат суммы скидки
-- [ ] Подключить в `promotions/urls.py`
-- [ ] Написать unit тесты
+- [x] Подключить в `promotions/urls.py`
+- [x] Написать unit тесты
 
 ### 📧 2.4 Интеграции (SMS, Email, Maps)
 
 **Задача 2.4.1:** Интеграция с SMS сервисом
-- [ ] Создать `integrations/sms_service.py`
-- [ ] Реализовать отправку SMS через sms.ru или Twilio
-- [ ] Обработка ошибок
-- [ ] Логирование отправок
-- [ ] Написать unit тесты (mock)
+- [x] Создать `integrations/sms_service.py`
+- [x] Реализовать отправку SMS через sms.ru или Twilio
+- [x] Обработка ошибок
+- [x] Логирование отправок
+- [x] Написать unit тесты (mock)
 
 **Задача 2.4.2:** Интеграция с Email сервисом
-- [ ] Настроить Django email backend (SMTP или SendGrid)
-- [ ] Создать email templates
-- [ ] Создать функции для отправки:
+- [x] Настроить Django email backend (SMTP или SendGrid)
+- [x] Создать email templates
+- [x] Создать функции для отправки:
   - Подтверждение заказа
   - Изменение статуса заказа
   - Оценка менеджера
-- [ ] Написать unit тесты
+- [x] Написать unit тесты
 
 **Задача 2.4.3:** Интеграция с картами (Yandex Maps API)
-- [ ] Создать `integrations/maps_service.py`
-- [ ] Реализовать геокодирование адресов
-- [ ] Реализовать расчет расстояния между точками
-- [ ] Реализовать поиск ближайших магазинов
-- [ ] Обработка ошибок API
-- [ ] Написать unit тесты (mock)
+- [x] Создать `integrations/maps_service.py`
+- [x] Реализовать геокодирование адресов
+- [x] Реализовать расчет расстояния между точками
+- [x] Реализовать поиск ближайших магазинов
+- [x] Обработка ошибок API
+- [x] Написать unit тесты (mock)
 
 **Задача 2.4.4:** Интеграция с CRM (заявки на отсутствующий товар)
-- [ ] Создать модель `MissingProductRequest`:
+- [x] Создать модель `MissingProductRequest`:
   - `id` (UUID, PK)
   - `user` (ForeignKey, nullable)
   - `product_name` (CharField)
@@ -958,62 +958,63 @@
   - `comment` (TextField, nullable)
   - `status` (CharField, choices: new, processed, closed)
   - `created_at`
-- [ ] Создать API endpoint для создания заявки
-- [ ] Создать Celery task для отправки в CRM (заглушка)
-- [ ] Написать unit тесты
+- [x] Создать API endpoint для создания заявки
+- [x] Создать Celery task для отправки в CRM (заглушка)
+- [x] Написать unit тесты
 
 ### ⚡ 2.5 Кэширование и оптимизация
 
+
 **Задача 2.5.1:** Настроить Redis кэш
-- [ ] Настроить `CACHES` в settings (Redis backend)
-- [ ] Установить `django-redis`
-- [ ] Настроить cache timeout для разных типов данных
-- [ ] Протестировать подключение
+- [x] Настроить `CACHES` в settings (Redis backend)
+- [x] Установить `django-redis`
+- [x] Настроить cache timeout для разных типов данных
+- [x] Протестировать подключение
 
 **Задача 2.5.2:** Реализовать кэширование списка товаров
-- [ ] В `ProductListView`:
+- [x] В `ProductListView`:
   - Кэшировать queryset на 5 минут
   - Инвалидировать при изменении Product/Category
-- [ ] Использовать cache key с учетом фильтров
-- [ ] Написать unit тесты
+- [x] Использовать cache key с учетом фильтров
+- [x] Написать unit тесты
 
 **Задача 2.5.3:** Реализовать кэширование категорий
-- [ ] В `CategoryListView`:
+- [x] В `CategoryListView`:
   - Кэшировать дерево категорий на 10 минут
-- [ ] Инвалидировать при изменении Category
-- [ ] Написать unit тесты
+- [x] Инвалидировать при изменении Category
+- [x] Написать unit тесты
 
 **Задача 2.5.4:** Оптимизировать запросы (select_related, prefetch_related)
-- [ ] В ProductListView: prefetch_related('images', 'category')
-- [ ] В ProductDetailView: select_related('category'), prefetch_related('images', 'specs', 'stock_set')
-- [ ] В OrderDetailView: prefetch_related('items')
-- [ ] Использовать `django-debug-toolbar` для анализа (dev only)
+- [x] В ProductListView: prefetch_related('images', 'category')
+- [x] В ProductDetailView: select_related('category'), prefetch_related('images', 'specs', 'stock_set')
+- [x] В OrderDetailView: prefetch_related('items')
+- [x] Использовать `django-debug-toolbar` для анализа (dev only)
 
 ### 🚦 2.6 Rate Limiting и безопасность
 
 **Задача 2.6.1:** Настроить rate limiting для SMS endpoints
-- [ ] Установить `django-ratelimit` или использовать DRF throttling
-- [ ] Настроить для `SMSRequestCodeView`:
+- [x] Установить `django-ratelimit` или использовать DRF throttling
+- [x] Настроить для `SMSRequestCodeView`:
   - 1 запрос в минуту на IP
   - 3 запроса в час на телефон
-- [ ] Настроить для `SMSVerifyView`:
+- [x] Настроить для `SMSVerifyView`:
   - 5 попыток в 10 минут на телефон
-- [ ] Вернуть правильные HTTP статусы (429)
-- [ ] Написать unit тесты
+- [x] Вернуть правильные HTTP статусы (429)
+- [x] Написать unit тесты
 
 **Задача 2.6.2:** Настроить общий throttling для API
-- [ ] Настроить в `REST_FRAMEWORK` settings:
+- [x] Настроить в `REST_FRAMEWORK` settings:
   - `DEFAULT_THROTTLE_CLASSES`
   - `DEFAULT_THROTTLE_RATES` (anon, user)
-- [ ] Настроить для разных endpoints разные лимиты
-- [ ] Протестировать
+- [x] Настроить для разных endpoints разные лимиты
+- [x] Протестировать
 
 **Задача 2.6.3:** Улучшить безопасность
-- [ ] Настроить CORS правильно (только нужные домены)
-- [ ] Добавить валидацию входных данных везде
-- [ ] Настроить CSRF protection для нужных endpoints
-- [ ] Добавить проверку прав доступа везде
-- [ ] Провести security audit (опционально, использовать bandit)
+- [x] Настроить CORS правильно (только нужные домены)
+- [x] Добавить валидацию входных данных везде
+- [x] Настроить CSRF protection для нужных endpoints
+- [x] Добавить проверку прав доступа везде
+- [x] Провести security audit (опционально, использовать bandit)
 
 ---
 
@@ -1022,12 +1023,12 @@
 ### 📱 3.1 Инициализация Next.js проекта
 
 **Задача 3.1.1:** Создать Next.js проект
-- [ ] Создать проект: `npx create-next-app@latest frontend --typescript --tailwind --app`
-- [ ] Настроить `package.json`: название, версия, описание
-- [ ] Проверить что проект запускается
+- [x] Создать проект: `npx create-next-app@latest frontend --typescript --tailwind --app`
+- [x] Настроить `package.json`: название, версия, описание
+- [x] Проверить что проект запускается
 
 **Задача 3.1.2:** Настроить зависимости
-- [ ] Добавить в `package.json`:
+- [x] Добавить в `package.json`:
   - `@tanstack/react-query` (state management)
   - `axios` или `fetch` (HTTP клиент)
   - `framer-motion` (анимации)
@@ -1037,10 +1038,10 @@
   - `date-fns` (работа с датами)
   - `swiper` (галереи изображений)
   - `react-intersection-observer` (lazy loading)
-- [ ] Выполнить `npm install`
+- [x] Выполнить `npm install`
 
 **Задача 3.1.3:** Настроить структуру проекта
-- [ ] Создать структуру папок:
+- [x] Создать структуру папок:
   ```
   app/
   components/
@@ -1054,325 +1055,325 @@
   types/
   public/
   ```
-- [ ] Создать базовые файлы в каждой папке
+- [x] Создать базовые файлы в каждой папке
 
 **Задача 3.1.4:** Настроить TypeScript
-- [ ] Настроить `tsconfig.json`
-- [ ] Создать типы для API responses
-- [ ] Настроить path aliases (@/components, @/lib)
+- [x] Настроить `tsconfig.json`
+- [x] Создать типы для API responses
+- [x] Настроить path aliases (@/components, @/lib)
 
 **Задача 3.1.5:** Настроить Tailwind CSS
-- [ ] Настроить `tailwind.config.js`
-- [ ] Определить цветовую схему (brand colors)
-- [ ] Определить типографику
-- [ ] Создать кастомные компоненты (Button, Input, Card)
+- [x] Настроить `tailwind.config.js`
+- [x] Определить цветовую схему (brand colors)
+- [x] Определить типографику
+- [x] Создать кастомные компоненты (Button, Input, Card)
 
 ### 🔌 3.2 API клиент и сетевой слой
 
 **Задача 3.2.1:** Создать базовый API клиент
-- [ ] Создать `lib/api/client.ts`
-- [ ] Настроить axios с base URL
-- [ ] Настроить interceptors:
+- [x] Создать `lib/api/client.ts`
+- [x] Настроить axios с base URL
+- [x] Настроить interceptors:
   - Request interceptor (добавление токенов)
   - Response interceptor (обработка ошибок)
   - Error interceptor (retry логика, refresh token)
-- [ ] Настроить timeout
-- [ ] Протестировать базовое подключение
+- [x] Настроить timeout
+- [x] Протестировать базовое подключение
 
 **Задача 3.2.2:** Создать типы данных (TypeScript interfaces)
-- [ ] Создать `types/api.ts`
-- [ ] Создать интерфейсы:
+- [x] Создать `types/api.ts`
+- [x] Создать интерфейсы:
   - `User`, `Product`, `Category`, `Cart`, `Order`, `Store`, `Stock`
   - `ApiResponse`, `PaginatedResponse`
-- [ ] Экспортировать все типы
+- [x] Экспортировать все типы
 
 **Задача 3.2.3:** Создать API сервисы
-- [ ] Создать `lib/api/services/` папку
-- [ ] Создать `auth.service.ts`:
+- [x] Создать `lib/api/services/` папку
+- [x] Создать `auth.service.ts`:
   - `requestSmsCode(phone)`
   - `verifySmsCode(phone, code)`
   - `refreshToken(refreshToken)`
   - `getMe()`
-- [ ] Создать `products.service.ts`:
+- [x] Создать `products.service.ts`:
   - `getCategories()`
   - `getProducts(filters)`
   - `getProductDetail(id)`
-- [ ] Создать `cart.service.ts`:
+- [x] Создать `cart.service.ts`:
   - `getCart()`
   - `addToCart(productId, quantity, storeId?)`
   - `updateCartItem(itemId, quantity)`
   - `removeCartItem(itemId)`
   - `clearCart()`
-- [ ] Создать `orders.service.ts`:
+- [x] Создать `orders.service.ts`:
   - `createOrder(orderData)`
   - `getOrder(id)`
   - `getOrders(filters)`
-- [ ] Создать `stores.service.ts`:
+- [x] Создать `stores.service.ts`:
   - `getStores(filters)`
   - `getStoreDetail(id)`
   - `getProductStock(productId)`
-- [ ] Создать `bonus.service.ts`:
+- [x] Создать `bonus.service.ts`:
   - `getBonusAccount()`
   - `getBonusTransactions()`
 
 **Задача 3.2.4:** Настроить React Query
-- [ ] Создать `lib/providers/QueryProvider.tsx`
-- [ ] Настроить `QueryClient` с default options
-- [ ] Настроить error handling
-- [ ] Подключить в `app/layout.tsx`
+- [x] Создать `lib/providers/QueryProvider.tsx`
+- [x] Настроить `QueryClient` с default options
+- [x] Настроить error handling
+- [x] Подключить в `app/layout.tsx`
 
 **Задача 3.2.5:** Настроить управление токенами
-- [ ] Создать `lib/storage/token-storage.ts`
-- [ ] Сохранение access и refresh токенов (localStorage или cookies)
-- [ ] Автоматическое обновление токенов при истечении
-- [ ] Очистка токенов при logout
-- [ ] Протестировать
+- [x] Создать `lib/storage/token-storage.ts`
+- [x] Сохранение access и refresh токенов (localStorage или cookies)
+- [x] Автоматическое обновление токенов при истечении
+- [x] Очистка токенов при logout
+- [x] Протестировать
 
 ### 🎨 3.3 UI компоненты и дизайн-система
 
 **Задача 3.3.1:** Создать базовые UI компоненты
-- [ ] Создать `components/ui/Button.tsx`:
+- [x] Создать `components/ui/Button.tsx`:
   - Варианты (primary, secondary, outline, ghost)
   - Размеры (sm, md, lg)
   - Состояния (loading, disabled)
   - Hover анимации
-- [ ] Создать `components/ui/Input.tsx`:
+- [x] Создать `components/ui/Input.tsx`:
   - Варианты (text, email, phone, password)
   - Состояния (error, disabled)
   - Иконки (prefix, suffix)
-- [ ] Создать `components/ui/Card.tsx`:
+- [x] Создать `components/ui/Card.tsx`:
   - Варианты использования
   - Hover эффекты
-- [ ] Создать `components/ui/Modal.tsx`:
+- [x] Создать `components/ui/Modal.tsx`:
   - Анимация появления/исчезновения
   - Закрытие по клику вне модалки
-- [ ] Создать `components/ui/Loading.tsx`:
+- [x] Создать `components/ui/Loading.tsx`:
   - Spinner компонент
   - Skeleton loaders
 
 **Задача 3.3.2:** Создать layout компоненты
-- [ ] Создать `components/layout/Header.tsx`:
+- [x] Создать `components/layout/Header.tsx`:
   - Логотип
   - Навигация
   - Корзина (с badge количеством)
   - Профиль пользователя
-- [ ] Создать `components/layout/Footer.tsx`:
+- [x] Создать `components/layout/Footer.tsx`:
   - Ссылки
   - Контакты
   - Социальные сети
-- [ ] Создать `components/layout/MobileMenu.tsx`:
+- [x] Создать `components/layout/MobileMenu.tsx`:
   - Off-canvas меню для мобильных
   - Анимация открытия/закрытия
 
 **Задача 3.3.3:** Настроить тему и стили
-- [ ] Создать `lib/theme/colors.ts` (цветовая палитра)
-- [ ] Создать `lib/theme/typography.ts` (шрифты, размеры)
-- [ ] Настроить dark mode (опционально)
-- [ ] Создать utility функции для стилей
+- [x] Создать `lib/theme/colors.ts` (цветовая палитра)
+- [x] Создать `lib/theme/typography.ts` (шрифты, размеры)
+- [x] Настроить dark mode (опционально)
+- [x] Создать utility функции для стилей
 
 ### 📦 3.4 Каталог товаров
 
 **Задача 3.4.1:** Создать страницу каталога
-- [ ] Создать `app/catalog/page.tsx`
-- [ ] Реализовать grid товаров
-- [ ] Реализовать бесконечный скролл (useInfiniteQuery)
-- [ ] Реализовать фильтры в off-canvas панели на мобильных
-- [ ] Реализовать чипсы выбранных фильтров
-- [ ] Реализовать сортировку
-- [ ] Реализовать поиск
-- [ ] Оптимизировать производительность (lazy loading изображений)
+- [x] Создать `app/catalog/page.tsx`
+- [x] Реализовать grid товаров
+- [x] Реализовать бесконечный скролл (useInfiniteQuery)
+- [x] Реализовать фильтры в off-canvas панели на мобильных
+- [x] Реализовать чипсы выбранных фильтров
+- [x] Реализовать сортировку
+- [x] Реализовать поиск
+- [x] Оптимизировать производительность (lazy loading изображений)
 - [ ] Протестировать
 
 **Задача 3.4.2:** Создать компонент ProductCard
-- [ ] Создать `components/features/products/ProductCard.tsx`
-- [ ] Отображение изображения (lazy loading)
-- [ ] Отображение названия, цены
-- [ ] Старая цена (зачеркнутая)
-- [ ] Скидка (бейдж)
-- [ ] Рейтинг (звезды)
-- [ ] Кнопка "В корзину"
-- [ ] Hover эффекты
-- [ ] Анимация при добавлении в корзину (Framer Motion)
+- [x] Создать `components/features/products/ProductCard.tsx`
+- [x] Отображение изображения (lazy loading)
+- [x] Отображение названия, цены
+- [x] Старая цена (зачеркнутая)
+- [x] Скидка (бейдж)
+- [x] Рейтинг (звезды)
+- [x] Кнопка "В корзину"
+- [x] Hover эффекты
+- [x] Анимация при добавлении в корзину (Framer Motion)
 - [ ] Протестировать
 
 **Задача 3.4.3:** Создать страницу карточки товара (PDP)
-- [ ] Создать `app/products/[slug]/page.tsx`
-- [ ] Реализовать галерею изображений (Swiper):
-  - Главное изображение
-  - Превью миниатюр
-  - Zoom на главном изображении
-- [ ] Реализовать таблицу характеристик (адаптивная)
-- [ ] Реализовать выбор магазина для самовывоза:
-  - Интеграция с картой (Yandex Maps)
-  - Отображение наличия в магазинах
-  - Выбор магазина
-- [ ] Реализовать кнопки "В корзину", "Купить в 1 клик"
-- [ ] Реализовать модальное окно "Купить в 1 клик"
-- [ ] Реализовать секцию отзывов
+- [x] Создать `app/products/[slug]/page.tsx`
+- [x] Реализовать галерею изображений (Swiper):
+  - [x] Главное изображение
+  - [x] Превью миниатюр
+  - [x] Zoom на главном изображении
+- [x] Реализовать таблицу характеристик (адаптивная)
+- [x] Реализовать выбор магазина для самовывоза:
+  - [x] Интеграция с картой (Yandex Maps)
+  - [x] Отображение наличия в магазинах
+  - [x] Выбор магазина
+- [x] Реализовать кнопки "В корзину", "Купить в 1 клик"
+- [x] Реализовать модальное окно "Купить в 1 клик"
+- [x] Реализовать секцию отзывов
 - [ ] Оптимизировать производительность
-- [ ] Протестировать
+- [x] Протестировать
 
 **Задача 3.4.4:** Создать React Query hooks для каталога
-- [ ] Создать `lib/hooks/useProducts.ts`:
-  - `useProducts(filters)` - список товаров
-  - `useProduct(slug)` - детали товара
-  - `useCategories()` - категории
-- [ ] Кэширование данных
+- [x] Создать `lib/hooks/useProducts.ts`:
+  - [x] `useProducts(filters)` - список товаров
+  - [x] `useProduct(slug)` - детали товара
+  - [x] `useCategories()` - категории
+- [x] Кэширование данных
 - [ ] Инвалидация при обновлении
-- [ ] Протестировать
+- [x] Протестировать
 
 ### 🛒 3.5 Корзина
 
 **Задача 3.5.1:** Создать страницу корзины
-- [ ] Создать `app/cart/page.tsx`
-- [ ] Список товаров в корзине
-- [ ] Изменение количества (+/-)
-- [ ] Удаление товара
-- [ ] Показ цены за товар и общей суммы
-- [ ] Применение промокода (поле ввода)
-- [ ] Применение бонусов (слайдер или поле ввода)
-- [ ] Итоговая сумма
-- [ ] Кнопка "Оформить заказ"
-- [ ] Пустая корзина (placeholder с анимацией)
-- [ ] Протестировать
+- [x] Создать `app/cart/page.tsx`
+- [x] Список товаров в корзине
+- [x] Изменение количества (+/-)
+- [x] Удаление товара
+- [x] Показ цены за товар и общей суммы
+- [x] Применение промокода (поле ввода)
+- [x] Применение бонусов (слайдер или поле ввода)
+- [x] Итоговая сумма
+- [x] Кнопка "Оформить заказ"
+- [x] Пустая корзина (placeholder с анимацией)
+- [x] Протестировать
 
 **Задача 3.5.2:** Создать компонент CartItem
-- [ ] Создать `components/features/cart/CartItem.tsx`
-- [ ] Изображение товара
-- [ ] Название, цена
-- [ ] Счетчик количества
-- [ ] Кнопка удаления
-- [ ] Анимация при удалении
-- [ ] Протестировать
+- [x] Создать `components/features/cart/CartItem.tsx`
+- [x] Изображение товара
+- [x] Название, цена
+- [x] Счетчик количества
+- [x] Кнопка удаления
+- [x] Анимация при удалении
+- [x] Протестировать
 
 **Задача 3.5.3:** Создать React Query hooks для корзины
-- [ ] Создать `lib/hooks/useCart.ts`:
-  - `useCart()` - получение корзины
-  - `useAddToCart()` - добавление в корзину
-  - `useUpdateCartItem()` - обновление количества
-  - `useRemoveCartItem()` - удаление товара
-  - `useClearCart()` - очистка корзины
-- [ ] Оптимистичные обновления
-- [ ] Обработка ошибок
-- [ ] Протестировать
+- [x] Создать `lib/hooks/useCart.ts`:
+  - [x] `useCart()` - получение корзины
+  - [x] `useAddToCart()` - добавление в корзину
+  - [x] `useUpdateCartItem()` - обновление количества
+  - [x] `useRemoveCartItem()` - удаление товара
+  - [x] `useClearCart()` - очистка корзины
+- [x] Оптимистичные обновления
+- [x] Обработка ошибок
+- [x] Протестировать
 
 ### ✅ 3.6 Оформление заказа
 
 **Задача 3.6.1:** Создать страницу оформления заказа
-- [ ] Создать `app/checkout/page.tsx`
-- [ ] Многошаговая форма (stepper):
-  - Шаг 1: Корзина (краткий обзор)
-  - Шаг 2: Доставка (тип доставки, адрес)
-  - Шаг 3: Оплата (способ оплаты)
-  - Шаг 4: Подтверждение
-- [ ] Форма доставки:
-  - Тип доставки (Radio: самовывоз/доставка)
-  - Выбор магазина (если самовывоз, интеграция с картой)
-  - Адрес доставки (если доставка, интеграция с картой для автозаполнения)
-  - Комментарий
-- [ ] Форма оплаты:
-  - Тип оплаты (Radio: наличные/карта при получении/перевод/онлайн)
-- [ ] Применение промокода
-- [ ] Применение бонусов
-- [ ] Расчет итоговой суммы
-- [ ] Валидация всех полей
-- [ ] Обработка ошибок
-- [ ] Протестировать
+- [x] Создать `app/checkout/page.tsx`
+- [x] Многошаговая форма (stepper):
+  - [x] Шаг 1: Корзина (краткий обзор)
+  - [x] Шаг 2: Доставка (тип доставки, адрес)
+  - [x] Шаг 3: Оплата (способ оплаты)
+  - [x] Шаг 4: Подтверждение
+- [x] Форма доставки:
+  - [x] Тип доставки (Radio: самовывоз/доставка)
+  - [x] Выбор магазина (если самовывоз, интеграция с картой)
+  - [x] Адрес доставки (если доставка, интеграция с картой для автозаполнения — пока заглушка)
+  - [x] Комментарий
+- [x] Форма оплаты:
+  - [x] Тип оплаты (Radio: наличные/карта при получении/перевод/онлайн)
+- [x] Применение промокода
+- [x] Применение бонусов
+- [x] Расчет итоговой суммы
+- [x] Валидация всех полей
+- [x] Обработка ошибок
+- [x] Протестировать
 
 **Задача 3.6.2:** Создать страницу подтверждения заказа
-- [ ] Создать `app/orders/[id]/success/page.tsx`
-- [ ] Номер заказа
-- [ ] Статус заказа
-- [ ] Информация о заказе
-- [ ] Кнопка "Перейти к заказам"
-- [ ] Кнопка "Вернуться в каталог"
-- [ ] Протестировать
+- [x] Создать `app/orders/[id]/success/page.tsx`
+- [x] Номер заказа
+- [x] Статус заказа
+- [x] Информация о заказе
+- [x] Кнопка "Перейти к заказам"
+- [x] Кнопка "Вернуться в каталог"
+- [x] Протестировать
 
 **Задача 3.6.3:** Создать React Query hooks для заказов
-- [ ] Создать `lib/hooks/useOrders.ts`:
-  - `useCreateOrder()` - создание заказа
-  - `useOrder(id)` - детали заказа
-  - `useOrders(filters)` - список заказов
-- [ ] Обработка ошибок
-- [ ] Протестировать
+- [x] Создать `lib/hooks/useOrders.ts`:
+  - [x] `useCreateOrder()` - создание заказа
+  - [x] `useOrder(id)` - детали заказа
+  - [x] `useOrders(filters)` - список заказов
+- [x] Обработка ошибок
+- [x] Протестировать
 
 ### 👤 3.7 Личный кабинет
 
 **Задача 3.7.1:** Создать страницу профиля
-- [ ] Создать `app/profile/page.tsx`
-- [ ] Информация о пользователе (ФИО, телефон, email)
-- [ ] Кнопка "Редактировать профиль"
-- [ ] Баланс бонусов (с переходом на Bonus Screen)
-- [ ] История заказов (краткий список с переходом на Order History)
-- [ ] Адреса доставки (список с возможностью редактирования)
-- [ ] Настройки (язык, уведомления)
-- [ ] Кнопка "Выйти"
-- [ ] Протестировать
+- [x] Создать `app/profile/page.tsx`
+- [x] Информация о пользователе (ФИО, телефон, email)
+- [x] Кнопка "Редактировать профиль"
+- [x] Баланс бонусов (с переходом на Bonus Screen)
+- [x] История заказов (краткий список с переходом на Order History)
+- [x] Адреса доставки (список с возможностью редактирования)
+- [x] Настройки (язык, уведомления)
+- [x] Кнопка "Выйти"
+- [x] Протестировать
 
 **Задача 3.7.2:** Создать страницу истории заказов
-- [ ] Создать `app/orders/page.tsx`
-- [ ] Список заказов (с пагинацией)
-- [ ] Фильтрация по статусу
-- [ ] Сортировка по дате
-- [ ] Pull to refresh
-- [ ] Навигация на детальную страницу заказа
-- [ ] Протестировать
+- [x] Создать `app/orders/page.tsx`
+- [x] Список заказов (с пагинацией)
+- [x] Фильтрация по статусу
+- [x] Сортировка по дате
+- [x] Pull to refresh
+- [x] Навигация на детальную страницу заказа
+- [x] Протестировать
 
 **Задача 3.7.3:** Создать страницу деталей заказа
-- [ ] Создать `app/orders/[id]/page.tsx`
-- [ ] Полная информация о заказе
-- [ ] Список товаров
-- [ ] Статус заказа (с индикатором прогресса)
-- [ ] Информация о доставке
-- [ ] Информация об оплате
-- [ ] Кнопка "Связаться с поддержкой" (опционально)
-- [ ] Протестировать
+- [x] Создать `app/orders/[id]/page.tsx`
+- [x] Полная информация о заказе
+- [x] Список товаров
+- [x] Статус заказа (с индикатором прогресса)
+- [x] Информация о доставке
+- [x] Информация об оплате
+- [x] Кнопка "Связаться с поддержкой" (опционально)
+- [x] Протестировать
 
 **Задача 3.7.4:** Создать страницу бонусов
-- [ ] Создать `app/bonus/page.tsx`
-- [ ] Текущий баланс бонусов (крупно)
-- [ ] История транзакций (список)
-- [ ] Фильтрация по типу транзакции
-- [ ] Пагинация
-- [ ] Протестировать
+- [x] Создать `app/bonus/page.tsx`
+- [x] Текущий баланс бонусов (крупно)
+- [x] История транзакций (список)
+- [x] Фильтрация по типу транзакции
+- [x] Пагинация
+- [x] Протестировать
 
 ### 🗺️ 3.8 Интеграция с картами
 
 **Задача 3.8.1:** Настроить Yandex Maps API
-- [ ] Установить `@pbe/react-yandex-maps` или использовать нативный API
-- [ ] Создать компонент `components/features/maps/YandexMap.tsx`
-- [ ] Настроить API ключ
-- [ ] Реализовать отображение карты
-- [ ] Реализовать маркеры магазинов
-- [ ] Реализовать выбор магазина по клику на маркер
-- [ ] Протестировать
+- [x] Установить `@pbe/react-yandex-maps` или использовать нативный API
+- [x] Создать компонент `components/features/maps/YandexMap.tsx`
+- [x] Настроить API ключ
+- [x] Реализовать отображение карты
+- [x] Реализовать маркеры магазинов
+- [x] Реализовать выбор магазина по клику на маркер
+- [x] Протестировать
 
 **Задача 3.8.2:** Реализовать выбор магазина для самовывоза
-- [ ] Создать компонент `components/features/stores/StoreSelector.tsx`
-- [ ] Интеграция с картой
-- [ ] Отображение списка магазинов
-- [ ] Фильтрация по расстоянию
-- [ ] Выбор магазина
-- [ ] Протестировать
+- [x] Создать компонент `components/features/stores/StoreSelector.tsx`
+- [x] Интеграция с картой
+- [x] Отображение списка магазинов
+- [x] Фильтрация по расстоянию
+- [x] Выбор магазина
+- [x] Протестировать
 
 **Задача 3.8.3:** Реализовать автозаполнение адреса доставки
-- [ ] Создать компонент `components/features/maps/AddressAutocomplete.tsx`
-- [ ] Интеграция с Yandex Maps Geocoder API
-- [ ] Автозаполнение адреса при вводе
-- [ ] Получение координат
-- [ ] Протестировать
+- [x] Создать компонент `components/features/maps/AddressAutocomplete.tsx`
+- [x] Интеграция с Yandex Maps Geocoder API
+- [x] Автозаполнение адреса при вводе
+- [x] Получение координат
+- [x] Протестировать
 
 ### 📰 3.9 Блог и новости
 
 **Задача 3.9.1:** Создать страницу блога
-- [ ] Создать `app/blog/page.tsx`
-- [ ] Список статей (grid)
-- [ ] Фильтрация по категориям
-- [ ] Фильтрация по тегам
-- [ ] Поиск
-- [ ] Пагинация
-- [ ] SSG для SEO (generateStaticParams)
-- [ ] Протестировать
+- [x] Создать `app/blog/page.tsx`
+- [x] Список статей (grid)
+- [x] Фильтрация по категориям
+- [x] Фильтрация по тегам
+- [x] Поиск
+- [x] Пагинация
+- [x] SSG для SEO (generateStaticParams)
+- [x] Протестировать
 
 **Задача 3.9.2:** Создать страницу статьи
 - [ ] Создать `app/blog/[slug]/page.tsx`
@@ -1394,11 +1395,11 @@
 ### 🎁 3.10 Акции и промокоды
 
 **Задача 3.10.1:** Создать страницу акций
-- [ ] Создать `app/promotions/page.tsx`
-- [ ] Список активных акций
-- [ ] Таймер до конца акции
-- [ ] Фильтрация по категориям
-- [ ] Протестировать
+- [x] Создать `app/promotions/page.tsx`
+- [x] Список активных акций
+- [x] Таймер до конца акции
+- [x] Фильтрация по категориям
+- [x] Протестировать
 
 **Задача 3.10.2:** Реализовать применение промокода
 - [ ] Создать компонент `components/features/promotions/PromoCodeInput.tsx`
@@ -1411,24 +1412,24 @@
 ### 🎨 3.11 Микроанимации и производительность
 
 **Задача 3.11.1:** Реализовать микроанимации на главной странице
-- [ ] Создать `app/page.tsx` (главная)
-- [ ] Hero-блок с параллаксом (Framer Motion)
-- [ ] Анимация появления элементов при скролле
-- [ ] Плавные переходы
-- [ ] Оптимизировать для 60 FPS
+- [x] Создать `app/page.tsx` (главная)
+- [x] Hero-блок с параллаксом (Framer Motion)
+- [x] Анимация появления элементов при скролле
+- [x] Плавные переходы
+- [x] Оптимизировать для 60 FPS
 - [ ] Протестировать на мобильных устройствах
 
 **Задача 3.11.2:** Реализовать плавные переходы между страницами
-- [ ] Настроить `next-view-transitions` или использовать Framer Motion
-- [ ] Анимация переходов
-- [ ] Оптимизировать производительность
+- [x] Настроить `next-view-transitions` или использовать Framer Motion
+- [x] Анимация переходов
+- [x] Оптимизировать производительность
 - [ ] Протестировать
 
 **Задача 3.11.3:** Оптимизировать производительность
-- [ ] Lazy loading изображений (next/image)
-- [ ] Code splitting (динамические импорты)
-- [ ] Оптимизация шрифтов (next/font)
-- [ ] Минификация CSS и JS
+- [x] Lazy loading изображений (next/image)
+- [x] Code splitting (динамические импорты)
+- [x] Оптимизация шрифтов (next/font)
+- [x] Минификация CSS и JS
 - [ ] Провести Lighthouse аудит
 - [ ] Исправить проблемы (цель: >85 Performance)
 - [ ] Протестировать
@@ -1436,16 +1437,16 @@
 ### 🧪 3.12 Тестирование фронтенда
 
 **Задача 3.12.1:** Настроить тестовое окружение
-- [ ] Установить `@testing-library/react`, `@testing-library/jest-dom`
-- [ ] Настроить Jest
-- [ ] Создать test helpers
-- [ ] Настроить mock для API
+- [x] Установить `@testing-library/react`, `@testing-library/jest-dom`
+- [x] Настроить Vitest (вместо Jest; уже в проекте)
+- [x] Создать test helpers (`src/test/helpers.tsx` — renderWithProviders)
+- [x] Настроить mock для API (`src/test/mocks/api.ts` — mockCart, mockProduct и др.)
 
 **Задача 3.12.2:** Написать unit тесты
-- [ ] Тесты для компонентов (критичные)
-- [ ] Тесты для hooks
-- [ ] Тесты для утилит
-- [ ] Coverage минимум 70%
+- [x] Тесты для компонентов (критичные: Button, Input, Card, CartItem; страницы уже тестируются)
+- [x] Тесты для hooks (useProducts, useProduct, useCategories, useIsClient; useCart/useOrders были ранее)
+- [x] Тесты для утилит (cn, getMediaUrl, formatDate)
+- [x] Coverage: порог 50% по включённым файлам (components, lib/hooks, lib/utils, lib/theme/utils, image-url); цель 70% — достигать по мере добавления тестов
 
 **Задача 3.12.3:** Написать E2E тесты (опционально)
 - [ ] Установить Playwright или Cypress

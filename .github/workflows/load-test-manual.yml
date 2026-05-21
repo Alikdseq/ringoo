@@ -1,0 +1,21 @@
+# Нагрузочное тестирование вне обычного CI: укажите URL staging и инструмент (k6/locust) локально или в отдельном runner.
+# Подробности: docs/LOAD_TESTING.md
+name: Load testing (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_url:
+        description: "Базовый URL API (например https://staging.example.com)"
+        required: true
+        type: string
+
+jobs:
+  reminder:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Checklist
+        run: |
+          echo "Цель: ${{ inputs.target_url }}"
+          echo "Запустите k6/locust по сценариям из docs/LOAD_TESTING.md; этот workflow фиксирует ручной запуск в истории Actions."

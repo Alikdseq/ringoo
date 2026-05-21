@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Оценка по заказу {{ order_number }}</title>
+</head>
+<body>
+    <p>Получена оценка по заказу <strong>{{ order_number }}</strong>{% if manager_name %} (менеджер: {{ manager_name }}){% endif %}.</p>
+    <p>Оценка: <strong>{{ rating }}/5</strong></p>
+    {% if comment %}<p>Комментарий: {{ comment }}</p>{% endif %}
+    <p>Команда Ringoo</p>
+</body>
+</html>

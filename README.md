@@ -60,48 +60,124 @@ cd ringoo
 
 2. Настройте переменные окружения:
 ```bash
-cp backend/.env.example backend/.env
+# Backend
+cp backend/.env.example backend/.env.development
+# Отредактируйте backend/.env.development при необходимости
+
+# Frontend
 cp frontend/.env.example frontend/.env.local
+# Отредактируйте frontend/.env.local при необходимости
 ```
 
-3. Запустите через Docker Compose:
+3. Настройте Docker-переменные фронта (опционально):
 ```bash
-docker-compose up -d
+cp frontend/.env.docker.example frontend/.env.docker
 ```
 
-4. Выполните миграции:
+4. Запустите весь стек через Docker Compose:
 ```bash
+# Используя Makefile (рекомендуется)
+make up
+
+# Или напрямую
+docker compose up -d --build
+```
+
+Сайт: **http://localhost:3000**, API: **http://localhost:8000**. Подробнее: [docs/DOCKER.md](./docs/DOCKER.md).
+
+5. Выполните миграции:
+```bash
+# Используя Makefile
+make migrate
+
+# Или напрямую
 docker-compose exec web python manage.py migrate
 ```
 
-5. Создайте суперпользователя:
+6. Создайте суперпользователя:
 ```bash
+# Используя Makefile
+make superuser
+
+# Или напрямую
 docker-compose exec web python manage.py createsuperuser
+```
+
+7. Проверьте статус сервисов:
+```bash
+make health
+# Backend должен быть доступен на http://localhost:8000
 ```
 
 ### Разработка
 
-#### Backend
+#### Backend (через Docker - рекомендуется)
+```bash
+# Все команды выполняются через docker-compose
+make shell          # Django shell
+make migrate        # Применить миграции
+make makemigrations # Создать миграции
+make test           # Запустить тесты
+make lint           # Проверить код линтерами
+make logs           # Просмотр логов
+```
+
+#### Backend (локально, без Docker)
+
+**Виртуальное окружение** изолирует зависимости проекта от системного Python — его нужно создавать и активировать перед работой.
+
 ```bash
 cd backend
+
+# Создать venv (один раз)
 python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
+
+# Активировать venv
+# Windows (cmd):     venv\Scripts\activate
+# Windows (PowerShell): .\venv\Scripts\Activate.ps1
+# Linux/macOS:       source venv/bin/activate
+
+# Установить зависимости (в активированном venv)
 pip install -r requirements.txt
+pip install -r requirements-dev.txt
+
+# Запуск
 python manage.py runserver
 ```
 
-#### Frontend
+Миграции с активированным venv: `python manage.py migrate`
+
+#### Frontend (через Docker — рекомендуется)
 ```bash
-cd frontend
-npm install
-npm run dev
+make up                 # поднимает frontend вместе с backend
+make frontend-logs      # логи Next.js
+make frontend-shell     # shell в контейнере
+docker compose exec frontend npm run lint
+docker compose exec frontend npm run build
+```
+
+Локально без Docker (по желанию): `cd frontend && npm install && npm run dev`
+
+#### Полезные команды Makefile
+```bash
+make help           # Показать все доступные команды
+make up             # Запустить все сервисы
+make down           # Остановить все сервисы
+make restart        # Перезапустить сервисы
+make logs           # Показать логи
+make clean          # Очистить volumes и кэш
 ```
 
 ## 📚 Документация
 
 - [План разработки](./PLAN.md) - детальный атомарный план
-- [Архитектура](./ARCHITECTURE.md) - архитектурный анализ
+- [Архитектура](./docs/ARCHITECTURE.md) - архитектурный анализ
 - [API Документация](./docs/API.md) - описание API endpoints
+- [Безопасность](./docs/SECURITY.md) - чеклист и реализация безопасности
+- [Юридическое соответствие](./docs/LEGAL.md) - 152-ФЗ, GDPR, оферта, реквизиты
+- [Юзабилити и UX](./docs/UX.md) - мобильная версия, скелетоны, сообщения об ошибках
+- [Резервное копирование](./docs/BACKUP.md) - ежедневные бэкапы БД и медиа, восстановление за час
+- [Для клиента (руководитель)](./docs/ДЛЯ_КЛИЕНТА_НАРИНА.md) - что сделано и как всё работает, простым языком
 
 ## 🧪 Тестирование
 

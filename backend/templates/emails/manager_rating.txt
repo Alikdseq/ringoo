@@ -1,0 +1,6 @@
+Получена оценка по заказу {{ order_number }}{% if manager_name %} (менеджер: {{ manager_name }}){% endif %}.
+
+Оценка: {{ rating }}/5
+{% if comment %}Комментарий: {{ comment }}{% endif %}
+
+Команда Ringoo

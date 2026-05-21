@@ -1,0 +1,11 @@
+Новая заявка «Не нашли нужный товар?»
+
+Имя: {{ contact_name|default:"—" }}
+Телефон: {{ contact_phone }}
+Название товара: {{ product_name }}
+{% if contact_email %}Email: {{ contact_email }}{% endif %}
+{% if comment %}Комментарий: {{ comment }}{% endif %}
+
+Дата заявки: {{ created_at|date:"d.m.Y H:i" }}
+
+Команда Ringoo

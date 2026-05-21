@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Заявка: Не нашли товар</title>
+</head>
+<body>
+    <p>Новая заявка <strong>«Не нашли нужный товар?»</strong></p>
+    <ul>
+        <li><strong>Имя:</strong> {{ contact_name|default:"—" }}</li>
+        <li><strong>Телефон:</strong> {{ contact_phone }}</li>
+        <li><strong>Название товара:</strong> {{ product_name }}</li>
+        {% if contact_email %}<li><strong>Email:</strong> {{ contact_email }}</li>{% endif %}
+        {% if comment %}<li><strong>Комментарий:</strong> {{ comment }}</li>{% endif %}
+    </ul>
+    <p><small>Дата заявки: {{ created_at|date:"d.m.Y H:i" }}</small></p>
+    <p>Команда Ringoo</p>
+</body>
+</html>
