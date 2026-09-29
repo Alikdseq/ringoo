@@ -83,6 +83,22 @@ def test_group_flat_single_file_no_groups(tmp_path):
     assert g == {}
 
 
+def test_group_flat_single_color_multi_shots(tmp_path):
+    names = [
+        "Poco-X6-Black-Back.webp",
+        "Poco-X6-Black-Front.webp",
+        "Poco-X6-Black-Full.webp",
+    ]
+    files = []
+    for n in names:
+        p = tmp_path / n
+        p.write_bytes(b"x")
+        files.append(p)
+    g = group_flat_images_by_color(files)
+    assert len(g) == 1
+    assert "black" in next(iter(g))
+
+
 @pytest.fixture
 def tmp_realme_14(tmp_path: Path) -> list[Path]:
     names = [

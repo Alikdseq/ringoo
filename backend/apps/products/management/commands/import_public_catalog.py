@@ -27,6 +27,7 @@ from apps.products.services.public_catalog_flat import (
     label_from_color_slug,
 )
 from apps.products.services.public_catalog_iter import (
+    _subdir_looks_like_color_folder,
     iter_model_directories,
     list_images,
     list_subdirs,
@@ -115,6 +116,11 @@ class Command(BaseCommand):
 
         if not found_any:
             self.stdout.write(self.style.WARNING("Нет папок брендов для импорта."))
+        elif not dry:
+            from apps.products.cache_utils import bump_products_list_version
+
+            bump_products_list_version()
+            self.stdout.write(self.style.SUCCESS("Кэш списка товаров сброшен."))
 
     def _ensure_categories(self, dry: bool) -> dict[str, Category] | None:
         if dry:
@@ -191,6 +197,8 @@ class Command(BaseCommand):
 
         color_folder_files: dict[str, list[Path]] = defaultdict(list)
         for sd in subdirs:
+            if not _subdir_looks_like_color_folder(sd):
+                continue
             imgs = list_images(sd)
             if imgs:
                 raw = slugify(sd.name) or sd.name.lower()
@@ -284,23 +292,33 @@ class Command(BaseCommand):
                     upsert_color(cs, label_from_color_slug(cs))
 
             img_order = 0
-            first = True
+            main_color_slugs: set[str] = set()
+            global_main_set = False
             added: set[Path] = set()
 
             def add_image(rel_path: Path, color: ProductColor | None):
-                nonlocal img_order, first
+                nonlocal img_order, global_main_set
                 raw = rel_path.read_bytes()
                 webp = bytes_to_webp_on_white(raw)
-                name = f"{model_slug_tail}_{img_order:02d}.webp"
+                name = f"{model_slug_tail}_{img_order:03d}.webp"
+                color_slug = color.slug if color else ""
+                is_color_main = bool(color_slug and color_slug not in main_color_slugs)
+                if is_color_main:
+                    main_color_slugs.add(color_slug)
+                is_main = is_color_main or (not global_main_set and color is None)
+                if is_main and not is_color_main:
+                    global_main_set = True
+                alt = title
+                if color:
+                    alt = f"{title} — {color.label}"[:255]
                 img = ProductImage(
                     product=product,
                     color=color,
-                    is_main=first,
-                    alt_text=f"{title}"[:255],
+                    is_main=is_main,
+                    alt_text=alt[:255],
                     sort_order=img_order,
                 )
                 img.image.save(name, ContentFile(webp), save=True)
-                first = False
                 img_order += 1
                 added.add(rel_path.resolve())
 

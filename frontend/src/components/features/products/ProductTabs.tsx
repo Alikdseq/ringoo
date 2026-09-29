@@ -4,6 +4,7 @@ import { useState } from 'react';
 import type { ProductDetail } from '@/types';
 import { stripDescriptionHtml } from '@/lib/format-description';
 import { cn } from '@/lib/theme/utils';
+import { FreeDeliveryHighlight } from '@/components/ui/FreeDeliveryBadge';
 
 const TABS = [
   { id: 'description', label: 'Описание' },
@@ -70,10 +71,11 @@ export function ProductTabs({ product }: ProductTabsProps) {
           </p>
         )}
         {active === 'delivery' && (
-          <div className="space-y-2 text-sm text-foreground-muted">
+          <div className="space-y-3 text-sm text-foreground-muted">
+            <FreeDeliveryHighlight />
             <p>
-              Доставка по России курьером СДЭК. По Владикавказу и РСО-Алания — курьером или
-              самовывоз.
+              По Владикавказу и РСО-Алания — бесплатная доставка от 100 ₽. Привезём домой или на
+              работу — куда удобно. По России — курьером СДЭК.
             </p>
             <p>
               Оплата: наличными в магазине, картой, в рассрочку через банк-партнёр. Цена и наличие

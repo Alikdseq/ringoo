@@ -5,7 +5,11 @@ import { ScrollRevealSection } from './ScrollRevealSection';
 import { TYPOGRAPHY, TYPOGRAPHY_MUTED } from '@/lib/theme/typography';
 
 const features = [
-  { icon: Truck, title: 'Доставка', description: 'Быстрая доставка по городу и региону' },
+  {
+    icon: Truck,
+    title: 'Доставка бесплатно от 100 ₽',
+    description: 'Привезём домой или на работу — куда удобно',
+  },
   { icon: Shield, title: 'Гарантия', description: 'Официальная гарантия на всю технику' },
   { icon: Package, title: 'Ассортимент', description: 'Электроника и аксессуары в одном каталоге' },
 ];

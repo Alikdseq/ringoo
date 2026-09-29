@@ -97,3 +97,12 @@ docker compose exec frontend npm run menegers:manifest
 - фон hero в режиме «Свой», когда в localStorage другой режим, чем в cookie (исправлено синхронизацией `UiModeProvider` с bootstrap-скриптом).
 
 После правок остаётся один приоритетный LCP на главной (фон hero в официальном режиме). Шрифты Geist: `preload: false` в `layout.tsx`.
+
+## Демо клиенту через ngrok (два URL)
+
+Фронт `:3000` и API `:8000` — **разные** публичные адреса. См. [NGROK.md](./NGROK.md).
+
+```powershell
+.\scripts\ngrok\start-ringoo.ps1
+docker compose restart frontend web
+```

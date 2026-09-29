@@ -22,6 +22,8 @@ import { addToCart, getCart } from '@/lib/api/services/cart.service';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
+import { FilterSelect } from '@/components/ui/FilterSelect';
+import { MOBILE_SECTION_BLEED_CLASS } from '@/lib/theme/spacing';
 import { Loading } from '@/components/ui/Loading';
 import { cn } from '@/lib/theme/utils';
 import { getPageGallery } from '@/lib/api/services/pageGallery.service';
@@ -362,7 +364,7 @@ export function StoresContent() {
               }}
             />
 
-            <div className="relative grid gap-5 lg:grid-cols-[1.05fr_0.95fr] lg:items-start">
+            <div className="relative grid grid-cols-1 gap-5 lg:grid-cols-[1.05fr_0.95fr] lg:items-start">
               <div>
                 <p className="text-sm font-semibold text-brand">Локальное присутствие Ringoo</p>
                 <h1 className="mt-2 text-2xl font-semibold tracking-tight text-foreground sm:text-3xl lg:text-4xl">
@@ -404,26 +406,58 @@ export function StoresContent() {
                   </Button>
                 </div>
                 {geoError && <p className="mt-2 text-sm text-red-600 dark:text-red-400">{geoError}</p>}
+
+                <div className="mt-4 md:hidden">
+                  <p className="text-sm font-semibold text-foreground">Визит без сюрпризов</p>
+                  <ul className="mt-3 space-y-2 text-sm text-foreground-muted">
+                    <li className="flex items-start gap-2">
+                      <span className="mt-0.5 inline-block h-2 w-2 shrink-0 rounded-full bg-emerald-600" />
+                      Проверьте наличие товара до поездки
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="mt-0.5 inline-block h-2 w-2 shrink-0 rounded-full bg-emerald-600" />
+                      Постройте маршрут в 1 клик
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="mt-0.5 inline-block h-2 w-2 shrink-0 rounded-full bg-emerald-600" />
+                      Заберите покупку сегодня
+                    </li>
+                  </ul>
+                </div>
               </div>
 
-              <div className="relative overflow-hidden rounded-3xl border border-border bg-[radial-gradient(circle_at_20%_20%,rgba(46,125,50,0.18),transparent_55%),linear-gradient(180deg,#ffffff,#f7faf7)] p-4 sm:p-6">
-                <p className="text-sm font-semibold text-foreground">Визит без сюрпризов</p>
-                <ul className="mt-3 space-y-2 text-sm text-foreground-muted">
-                  <li className="flex items-start gap-2">
-                    <span className="mt-0.5 inline-block h-2 w-2 rounded-full bg-emerald-600" />
-                    Проверьте наличие товара до поездки
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="mt-0.5 inline-block h-2 w-2 rounded-full bg-emerald-600" />
-                    Постройте маршрут в 1 клик
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="mt-0.5 inline-block h-2 w-2 rounded-full bg-emerald-600" />
-                    Заберите покупку сегодня
-                  </li>
-                </ul>
-                <div className="mt-4 max-h-[min(42vh,320px)]">
-                  <PageHeroGallery images={storesHeroGallery} className="max-h-[min(42vh,320px)]" />
+              <div
+                className={cn(
+                  'max-md:col-span-full',
+                  MOBILE_SECTION_BLEED_CLASS,
+                  'md:mx-0 md:w-full'
+                )}
+              >
+                <div className="relative overflow-hidden max-md:rounded-none md:rounded-3xl md:border md:border-border md:bg-[radial-gradient(circle_at_20%_20%,rgba(46,125,50,0.18),transparent_55%),linear-gradient(180deg,#ffffff,#f7faf7)] md:p-4 lg:p-6">
+                  <div className="hidden md:block">
+                    <p className="text-sm font-semibold text-foreground">Визит без сюрпризов</p>
+                    <ul className="mt-3 space-y-2 text-sm text-foreground-muted">
+                      <li className="flex items-start gap-2">
+                        <span className="mt-0.5 inline-block h-2 w-2 rounded-full bg-emerald-600" />
+                        Проверьте наличие товара до поездки
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="mt-0.5 inline-block h-2 w-2 rounded-full bg-emerald-600" />
+                        Постройте маршрут в 1 клик
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="mt-0.5 inline-block h-2 w-2 rounded-full bg-emerald-600" />
+                        Заберите покупку сегодня
+                      </li>
+                    </ul>
+                  </div>
+                  <div className="mt-0 max-h-[min(50vh,360px)] md:mt-4 md:max-h-[min(42vh,320px)]">
+                    <PageHeroGallery
+                      images={storesHeroGallery}
+                      fullBleed
+                      className="h-full max-h-[min(50vh,360px)] md:max-h-[min(42vh,320px)]"
+                    />
+                  </div>
                 </div>
               </div>
             </div>
@@ -437,24 +471,19 @@ export function StoresContent() {
           <Card className="rounded-3xl border border-border bg-white p-4 sm:p-5">
             <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
               <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label htmlFor="stores-city" className="mb-1 block text-sm text-foreground-muted">
-                    Город / район
-                  </label>
-                  <select
-                    id="stores-city"
-                    value={city}
-                    onChange={e => setCity(e.target.value)}
-                    className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary dark:bg-zinc-900"
-                  >
-                    <option value="all">Все города</option>
-                    {availableCities.map(c => (
-                      <option key={c} value={c}>
-                        {c}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                <FilterSelect
+                  id="stores-city"
+                  label="Город / район"
+                  value={city}
+                  onChange={e => setCity(e.target.value)}
+                >
+                  <option value="all">Все города</option>
+                  {availableCities.map(c => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </FilterSelect>
                 <div>
                   <label htmlFor="stores-search" className="mb-1 block text-sm text-foreground-muted">
                     Поиск по адресу
@@ -517,24 +546,24 @@ export function StoresContent() {
       </section>
 
       {/* Блок 3. Карта + список */}
-      <section ref={heroMapRef} className="px-2 py-10 sm:px-4 lg:px-6">
-        <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="mb-6">
+      <section ref={heroMapRef} className="px-4 py-10 sm:px-4 lg:px-6">
+        <div className="mx-auto w-full max-w-7xl max-md:px-0 sm:px-6 lg:px-8">
+          <div className="mb-6 px-0 max-md:px-4">
             <h2 className="text-2xl font-semibold text-foreground sm:text-3xl">Карта и адреса</h2>
             <p className="mt-2 text-base text-foreground-muted sm:text-lg">
               Выберите магазин в списке — карта подсветит точку. Нажмите на маркер, чтобы перейти к карточке.
             </p>
           </div>
 
-          <div className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
-            <Card className="rounded-3xl border border-border bg-white p-4 sm:p-5">
-              <p className="mb-3 text-sm font-semibold text-foreground">Список магазинов</p>
+          <div className="grid gap-5 max-md:grid-cols-1 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
+            <div className="max-md:px-0 md:rounded-3xl md:border md:border-border md:bg-white md:p-4 lg:p-5">
+              <p className="mb-3 hidden text-sm font-semibold text-foreground md:block">Список магазинов</p>
               {sortedStores.length === 0 ? (
                 <p className="text-sm text-foreground-muted">По заданным фильтрам ничего не найдено.</p>
               ) : (
                 <ul
                   ref={listRef}
-                  className="no-scrollbar flex max-h-[520px] flex-col gap-3 overflow-y-auto pr-1"
+                  className="no-scrollbar flex max-md:max-h-none flex-col gap-3 overflow-y-auto pr-0 max-md:px-0 md:max-h-[520px] md:pr-1"
                 >
                   {sortedStores.map(({ store, distanceKm }) => {
                     const open = isOpenNow(store);
@@ -549,7 +578,7 @@ export function StoresContent() {
                           role="button"
                           tabIndex={0}
                           className={cn(
-                            'cursor-pointer rounded-2xl border p-4 text-left transition-colors',
+                            'w-full cursor-pointer rounded-2xl border p-4 text-left transition-colors',
                             selectedStoreId === store.id
                               ? 'border-emerald-600 bg-emerald-50/40'
                               : 'border-border bg-card hover:border-emerald-600/40'
@@ -653,9 +682,9 @@ export function StoresContent() {
                   })}
                 </ul>
               )}
-            </Card>
+            </div>
 
-            <Card className="overflow-hidden rounded-3xl border border-border bg-white p-0">
+            <div className="overflow-hidden max-md:rounded-2xl md:rounded-3xl md:border md:border-border md:bg-white">
               <StoresMapDynamic
                 stores={filteredStores}
                 selectedStoreId={selectedStoreId}
@@ -666,7 +695,7 @@ export function StoresContent() {
               <div className="border-t border-border p-4 text-sm text-foreground-muted">
                 Подсказка: клик по маркеру выберет магазин в списке.
               </div>
-            </Card>
+            </div>
           </div>
         </div>
       </section>

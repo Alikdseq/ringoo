@@ -2,21 +2,16 @@
 
 import { usePathname, useRouter } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
+import { usePrefersReducedMotion } from '@/lib/hooks/usePrefersReducedMotion';
 import { useCart } from '@/lib/hooks/useCart';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { useWishlist } from '@/lib/hooks/useWishlist';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
+import { HEADER_MAIN_OFFSET_CLASS } from '@/lib/theme/spacing';
+import { cn } from '@/lib/theme/utils';
 import type { Category } from '@/types';
-
-/** Без opacity:0 на входе — иначе при сбое/зависании анимации main остаётся невидимым (видны только хедер и футер). */
-const pageTransition = {
-  initial: { y: 6 },
-  animate: { y: 0 },
-  exit: { opacity: 0, y: -4 },
-  transition: { duration: 0.22, ease: [0.25, 0.46, 0.45, 0.94] as const },
-};
 
 function shouldAnimateRoute(pathname: string | null): boolean {
   if (!pathname) return true;
@@ -34,7 +29,20 @@ export function AppShell({
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const animateRoute = shouldAnimateRoute(pathname);
+  const reducedMotion = usePrefersReducedMotion();
+  const animateRoute = shouldAnimateRoute(pathname) && !reducedMotion;
+  const pageTransition = useMemo(
+    () =>
+      reducedMotion
+        ? { initial: false as const, animate: {}, exit: {}, transition: { duration: 0 } }
+        : {
+            initial: { y: 6 },
+            animate: { y: 0 },
+            exit: { opacity: 0, y: -4 },
+            transition: { duration: 0.22, ease: [0.25, 0.46, 0.45, 0.94] as const },
+          },
+    [reducedMotion]
+  );
   const { data: cart } = useCart();
   const cartCount = cart?.items?.length ?? 0;
   const { isAuthenticated } = useAuth();
@@ -48,14 +56,19 @@ export function AppShell({
   }, [pathname]);
 
   return (
-    <div className="relative flex min-h-screen flex-col">
+    <div className="relative flex min-h-screen w-full min-w-0 max-w-full flex-col">
       <Header
         cartCount={cartCount}
         wishlistCount={wishlistCount ?? 0}
         onLogoClick={() => router.push('/')}
         onCartClick={() => router.push('/cart')}
       />
-      <main className="relative flex-1">
+      <main
+        className={cn(
+          'relative min-w-0 w-full max-w-full flex-1 overflow-x-clip',
+          HEADER_MAIN_OFFSET_CLASS
+        )}
+      >
         {animateRoute ? (
           <AnimatePresence mode="wait">
             <motion.div

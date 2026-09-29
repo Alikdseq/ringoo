@@ -16,6 +16,7 @@ import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Loading } from '@/components/ui/Loading';
 import { PlaceholderBlock } from '@/components/ui/PlaceholderBlock';
+import { FreeDeliveryBadge } from '@/components/ui/FreeDeliveryBadge';
 import { StoreSelector } from '@/components/features/stores/StoreSelector';
 import { AddressAutocomplete } from '@/components/features/maps/AddressAutocomplete';
 import { CURRENCY_SYMBOL } from '@/lib/constants';
@@ -418,9 +419,12 @@ export default function CheckoutPage() {
 
           {currentStep === 1 && (
             <Card className="space-y-4">
-              <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
-                Шаг 2. Доставка
-              </h2>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
+                  Шаг 2. Доставка
+                </h2>
+                <FreeDeliveryBadge size="sm" />
+              </div>
 
               {/* Контакты */}
               <div className="space-y-3">
@@ -448,6 +452,9 @@ export default function CheckoutPage() {
                       Телефон
                     </label>
                     <Input
+                      type="tel"
+                      inputMode="tel"
+                      autoComplete="tel"
                       value={delivery.phone}
                       onChange={e =>
                         setDelivery(prev => ({
@@ -487,7 +494,7 @@ export default function CheckoutPage() {
                 <div className="flex flex-wrap gap-2 text-sm">
                   <button
                     type="button"
-                    className={`rounded-full border px-3 py-1 ${
+                    className={`min-h-[44px] touch-manipulation rounded-full border px-4 py-2 text-sm active:scale-[0.98] lg:min-h-0 ${
                       delivery.deliveryType === 'pickup'
                         ? 'border-[--color-brand] bg-[--color-brand-soft] text-[--color-brand]'
                         : 'border-zinc-300 text-zinc-700 dark:border-zinc-700 dark:text-zinc-300'
@@ -503,7 +510,7 @@ export default function CheckoutPage() {
                   </button>
                   <button
                     type="button"
-                    className={`rounded-full border px-3 py-1 ${
+                    className={`min-h-[44px] touch-manipulation rounded-full border px-4 py-2 text-sm active:scale-[0.98] lg:min-h-0 ${
                       delivery.deliveryType === 'delivery'
                         ? 'border-[--color-brand] bg-[--color-brand-soft] text-[--color-brand]'
                         : 'border-zinc-300 text-zinc-700 dark:border-zinc-700 dark:text-zinc-300'
@@ -618,7 +625,7 @@ export default function CheckoutPage() {
                     <button
                       key={opt.value}
                       type="button"
-                      className={`rounded-xl border px-3 py-2 text-left ${
+                      className={`min-h-[44px] touch-manipulation rounded-xl border px-3 py-2.5 text-left text-sm active:scale-[0.99] lg:min-h-0 ${
                         payment.paymentType === opt.value
                           ? 'border-[--color-brand] bg-[--color-brand-soft]'
                           : 'border-zinc-300 hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-900'

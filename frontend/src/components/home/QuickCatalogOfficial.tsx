@@ -1,8 +1,20 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
+import { LINK_PREFETCH_DEFAULT } from '@/lib/navigation/link-prefetch';
 import type { HomePageHeroSideCategory } from '@/lib/locales/useHomePageCopy';
 import { cn } from '@/lib/theme/utils';
+import {
+  QUICK_CATALOG_FROST_CLASS,
+  QUICK_CATALOG_GLOW_CLASS,
+  QUICK_CATALOG_IMAGE_CLASS,
+  QUICK_CATALOG_LABEL_CLASS,
+  QUICK_CATALOG_LIGHT_OVERLAY_CLASS,
+  QUICK_CATALOG_SCRIM_CLASS,
+  QUICK_CATALOG_SHELL_CLASS,
+  quickCatalogBackgroundForSlug,
+} from '@/components/home/quickCatalogBackgrounds';
 
 const SLUG_GRADIENTS: Record<string, string> = {
   iphone: 'bg-[linear-gradient(145deg,#0f172a_0%,#14532d_38%,#16a34a_72%,#22c55e_100%)]',
@@ -18,13 +30,6 @@ function gradientForSlug(slug: string): string {
   return SLUG_GRADIENTS[slug] ?? SLUG_GRADIENTS.samsung;
 }
 
-const GRADIENT_OVERLAY = [
-  "before:pointer-events-none before:absolute before:inset-0 before:content-['']",
-  'before:bg-[radial-gradient(ellipse_70%_55%_at_75%_25%,rgba(255,255,255,0.2),transparent_50%)]',
-  "after:pointer-events-none after:absolute after:inset-0 after:content-['']",
-  'after:bg-[linear-gradient(to_top,rgba(0,0,0,0.28)_0%,transparent_42%)]',
-].join(' ');
-
 function OfficialHeroCategoryButton({
   item,
   compact,
@@ -34,25 +39,49 @@ function OfficialHeroCategoryButton({
   compact?: boolean;
   wide?: boolean;
 }) {
+  const bgSrc = quickCatalogBackgroundForSlug(item.slug);
+
   return (
     <Link
       href={item.href}
+      prefetch={LINK_PREFETCH_DEFAULT}
       className="group block h-full w-full min-h-0 flex-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
       aria-label={`Перейти в категорию «${item.label}»`}
     >
       <div
         className={cn(
-          'relative h-full w-full overflow-hidden rounded-2xl shadow-lg ring-1 ring-white/10 transition-[transform,box-shadow] duration-300',
-          'hover:scale-[1.01] hover:shadow-xl sm:rounded-3xl',
-          compact ? 'min-h-[4.5rem] sm:min-h-[5rem]' : wide ? 'min-h-[4.5rem] sm:min-h-[5.5rem]' : 'min-h-[8rem]',
-          gradientForSlug(item.slug),
-          GRADIENT_OVERLAY
+          QUICK_CATALOG_SHELL_CLASS,
+          compact ? 'min-h-[4.5rem] sm:min-h-[5rem]' : wide ? 'min-h-[4.5rem] sm:min-h-[5.5rem]' : 'min-h-[8rem]'
         )}
       >
+        {bgSrc ? (
+          <>
+            <Image
+              src={bgSrc}
+              alt=""
+              fill
+              sizes={
+                wide
+                  ? '(max-width: 1024px) 100vw, 33vw'
+                  : compact
+                    ? '(max-width: 1024px) 45vw, 18vw'
+                    : '(max-width: 1024px) 45vw, 22vw'
+              }
+              className={QUICK_CATALOG_IMAGE_CLASS}
+              priority={item.slug === 'iphone'}
+            />
+            <div className={QUICK_CATALOG_GLOW_CLASS} aria-hidden />
+            <div className={QUICK_CATALOG_LIGHT_OVERLAY_CLASS} aria-hidden />
+            <div className={QUICK_CATALOG_SCRIM_CLASS} aria-hidden />
+            <div className={QUICK_CATALOG_FROST_CLASS} aria-hidden />
+          </>
+        ) : (
+          <div className={cn('absolute inset-0', gradientForSlug(item.slug))} aria-hidden />
+        )}
+
         <span
           className={cn(
-            'absolute inset-0 z-10 flex items-center justify-center px-3 text-center font-bold leading-tight tracking-tight text-white',
-            'drop-shadow-[0_2px_8px_rgba(0,0,0,0.45)]',
+            QUICK_CATALOG_LABEL_CLASS,
             wide ? 'text-xl sm:text-2xl lg:text-3xl' : compact ? 'text-base sm:text-lg' : 'text-xl sm:text-2xl'
           )}
         >

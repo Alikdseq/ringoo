@@ -3,9 +3,12 @@
 import Image from 'next/image';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Swiper, SwiperSlide } from 'swiper/react';
-import { Navigation, Pagination } from 'swiper/modules';
+import { Autoplay, Navigation, Pagination } from 'swiper/modules';
 import type { PageGalleryImage } from '@/lib/api/services/pageGallery.service';
 import { getMediaUrl, shouldUnoptimizeImage } from '@/lib/image-url';
+import { MOBILE_SECTION_BLEED_CLASS } from '@/lib/theme/spacing';
+import { usePrefersReducedMotion } from '@/lib/hooks/usePrefersReducedMotion';
+import { cn } from '@/lib/theme/utils';
 
 import 'swiper/css';
 import 'swiper/css/navigation';
@@ -14,9 +17,18 @@ import 'swiper/css/pagination';
 interface Props {
   images: PageGalleryImage[];
   className?: string;
+  /** На mobile — на всю ширину экрана без скругления */
+  fullBleed?: boolean;
 }
 
-export function PageHeroGallery({ images, className }: Props) {
+const frameClass =
+  'relative aspect-[4/3] w-full overflow-hidden bg-zinc-100 ring-1 ring-black/5';
+
+const roundedDefault = 'rounded-3xl';
+const roundedBleed = 'max-md:rounded-none max-md:ring-0 md:rounded-3xl';
+
+export function PageHeroGallery({ images, className, fullBleed = false }: Props) {
+  const reducedMotion = usePrefersReducedMotion();
   const slides = images
     .map(img => {
       const src = getMediaUrl(img.image) ?? img.image;
@@ -29,11 +41,15 @@ export function PageHeroGallery({ images, className }: Props) {
     })
     .filter(s => s.src);
 
+  const outerClass = cn(
+    frameClass,
+    fullBleed ? cn(MOBILE_SECTION_BLEED_CLASS, roundedBleed) : roundedDefault,
+    className
+  );
+
   if (slides.length === 0) {
     return (
-      <div
-        className={`relative flex aspect-[4/3] w-full items-center justify-center overflow-hidden rounded-3xl bg-zinc-100 ring-1 ring-black/5 ${className ?? ''}`}
-      >
+      <div className={cn(outerClass, 'flex items-center justify-center')}>
         <span className="text-sm text-foreground-muted">Фото скоро появятся</span>
       </div>
     );
@@ -41,9 +57,7 @@ export function PageHeroGallery({ images, className }: Props) {
 
   if (slides.length === 1) {
     return (
-      <div
-        className={`relative aspect-[4/3] w-full overflow-hidden rounded-3xl bg-zinc-100 ring-1 ring-black/5 ${className ?? ''}`}
-      >
+      <div className={outerClass}>
         <Image
           src={slides[0]!.src}
           alt={slides[0]!.alt}
@@ -57,17 +71,24 @@ export function PageHeroGallery({ images, className }: Props) {
   }
 
   return (
-    <div
-      className={`page-hero-gallery relative aspect-[4/3] w-full overflow-hidden rounded-3xl bg-zinc-100 ring-1 ring-black/5 ${className ?? ''}`}
-    >
+    <div className={cn('page-hero-gallery', outerClass)}>
       <Swiper
-        modules={[Navigation, Pagination]}
+        modules={[Navigation, Pagination, Autoplay]}
         navigation={{
           prevEl: '.page-hero-gallery-prev',
           nextEl: '.page-hero-gallery-next',
         }}
         pagination={{ clickable: true }}
         loop={slides.length > 2}
+        autoplay={
+          reducedMotion
+            ? false
+            : {
+                delay: 4000,
+                disableOnInteraction: false,
+                pauseOnMouseEnter: true,
+              }
+        }
         className="h-full w-full"
       >
         {slides.map((slide, index) => (
@@ -87,14 +108,14 @@ export function PageHeroGallery({ images, className }: Props) {
       </Swiper>
       <button
         type="button"
-        className="page-hero-gallery-prev absolute left-3 top-1/2 z-10 flex size-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 shadow-md hover:bg-white"
+        className="page-hero-gallery-prev absolute left-3 top-1/2 z-10 hidden size-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 shadow-md hover:bg-white md:flex"
         aria-label="Назад"
       >
         <ChevronLeft className="size-5" />
       </button>
       <button
         type="button"
-        className="page-hero-gallery-next absolute right-3 top-1/2 z-10 flex size-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 shadow-md hover:bg-white"
+        className="page-hero-gallery-next absolute right-3 top-1/2 z-10 hidden size-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 shadow-md hover:bg-white md:flex"
         aria-label="Вперёд"
       >
         <ChevronRight className="size-5" />

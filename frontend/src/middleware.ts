@@ -3,6 +3,8 @@ import type { NextRequest } from 'next/server';
 
 import { authCookiesMode } from '@/lib/auth-mode';
 
+const API_PROXY_TARGET = process.env.RINGOO_API_PROXY_TARGET?.replace(/\/+$/, '') ?? '';
+
 const ACCESS_COOKIE =
   process.env.NEXT_PUBLIC_JWT_COOKIE_ACCESS_NAME ?? 'ringoo_access';
 const REFRESH_COOKIE =
@@ -22,11 +24,22 @@ function isOrdersPublicPath(pathname: string): boolean {
 }
 
 export function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  if (API_PROXY_TARGET) {
+    if (pathname.startsWith('/api/v1/') || pathname === '/api/v1') {
+      const target = new URL(`${pathname}${request.nextUrl.search}`, API_PROXY_TARGET);
+      return NextResponse.rewrite(target);
+    }
+    if (pathname.startsWith('/media/')) {
+      const target = new URL(`${pathname}${request.nextUrl.search}`, API_PROXY_TARGET);
+      return NextResponse.rewrite(target);
+    }
+  }
+
   if (!authCookiesMode()) {
     return NextResponse.next();
   }
-
-  const { pathname } = request.nextUrl;
 
   if (pathname.startsWith('/admin/login')) {
     return NextResponse.next();
@@ -72,5 +85,14 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/profile/:path*', '/orders/:path*', '/orders', '/admin/:path*', '/admin'],
+  matcher: [
+    '/api/v1/:path*',
+    '/api/v1',
+    '/media/:path*',
+    '/profile/:path*',
+    '/orders/:path*',
+    '/orders',
+    '/admin/:path*',
+    '/admin',
+  ],
 };

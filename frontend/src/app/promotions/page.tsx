@@ -12,12 +12,13 @@ import { getMediaUrl } from '@/lib/image-url';
 import { usePromotionCountdown } from '@/lib/hooks/usePromotionCountdown';
 import { CURRENCY_SYMBOL } from '@/lib/constants';
 import { cn } from '@/lib/theme/utils';
+import { HOME_SECTION_CLASS, HOME_SECTION_INNER_CLASS, PRODUCT_CARD_GRID_CLASS } from '@/lib/theme/spacing';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Loading } from '@/components/ui/Loading';
 import { SubscribeDealsSection } from '@/components/home/SubscribeDealsSection';
 import { InstallmentZeroSection } from '@/components/home/InstallmentZeroSection';
-import { getProducts } from '@/lib/api/services/products.service';
+import { getProductDetail, getProducts } from '@/lib/api/services/products.service';
 import type { Product } from '@/types';
 import { ProductCard } from '@/components/features/products/ProductCard';
 import { Swiper, SwiperSlide } from 'swiper/react';
@@ -26,6 +27,12 @@ import 'swiper/css';
 import 'swiper/css/navigation';
 
 type PromoKind = 'all' | 'discount' | 'installment' | 'gift' | 'product_of_day';
+
+/** Товар дня на странице акций (slug в каталоге). */
+const PRODUCT_OF_DAY_SLUG = 'iphone-iphone-17-pro-max';
+
+const PRODUCT_OF_DAY_SWIPER_CLASS =
+  'h-full w-full !p-0 max-md:[&_.swiper-button-next]:!hidden max-md:[&_.swiper-button-prev]:!hidden md:[&_.swiper-button-next]:!flex md:[&_.swiper-button-prev]:!flex md:[&_.swiper-button-next]:right-1 md:[&_.swiper-button-prev]:left-1 [&_.swiper-button-next]:!size-9 [&_.swiper-button-prev]:!size-9 [&_.swiper-button-next]:!bg-transparent [&_.swiper-button-prev]:!bg-transparent [&_.swiper-button-next]:!shadow-none [&_.swiper-button-prev]:!shadow-none [&_.swiper-button-next]:text-brand [&_.swiper-button-prev]:text-brand [&_.swiper-slide]:!flex [&_.swiper-slide]:items-center [&_.swiper-slide]:justify-center';
 
 function formatDiscount(promotion: Promotion): string {
   if (promotion.discount_type === 'percent') return `−${Number(promotion.discount_value)}%`;
@@ -284,53 +291,51 @@ function PromoHero({ onScrollToList }: { onScrollToList: () => void }) {
 function ProductOfDayBlock({ promotion }: { promotion: Promotion }) {
   const timeLeft = usePromotionCountdown(promotion.end_date);
   return (
-    <section className="bg-background px-2 py-10 sm:px-4 lg:px-6">
-      <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="mb-6 flex items-end justify-between gap-4">
-          <div>
-            <h2 className="text-2xl font-semibold text-foreground sm:text-3xl">Товар дня</h2>
-            <p className="mt-2 text-base text-foreground-muted sm:text-lg">
-              Суперпредложение — успей забрать.
-            </p>
-          </div>
+    <section className={HOME_SECTION_CLASS}>
+      <div className={cn(HOME_SECTION_INNER_CLASS, 'max-md:px-4')}>
+        <div className="mb-6 text-center">
+          <h2 className="text-2xl font-semibold text-foreground sm:text-3xl">Товар дня</h2>
+          <p className="mt-2 text-base text-foreground-muted sm:text-lg">
+            Суперпредложение — успей забрать.
+          </p>
         </div>
 
-        <Card className="overflow-hidden p-0">
-          <div className="grid gap-0 lg:grid-cols-[1.05fr_0.95fr]">
-            <PromoImageArea>
+        <Card className="mx-auto w-full max-w-full overflow-hidden p-0">
+          <div className="flex flex-col lg:grid lg:grid-cols-[1.05fr_0.95fr]">
+            <div className="order-2 flex w-full flex-col items-center justify-center space-y-4 px-6 py-6 text-center sm:px-8 sm:py-8 lg:order-2">
+              <PromoBadge kind="product_of_day" text="Товар дня" />
+              <h3 className="w-full text-2xl font-semibold tracking-tight text-foreground">
+                {promotion.title}
+              </h3>
+              <div className="w-full max-w-md text-sm text-foreground-muted">
+                {stripDescriptionHtml(promotion.description) || 'Ограниченное предложение'}
+              </div>
+              <div className="w-full max-w-sm rounded-2xl border border-border bg-white px-4 py-3">
+                <div className="text-sm font-medium text-foreground-muted">До конца дня</div>
+                <div className="mt-1 text-xl font-semibold text-foreground tabular-nums sm:text-2xl">
+                  {timeLeft === 'Завершена' ? 'Завершена' : timeLeft}
+                </div>
+              </div>
+              <Button asChild className="w-full max-w-xs">
+                <Link href={toUtmCatalogHref(promotion)}>Купить со скидкой</Link>
+              </Button>
+            </div>
+            <PromoImageArea className="order-1 lg:order-1">
               {promotion.image ? (
                 <Image
                   src={getMediaUrl(promotion.image)}
                   alt=""
                   width={900}
                   height={700}
-                  className="max-h-full max-w-full object-contain object-center"
+                  className="mx-auto max-h-full max-w-full object-contain object-center"
                   sizes="(max-width: 1024px) 100vw, 50vw"
                 />
               ) : (
-                <div className="flex h-full items-center justify-center text-foreground-subtle">
+                <div className="flex h-full w-full items-center justify-center text-foreground-subtle">
                   Товар дня
                 </div>
               )}
             </PromoImageArea>
-            <div className="space-y-4 p-6 sm:p-8">
-              <PromoBadge kind="product_of_day" text="Товар дня" />
-              <h3 className="text-2xl font-semibold tracking-tight text-foreground">
-                {promotion.title}
-              </h3>
-              <div className="text-sm text-foreground-muted">
-                {stripDescriptionHtml(promotion.description) || 'Ограниченное предложение'}
-              </div>
-              <div className="rounded-2xl border border-border bg-white px-4 py-3">
-                <div className="text-sm font-medium text-foreground-muted">До конца дня</div>
-                <div className="mt-1 text-xl font-semibold text-foreground tabular-nums sm:text-2xl">
-                  {timeLeft === 'Завершена' ? 'Завершена' : timeLeft}
-                </div>
-              </div>
-              <Button asChild className="w-full">
-                <Link href={toUtmCatalogHref(promotion)}>Купить со скидкой</Link>
-              </Button>
-            </div>
           </div>
         </Card>
       </div>
@@ -372,24 +377,27 @@ function ProductOfDayImageGallery({
   if (slides.length === 0) return null;
 
   const inner = (
-    <div className={cn('relative aspect-square w-full', className)}>
+    <div className={cn('relative mx-auto aspect-square w-full max-w-full', className)}>
       {slides.length > 1 ? (
         <Swiper
           modules={[Navigation]}
-          navigation
+          navigation={{
+            enabled: true,
+            hideOnClick: false,
+          }}
           loop={slides.length > 2}
           slidesPerView={1}
-          className="h-full w-full [&_.swiper-button-next]:right-2 [&_.swiper-button-prev]:left-2 [&_.swiper-button-next]:text-brand [&_.swiper-button-prev]:text-brand"
+          className={PRODUCT_OF_DAY_SWIPER_CLASS}
         >
           {slides.map((slide, i) => (
             <SwiperSlide key={`${slide.id}-${i}`}>
-              <div className="relative aspect-square w-full">
+              <div className="relative mx-auto aspect-square w-full max-w-full">
                 <Image
                   src={slide.src}
                   alt={slide.alt}
                   fill
                   sizes={sizes}
-                  className="object-contain"
+                  className="object-contain object-center"
                   priority={i === 0}
                 />
               </div>
@@ -402,7 +410,7 @@ function ProductOfDayImageGallery({
           alt={slides[0]!.alt}
           fill
           sizes={sizes}
-          className="object-contain"
+          className="object-contain object-center"
           priority
         />
       )}
@@ -425,42 +433,40 @@ function ProductOfDayProductBlock({ product }: { product: Product }) {
         : null;
 
   return (
-    <section className="bg-background px-2 py-10 sm:px-4 lg:px-6">
-      <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="mb-6 flex items-end justify-between gap-4">
-          <div>
-            <h2 className="text-2xl font-semibold text-foreground sm:text-3xl">Товар дня</h2>
-            <p className="mt-2 text-base text-foreground-muted sm:text-lg">
-              Суперпредложение — успей забрать.
-            </p>
-          </div>
+    <section className={HOME_SECTION_CLASS}>
+      <div className={cn(HOME_SECTION_INNER_CLASS, 'max-md:px-4')}>
+        <div className="mb-6 text-center">
+          <h2 className="text-2xl font-semibold text-foreground sm:text-3xl">Товар дня</h2>
+          <p className="mt-2 text-base text-foreground-muted sm:text-lg">
+            Суперпредложение — успей забрать.
+          </p>
         </div>
 
-        <Card className="overflow-hidden p-0">
-          <div className="flex flex-col lg:grid lg:grid-cols-[1.05fr_0.95fr] lg:items-start">
+        <Card className="mx-auto w-full max-w-full overflow-hidden p-0">
+          <div className="flex flex-col lg:grid lg:grid-cols-[1.05fr_0.95fr] lg:items-stretch">
             {hasImages ? (
-              <div className="order-1 bg-white p-4 lg:hidden">
+              <div className="order-1 flex w-full items-center justify-center bg-white px-4 pb-2 pt-4 lg:order-2 lg:p-8">
                 <ProductOfDayImageGallery
                   product={product}
-                  className="mx-auto w-full max-w-md"
-                  sizes="100vw"
+                  className="w-full max-w-[min(100%,360px)] lg:max-w-[340px]"
+                  sizes="(max-width: 1024px) 90vw, 340px"
                 />
               </div>
             ) : null}
 
-            <div className="order-2 p-6 sm:p-8 lg:order-1">
+            <div className="order-2 flex w-full flex-col items-center justify-center px-6 py-6 text-center sm:px-8 sm:py-8 lg:order-1">
               <PromoBadge kind="product_of_day" text="Товар дня" />
-              <h3 className="mt-3 text-2xl font-semibold tracking-tight text-foreground">
+              <h3 className="mt-3 w-full text-2xl font-semibold tracking-tight text-foreground">
                 {product.title}
               </h3>
 
-              <div className="mt-3 flex flex-wrap items-end gap-3">
+              <div className="mt-3 flex w-full flex-wrap items-center justify-center gap-3">
                 <div className="text-3xl font-semibold leading-none text-foreground">
                   {cur != null && Number.isFinite(cur) ? Math.round(cur).toLocaleString('ru-RU') : '—'}{' '}
                   {CURRENCY_SYMBOL}
                 </div>
                 {old != null && cur != null && old > cur && (
-                  <div className="pb-0.5 text-base font-medium text-foreground-muted line-through">
+                  <div className="text-base font-medium text-foreground-muted line-through">
                     {Math.round(old).toLocaleString('ru-RU')} {CURRENCY_SYMBOL}
                   </div>
                 )}
@@ -471,14 +477,14 @@ function ProductOfDayProductBlock({ product }: { product: Product }) {
                 )}
               </div>
 
-              <div className="mt-4 rounded-2xl border border-border bg-white px-4 py-3">
+              <div className="mt-4 w-full max-w-sm rounded-2xl border border-border bg-white px-4 py-3">
                 <div className="text-sm font-medium text-foreground-muted">До конца дня</div>
                 <div className="mt-1 text-xl font-semibold text-foreground tabular-nums sm:text-2xl">
                   {timeLeft === 'Завершена' ? 'Завершена' : timeLeft}
                 </div>
               </div>
 
-              <Button asChild className="mt-5 w-full">
+              <Button asChild className="mt-5 w-full max-w-xs">
                 <Link
                   href={`/products/${product.slug}?utm_source=promotions&utm_medium=product_of_day&utm_campaign=${product.id}`}
                 >
@@ -486,16 +492,6 @@ function ProductOfDayProductBlock({ product }: { product: Product }) {
                 </Link>
               </Button>
             </div>
-
-            {hasImages ? (
-              <div className="order-3 hidden items-center justify-center bg-white p-6 lg:flex lg:order-2">
-                <ProductOfDayImageGallery
-                  product={product}
-                  className="max-w-[280px] xl:max-w-[340px]"
-                  sizes="(max-width: 1280px) 340px, 340px"
-                />
-              </div>
-            ) : null}
           </div>
         </Card>
       </div>
@@ -581,6 +577,20 @@ export default function PromotionsPage() {
     staleTime: 60 * 1000,
   });
 
+  const { data: fallbackProductData } = useQuery({
+    queryKey: ['products', 'promotions', 'product-of-day-fallback'],
+    queryFn: () => getProducts({ page_size: 1, ordering: 'popular', page: 1 }),
+    staleTime: 60 * 1000,
+    enabled: !productsLoading && (productsData?.results?.length ?? 0) === 0,
+  });
+
+  const { data: pinnedProductOfDay, isLoading: pinnedProductLoading } = useQuery({
+    queryKey: ['products', 'product-of-day', PRODUCT_OF_DAY_SLUG],
+    queryFn: () => getProductDetail(PRODUCT_OF_DAY_SLUG),
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+  });
+
   const products: Product[] = productsData?.results ?? [];
   const discountedProducts = useMemo(() => {
     return products.filter(p => {
@@ -601,20 +611,17 @@ export default function PromotionsPage() {
     return enriched.filter(x => x.kind === filter);
   }, [enriched, filter]);
 
-  const productOfDay = useMemo(() => {
-    const found = enriched.find(x => x.kind === 'product_of_day')?.p;
-    if (found) return found;
-    // fallback: самая “сильная” скидка по проценту
-    const byPercent = enriched
-      .filter(x => x.p.discount_type === 'percent')
-      .sort((a, b) => Number(b.p.discount_value) - Number(a.p.discount_value));
-    return byPercent[0]?.p ?? null;
-  }, [enriched]);
+  const productOfDay = useMemo(
+    () => enriched.find(x => x.kind === 'product_of_day')?.p ?? null,
+    [enriched]
+  );
 
   const productOfDayProduct = useMemo(() => {
+    if (pinnedProductOfDay) return pinnedProductOfDay;
     if (discountedProducts.length > 0) return discountedProducts[0];
-    return products[0] ?? null;
-  }, [discountedProducts, products]);
+    if (products[0]) return products[0];
+    return fallbackProductData?.results?.[0] ?? null;
+  }, [pinnedProductOfDay, discountedProducts, products, fallbackProductData?.results]);
 
   const onScrollToList = () => {
     listRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -663,7 +670,15 @@ export default function PromotionsPage() {
 
       <div ref={productOfDayRef}>
         {productOfDay && <ProductOfDayBlock promotion={productOfDay} />}
-        {!productOfDay && productOfDayProduct && <ProductOfDayProductBlock product={productOfDayProduct} />}
+        {!productOfDay && productOfDayProduct ? (
+          <ProductOfDayProductBlock product={productOfDayProduct} />
+        ) : !productOfDay && (productsLoading || pinnedProductLoading) ? (
+          <section className={HOME_SECTION_CLASS}>
+            <div className={HOME_SECTION_INNER_CLASS}>
+              <Loading />
+            </div>
+          </section>
+        ) : null}
       </div>
 
       <section ref={listRef} className="bg-background px-2 py-10 sm:px-4 lg:px-6">
@@ -704,7 +719,7 @@ export default function PromotionsPage() {
                   Сейчас нет товаров со скидкой.
                 </Card>
               ) : (
-                <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 sm:gap-6 lg:grid-cols-3 lg:gap-7">
+                <div className={PRODUCT_CARD_GRID_CLASS}>
                   {discountedProducts.slice(0, visibleCount).map((p, idx) => (
                     <ProductCard
                       key={p.id}

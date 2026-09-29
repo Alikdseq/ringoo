@@ -9,6 +9,7 @@ import { getFriendlyErrorMessage } from '@/lib/errors';
 import { ProductCard } from '@/components/features/products/ProductCard';
 import { Button } from '@/components/ui/Button';
 import { dedupeById } from '@/lib/dedupe-by-id';
+import { HOME_SECTION_CLASS, HOME_SECTION_INNER_CLASS, PRODUCT_CARD_GRID_CLASS } from '@/lib/theme/spacing';
 
 const NEWEST_FILTERS: ProductFilters = {
   page_size: 3,
@@ -57,8 +58,8 @@ export function PopularNowSection({ initialSamsung, initialIphone }: PopularNowS
   const errorText = error ? getFriendlyErrorMessage(error) : null;
 
   return (
-    <section className="bg-background px-2 py-12 sm:px-4 lg:px-4">
-      <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
+    <section className={HOME_SECTION_CLASS}>
+      <div className={HOME_SECTION_INNER_CLASS}>
         <div className="mb-6 flex items-end justify-between gap-4">
           <div>
             <h2 className="text-2xl font-semibold text-foreground sm:text-3xl">Популярное сейчас</h2>
@@ -72,7 +73,7 @@ export function PopularNowSection({ initialSamsung, initialIphone }: PopularNowS
         </div>
 
         {isLoading ? (
-          <div className="grid grid-cols-2 gap-5 sm:gap-6 lg:grid-cols-3 lg:gap-7">
+          <div className={PRODUCT_CARD_GRID_CLASS}>
             {Array.from({ length: 6 }).map((_, idx) => (
               <div
                 key={idx}
@@ -89,7 +90,7 @@ export function PopularNowSection({ initialSamsung, initialIphone }: PopularNowS
             Сейчас нет товаров для отображения.
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-5 sm:gap-6 lg:grid-cols-3 lg:gap-7">
+          <div className={PRODUCT_CARD_GRID_CLASS}>
             {products.map((product, index) => (
               <ProductCard
                 key={product.id}

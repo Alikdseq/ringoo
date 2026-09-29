@@ -12,6 +12,7 @@ import {
   recentSnapshotToProduct,
   type RecentProductSnapshot,
 } from '@/lib/recently-viewed-products';
+import { PRODUCT_CARD_GRID_CLASS } from '@/lib/theme/spacing';
 
 const SIMILAR_PAGE_SIZE = 16;
 const SIMILAR_SHOW = 4;
@@ -81,7 +82,7 @@ export function ProductDetailRecommendations({ product }: ProductDetailRecommend
         {!categorySlug ? (
           <p className="text-sm text-foreground-muted">Категория не указана — подборку показать нельзя.</p>
         ) : similarLoading ? (
-          <div className="grid grid-cols-2 gap-5 sm:gap-6 lg:grid-cols-3 lg:gap-7">
+          <div className={PRODUCT_CARD_GRID_CLASS}>
             {Array.from({ length: 4 }).map((_, i) => (
               <div
                 key={i}
@@ -96,7 +97,7 @@ export function ProductDetailRecommendations({ product }: ProductDetailRecommend
             Пока нет других товаров в этой категории. Загляните в общий каталог.
           </p>
         ) : (
-          <div className="grid grid-cols-2 gap-5 sm:gap-6 lg:grid-cols-3 lg:gap-7">
+          <div className={PRODUCT_CARD_GRID_CLASS}>
             {similarProducts.map((p, index) => (
               <ProductCard
                 key={p.id}
@@ -125,7 +126,7 @@ export function ProductDetailRecommendations({ product }: ProductDetailRecommend
               В каталог
             </Link>
           </div>
-          <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 sm:gap-6 lg:grid-cols-3 lg:gap-7">
+          <div className={PRODUCT_CARD_GRID_CLASS}>
             {recentSnapshots.map((s, index) => (
               <ProductCard
                 key={s.id}

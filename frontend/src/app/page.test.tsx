@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { UiModeProvider } from '@/lib/providers/UiModeProvider';
@@ -14,14 +14,11 @@ vi.mock('@/lib/hooks/useProducts', () => ({
 
 vi.mock('@/lib/api/services/products.service', async importOriginal => {
   const actual = await importOriginal<typeof import('@/lib/api/services/products.service')>();
+  const emptyPage = { count: 0, next: null, previous: null, results: [] };
   return {
     ...actual,
-    getProducts: vi.fn().mockResolvedValue({
-      count: 0,
-      next: null,
-      previous: null,
-      results: [],
-    }),
+    fetchProductsServer: vi.fn().mockResolvedValue(emptyPage),
+    getProducts: vi.fn().mockResolvedValue(emptyPage),
   };
 });
 
@@ -38,36 +35,47 @@ vi.mock('@/lib/api/services/stores.service', () => ({
   }),
 }));
 
-function renderHome() {
+vi.mock('next/dynamic', () => ({
+  default: () => {
+    const Stub = () => null;
+    return Stub;
+  },
+}));
+
+async function renderHome() {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
-  return render(
+  const page = await Home();
+  render(
     <QueryClientProvider client={client}>
-      <UiModeProvider initialMode="official">
-        <Home />
-      </UiModeProvider>
+      <UiModeProvider initialMode="official">{page}</UiModeProvider>
     </QueryClientProvider>
   );
 }
 
 describe('Home', () => {
-  it('renders hero heading and CTA to catalog', () => {
-    renderHome();
-    expect(screen.getByRole('heading', { name: /электроника с доставкой/i })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /^в каталог$/i })).toHaveAttribute('href', '/catalog');
+  it('renders promo section heading', async () => {
+    await renderHome();
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: /акции дня/i })).toBeInTheDocument();
+    });
   });
 
-  it('renders popular now section heading', () => {
-    renderHome();
-    expect(screen.getByRole('heading', { name: /популярное сейчас/i })).toBeInTheDocument();
+  it('renders popular now section heading', async () => {
+    await renderHome();
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: /популярное сейчас/i })).toBeInTheDocument();
+    });
   });
 
-  it('renders bottom CTA link to catalog', () => {
-    renderHome();
-    expect(screen.getByRole('link', { name: /больше в каталоге/i })).toHaveAttribute(
-      'href',
-      '/catalog'
-    );
+  it('renders link to catalog from popular section', async () => {
+    await renderHome();
+    await waitFor(() => {
+      expect(screen.getByRole('link', { name: /больше в каталоге/i })).toHaveAttribute(
+        'href',
+        '/catalog'
+      );
+    });
   });
 });

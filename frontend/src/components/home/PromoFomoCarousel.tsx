@@ -10,9 +10,13 @@ import { getPromotions } from '@/lib/api/services/promotions.service';
 import { getMediaUrl } from '@/lib/image-url';
 import { usePromotionCountdown } from '@/lib/hooks/usePromotionCountdown';
 import { Button } from '@/components/ui/Button';
-import { Card } from '@/components/ui/Card';
 import { useHomePageCopy } from '@/lib/locales/useHomePageCopy';
 import { cn } from '@/lib/theme/utils';
+import {
+  HOME_SECTION_CLASS,
+  HOME_SECTION_INNER_CLASS,
+  MOBILE_SECTION_BLEED_CLASS,
+} from '@/lib/theme/spacing';
 
 type Slide = {
   id: string;
@@ -139,14 +143,16 @@ function PromoFomoCarouselInner() {
   const hasImage = Boolean(current.image);
 
   return (
-    <section className="bg-background px-2 pt-6 sm:px-4 lg:px-4">
-      <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
+    <section className={cn(HOME_SECTION_CLASS, 'pt-6 sm:pt-8')}>
+      <div className={HOME_SECTION_INNER_CLASS}>
         <h2 className="mb-3 text-2xl font-semibold tracking-tight text-foreground sm:mb-4 sm:text-3xl">
           {home.promo.sectionTitle}
         </h2>
-        <Card
+        <div
           className={cn(
-            'relative overflow-hidden rounded-[36px] border border-border p-0',
+            'relative overflow-hidden max-md:border-0 md:rounded-[36px] md:border md:border-border',
+            MOBILE_SECTION_BLEED_CLASS,
+            'md:mx-0 md:w-full',
             TONE_CLASS[current.tone]
           )}
           onPointerDown={e => {
@@ -165,11 +171,11 @@ function PromoFomoCarouselInner() {
           }}
         >
           <div className="flex flex-col">
-            {/* Только этот блок: фото фоном + текст / таймер / CTA поверх */}
             <div
               className={cn(
-                'relative mx-6 mt-8 min-h-[280px] overflow-hidden rounded-[28px] border border-border/70 sm:mx-10 sm:min-h-[300px] lg:mx-14 lg:min-h-[320px]',
-                !hasImage && 'bg-white/55 backdrop-blur-[2px]'
+                'relative min-h-[280px] overflow-hidden max-md:mx-0 max-md:mt-0 max-md:rounded-none max-md:border-0',
+                'md:mx-10 md:mt-8 md:rounded-[28px] md:border md:border-border/70 sm:min-h-[300px] lg:mx-14 lg:min-h-[320px]',
+                !hasImage && 'bg-white/55 backdrop-blur-[2px] max-md:bg-white'
               )}
             >
               {hasImage ? (
@@ -191,7 +197,7 @@ function PromoFomoCarouselInner() {
                 </>
               ) : null}
 
-              <div className="relative z-10 flex min-h-[280px] flex-col justify-center px-6 py-8 sm:min-h-[300px] sm:px-10 sm:py-10 lg:min-h-[320px] lg:px-12">
+              <div className="relative z-10 flex min-h-[280px] flex-col justify-center px-4 py-6 sm:min-h-[300px] sm:px-10 sm:py-10 lg:min-h-[320px] lg:px-12">
                 <div className="max-w-2xl">
                   <p
                     className={cn(
@@ -221,7 +227,7 @@ function PromoFomoCarouselInner() {
             </div>
 
             {/* Навигация карусели — на общем фоне карточки, не на фото */}
-            <div className="flex flex-col gap-4 px-6 pb-8 pt-6 sm:flex-row sm:items-center sm:justify-between sm:px-10 lg:px-14">
+            <div className="flex flex-col gap-4 px-4 pb-6 pt-4 max-md:bg-background sm:flex-row sm:items-center sm:justify-between sm:px-10 sm:pb-8 sm:pt-6 lg:px-14">
               <div className="flex flex-wrap items-center gap-2">
                 {slides.map((s, i) => (
                   <button
@@ -266,7 +272,7 @@ function PromoFomoCarouselInner() {
               </div>
             </div>
           </div>
-        </Card>
+        </div>
       </div>
     </section>
   );
@@ -275,10 +281,14 @@ function PromoFomoCarouselInner() {
 /** Скелетон совпадает с внешней вёрсткой карусели — без контента, зависящего от клиента/React Query. */
 function PromoFomoCarouselSkeleton() {
   return (
-    <section className="bg-background px-2 pt-6 sm:px-4 lg:px-4">
-      <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
+    <section className={cn(HOME_SECTION_CLASS, 'pt-6 sm:pt-8')}>
+      <div className={HOME_SECTION_INNER_CLASS}>
         <div
-          className="h-[min(420px,70vw)] min-h-[320px] animate-pulse rounded-[36px] border border-border bg-muted/35 sm:min-h-[360px]"
+          className={cn(
+            'h-[min(420px,70vw)] min-h-[320px] animate-pulse bg-muted/35 sm:min-h-[360px]',
+            MOBILE_SECTION_BLEED_CLASS,
+            'max-md:rounded-none md:rounded-[36px] md:border md:border-border'
+          )}
           aria-hidden
         />
       </div>

@@ -434,3 +434,43 @@ class TestConsentRecordOnRegister(TestCase):
                 user=user, consent_type=ConsentRecord.TYPE_OFFER
             ).exists()
         )
+
+
+@override_settings(
+    CACHES={
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        },
+        "sessions": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        },
+    },
+    DEBUG_TOOLBAR_CONFIG={"SHOW_TOOLBAR_CALLBACK": lambda request: False},
+)
+class TestLenientJWTOnPublicCatalog(TestCase):
+    """Протухший Bearer не должен отдавать 401 на публичном каталоге."""
+
+    def setUp(self):
+        self.client = APIClient()
+        cat = Category.objects.create(name="Phones", slug="phones", is_active=True)
+        Product.objects.create(
+            title="Test Phone",
+            slug="test-phone",
+            category=cat,
+            price=Decimal("1000.00"),
+            is_active=True,
+        )
+
+    def test_invalid_bearer_allows_product_list(self):
+        r = self.client.get(
+            "/api/v1/products/products/",
+            HTTP_AUTHORIZATION="Bearer not-a-valid-jwt",
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.content)
+
+    def test_invalid_bearer_allows_product_models(self):
+        r = self.client.get(
+            "/api/v1/products/products/product-models/",
+            HTTP_AUTHORIZATION="Bearer not-a-valid-jwt",
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.content)

@@ -1,4 +1,4 @@
-.PHONY: help up down restart logs shell migrate makemigrations test lint frontend-dev frontend-logs frontend-shell frontend-build frontend-lint frontend-test build build-prod clean
+.PHONY: help up down restart logs shell migrate makemigrations test lint frontend-dev frontend-logs frontend-shell frontend-build frontend-lint frontend-test build build-prod clean ngrok ngrok-sync
 
 # Default target
 help:
@@ -23,6 +23,8 @@ help:
 	@echo "  make backup           - Полный бэкап БД + медиа (см. docs/BACKUP.md)"
 	@echo "  make backup-db        - Бэкап только БД"
 	@echo "  make backup-media     - Бэкап только медиафайлов"
+	@echo "  make ngrok            - Два туннеля ngrok (3000+8000), см. docs/NGROK.md"
+	@echo "  make ngrok-sync       - Обновить .env из http://127.0.0.1:4040"
 
 # Docker Compose commands
 COMPOSE ?= docker compose
@@ -174,3 +176,13 @@ restore-db:
 restore-media:
 	@if [ -z "$(ARCHIVE)" ]; then echo "Usage: make restore-media ARCHIVE=backups/ringoo_media_YYYYMMDD_HHMMSS.tar.gz"; exit 1; fi
 	@bash scripts/restore-media.sh "$(ARCHIVE)"
+
+# Ngrok (Windows PowerShell; на Linux: pwsh scripts/ngrok/start-ringoo.ps1)
+ngrok:
+	powershell -NoProfile -ExecutionPolicy Bypass -File scripts/ngrok/start-ringoo.ps1
+
+ngrok-demo:
+	powershell -NoProfile -ExecutionPolicy Bypass -File scripts/ngrok/run-demo.ps1
+
+ngrok-sync:
+	powershell -NoProfile -ExecutionPolicy Bypass -File scripts/ngrok/sync-ngrok-env.ps1

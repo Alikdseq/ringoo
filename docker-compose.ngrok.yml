@@ -1,0 +1,40 @@
+# Ngrok demo: production Next.js (без dev/HMR — стабильная главная и /about).
+# ОБЯЗАТЕЛЬНО оба файла: -f docker-compose.yml -f docker-compose.ngrok.yml
+#
+# cmd:
+#   docker compose -f docker-compose.yml -f docker-compose.ngrok.yml up -d --build --force-recreate frontend web
+#
+# Или: scripts\ngrok\up-docker.cmd
+
+services:
+  frontend:
+    command:
+      - sh
+      - -c
+      - |
+        set -e
+        node scripts/generate-magazins-manifest.mjs 2>/dev/null || true
+        node scripts/generate-menegers-manifest.mjs 2>/dev/null || true
+        echo "=== Ringoo ngrok: building frontend (3-8 min first time) ==="
+        npm run build
+        test -f .next/BUILD_ID || (echo "Build failed: .next/BUILD_ID missing" >&2; exit 1)
+        echo "=== Starting production server on :3000 (no HMR) ==="
+        exec npm run start -- -H 0.0.0.0 -p 3000
+    volumes: []
+    env_file: []
+    environment:
+      - NODE_ENV=production
+      - RINGOO_NGROK_DEMO=1
+      - NEXT_PUBLIC_RINGOO_NGROK_DEMO=1
+      - NEXT_PUBLIC_DISABLE_LINK_PREFETCH=1
+      - RINGOO_API_PROXY_TARGET=http://web:8000
+      - RINGOO_RELAX_CSP=1
+      - NEXT_TELEMETRY_DISABLED=1
+      - NODE_OPTIONS=--max-old-space-size=4096
+      - API_INTERNAL_V1_URL=http://web:8000/api/v1
+      - NEXT_PUBLIC_API_V1_URL=${NEXT_PUBLIC_API_V1_URL:-http://localhost:3000/api/v1}
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:3000}
+      - NEXT_PUBLIC_SITE_URL=${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
+      - NEXT_PUBLIC_YANDEX_MAPS_API_KEY=${NEXT_PUBLIC_YANDEX_MAPS_API_KEY:-}
+      - NEXT_PUBLIC_YANDEX_SUGGEST_API_KEY=${NEXT_PUBLIC_YANDEX_SUGGEST_API_KEY:-}
+

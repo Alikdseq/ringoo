@@ -1,16 +1,30 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronDown } from 'lucide-react';
+import dynamic from 'next/dynamic';
+import { ChevronDown, MapPin, Phone, Truck } from 'lucide-react';
 import { TYPOGRAPHY } from '@/lib/theme/typography';
 import { cn } from '@/lib/theme/utils';
+
+const StoresYandexMapDynamic = dynamic(
+  () =>
+    import('@/components/features/stores/StoresYandexMap').then(m => ({
+      default: m.StoresYandexMap,
+    })),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-72 w-full animate-pulse rounded-2xl bg-zinc-100 sm:h-80" />
+    ),
+  }
+);
 
 const ACCORDION_ITEMS = [
   {
     id: 'delivery',
     title: 'ДОСТАВКА',
     content:
-      'Доставка по России курьером СДЭК. По Владикавказу и РСО-Алания — курьером или самовывоз. Заказы до 15:00 отправляем в тот же день. Стоимость и срок рассчитываются при оформлении заказа.',
+      'Бесплатная доставка по Владикавказу и РСО-Алания от 100 ₽ — привезём домой или на работу. По России — курьером СДЭК. Заказы до 15:00 отправляем в тот же день.',
   },
   {
     id: 'payment',
@@ -35,9 +49,14 @@ export function DeliveryPaymentSection() {
       className="scroll-mt-20 border-t border-border bg-background px-4 py-12 sm:px-6 lg:px-8"
     >
       <div className="mx-auto grid max-w-6xl gap-8 lg:grid-cols-[1fr_1.2fr]">
-        {/* Аккордеон */}
         <div>
-          <h2 className={TYPOGRAPHY.h2 + ' mb-6 text-foreground'}>Доставка, оплата, гарантия</h2>
+          <h2 className={TYPOGRAPHY.h2 + ' mb-3 text-foreground'}>Доставка, оплата, гарантия</h2>
+
+          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-800">
+            <Truck className="h-4 w-4" aria-hidden />
+            Доставка бесплатно от 100 ₽ — домой или на работу
+          </div>
+
           <div className="rounded-xl border border-border bg-white">
             {ACCORDION_ITEMS.map((item, i) => (
               <div key={item.id} className={cn('border-border', i > 0 && 'border-t')}>
@@ -71,26 +90,17 @@ export function DeliveryPaymentSection() {
           </div>
         </div>
 
-        {/* Карта + блок контактов */}
-        <div className="relative overflow-hidden rounded-xl border border-border bg-zinc-100">
-          <div className="aspect-[4/3] w-full bg-zinc-200">
-            {/* Заглушка карты — позже подставить Яндекс.Карты */}
-            <div className="flex h-full items-center justify-center text-sm text-foreground-muted">
-              Карта (Яндекс.Карты)
-            </div>
-          </div>
-          <div className="absolute bottom-4 left-4 right-4 rounded-lg border border-border bg-white/95 p-4 shadow-lg backdrop-blur sm:right-auto sm:w-72">
-            <h3 className="mb-2 font-semibold text-foreground">Адрес и контакты</h3>
-            <p className="text-sm text-foreground-muted">+7 (918) 415-77-88</p>
-            <p className="mt-1 text-sm text-foreground-muted">Г. Владикавказ, ул. Весенняя 19Г</p>
-            <a
-              href="https://yandex.ru/maps"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-2 inline-block text-sm text-brand hover:underline"
-            >
-              Как добраться
-            </a>
+        <div className="relative overflow-hidden rounded-xl border border-border bg-white">
+          <StoresYandexMapDynamic heightClass="h-72 sm:h-[22rem] lg:h-[26rem]" className="rounded-none border-0" />
+          <div className="border-t border-border p-4 text-sm text-foreground-muted">
+            <p className="flex items-center gap-2 font-semibold text-foreground">
+              <MapPin className="h-4 w-4 text-brand" aria-hidden /> Все магазины Ringoo на карте
+            </p>
+            <p className="mt-1 flex items-center gap-2">
+              <Phone className="h-4 w-4 text-brand" aria-hidden />
+              <a href="tel:+79184157788" className="hover:underline">+7 (918) 415-77-88</a>
+              <span>· г. Владикавказ, ул. Весенняя 19Г</span>
+            </p>
           </div>
         </div>
       </div>

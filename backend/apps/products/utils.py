@@ -1,10 +1,42 @@
-"""Утилиты каталога: slug товаров, разбор slug iPhone."""
+"""Утилиты каталога: slug товаров, разбор slug iPhone, линейки моделей."""
+
+import re
 
 from django.utils.text import slugify
 
 from apps.products.models import Product
 
 IPHONE_PREFIX = "iphone-"
+
+_STORAGE_SUFFIX_RE = re.compile(
+    r"\s+\d+\s*(?:GB|TB|ГБ|ТБ)\b",
+    re.IGNORECASE,
+)
+
+
+def normalize_model_label(title: str) -> str:
+    """Убирает объём памяти и лишние хвосты из названия для группировки «модель»."""
+    t = (title or "").strip()
+    if not t:
+        return ""
+    t = _STORAGE_SUFFIX_RE.sub("", t)
+    t = re.sub(r"\s+", " ", t).strip()
+    return t
+
+
+def model_key_from_title(title: str, slug: str = "") -> str:
+    """Стабильный ключ модели для URL (?model=)."""
+    label = normalize_model_label(title)
+    key = slugify(label) if label else ""
+    if not key and slug:
+        key = slugify(slug.split("-")[-6:])  # fallback
+    return key or slugify(slug) or "model"
+
+
+def extract_model_label(title: str, slug: str = "") -> str:
+    """Человекочитаемая подпись модели для фильтра."""
+    label = normalize_model_label(title)
+    return label or (title or "").strip() or slug
 
 
 def iphone_product_model_tail(slug: str) -> str | None:

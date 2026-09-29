@@ -57,6 +57,10 @@ export function ProductCard({
 }: ProductCardProps) {
   const { mode } = useUiMode();
   const pathname = usePathname();
+  const cardSwiperModules = useMemo(
+    () => [Navigation, Pagination],
+    []
+  );
   const listColors = useMemo(
     () => mergeListColorsForCard(product.colors ?? []),
     [product.colors, product.id]
@@ -173,6 +177,7 @@ export function ProductCard({
   const uniqueCardSlides = useMemo(() => dedupeById(cardSlides), [cardSlides]);
   const galleryKey = `${product.id}:${selectedColorId ?? ''}:${uniqueCardSlides.map(s => s.id).join(',')}`;
   const displaySlides = galleryMode ? uniqueCardSlides : uniqueCardSlides.slice(0, 1);
+  const showGalleryNav = displaySlides.length > 1;
   const swiperLoop = displaySlides.length > 2;
 
   const handleWishlistToggle = (event: React.MouseEvent<HTMLButtonElement>) => {
@@ -222,24 +227,28 @@ export function ProductCard({
         variant="interactive"
         className={cn(
           'flex h-full flex-col overflow-hidden p-0',
-          'rounded-[28px] border border-border bg-white',
+          'rounded-2xl border border-border bg-white md:rounded-[28px]',
           className
         )}
       >
         <div className="relative">
-            <div className="relative aspect-square w-full overflow-hidden rounded-[28px] bg-white">
+            <div className="relative aspect-square w-full touch-pan-y overflow-hidden rounded-[28px] bg-white overscroll-x-contain">
               {displaySlides.length > 1 ? (
                 <Swiper
                   key={galleryKey}
-                  modules={[Navigation, Pagination]}
-                  navigation
+                  modules={showGalleryNav ? cardSwiperModules : [Pagination]}
+                  navigation={
+                    showGalleryNav
+                      ? { enabled: true, hideOnClick: false }
+                      : false
+                  }
                   pagination={{ clickable: true, dynamicBullets: true }}
                   loop={swiperLoop}
                   slidesPerView={1}
                   spaceBetween={0}
                   touchStartPreventDefault={false}
                   preventClicksPropagation
-                  className="relative z-0 h-full w-full [&_.swiper-button-next]:z-[5] [&_.swiper-button-prev]:z-[5] [&_.swiper-button-next]:right-2 [&_.swiper-button-prev]:left-2 [&_.swiper-button-next]:hidden [&_.swiper-button-prev]:hidden [&_.swiper-button-next]:text-brand [&_.swiper-button-prev]:text-brand md:[&_.swiper-button-next]:flex md:[&_.swiper-button-prev]:flex [&_.swiper-pagination]:bottom-2 [&_.swiper-pagination-bullet]:bg-zinc-400 [&_.swiper-pagination-bullet-active]:bg-brand"
+                  className="product-card-swiper relative z-0 h-full w-full max-md:[&_.swiper-button-next]:!hidden max-md:[&_.swiper-button-prev]:!hidden md:[&_.swiper-button-next]:!flex md:[&_.swiper-button-prev]:!flex [&_.swiper-button-next]:right-1 [&_.swiper-button-prev]:left-1 [&_.swiper-button-next]:z-[5] [&_.swiper-button-prev]:z-[5] [&_.swiper-button-next]:!size-8 [&_.swiper-button-prev]:!size-8 [&_.swiper-button-next]:!bg-transparent [&_.swiper-button-prev]:!bg-transparent [&_.swiper-button-next]:!shadow-none [&_.swiper-button-prev]:!shadow-none [&_.swiper-button-next]:text-brand [&_.swiper-button-prev]:text-brand [&_.swiper-button-next]:after:!text-base [&_.swiper-button-prev]:after:!text-base [&_.swiper-pagination]:bottom-2 [&_.swiper-pagination-bullet]:bg-zinc-400 [&_.swiper-pagination-bullet-active]:bg-brand"
                 >
                   {displaySlides.map((slide, si) => (
                     <SwiperSlide key={`${product.id}-${si}-${slide.id}`} className="!h-full">
@@ -300,7 +309,7 @@ export function ProductCard({
 
         <Link href={productHref} className="flex flex-1 flex-col">
             <div
-              className="space-y-2 px-6 pt-3"
+              className="space-y-2 px-4 pt-3 md:px-6"
               onClick={e => e.preventDefault()}
               onKeyDown={e => e.stopPropagation()}
               role="presentation"

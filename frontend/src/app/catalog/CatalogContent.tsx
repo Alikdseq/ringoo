@@ -10,7 +10,6 @@ import {
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useInView } from 'react-intersection-observer';
-import { useQuery } from '@tanstack/react-query';
 import {
   ChevronDown,
   ChevronRight,
@@ -24,8 +23,10 @@ import {
 import type { Category, PaginatedResponse, Product } from '@/types';
 import type { ProductFilters } from '@/lib/api/services/products.service';
 import { stripDescriptionHtml } from '@/lib/format-description';
-import { getProductAutocomplete } from '@/lib/api/services/products.service';
-import { useProducts, useCategories, useBrands } from '@/lib/hooks/useProducts';
+
+import { CatalogSearchBar } from '@/components/catalog/CatalogSearchBar';
+import { useProducts, useCategories, useBrands, useProductModels } from '@/lib/hooks/useProducts';
+import type { ProductModelOption } from '@/lib/api/services/products.service';
 import { ProductCard } from '@/components/features/products/ProductCard';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -34,6 +35,7 @@ import { CatalogSkeleton } from '@/components/ui/CatalogSkeleton';
 import { MissingProductForm } from '@/components/features/crm/MissingProductForm';
 import { getFriendlyErrorMessage } from '@/lib/errors';
 import { Chip, ChipList } from '@/components/ui/Chip';
+import { FilterChoiceChips } from '@/components/ui/FilterChoiceChips';
 import { CURRENCY_SYMBOL } from '@/lib/constants';
 import { cn } from '@/lib/theme/utils';
 import {
@@ -43,6 +45,7 @@ import {
 } from '@/lib/recently-viewed-products';
 import { dedupeById } from '@/lib/dedupe-by-id';
 import { PageContainer } from '@/components/layout/PageContainer';
+import { PRODUCT_CARD_GRID_CLASS } from '@/lib/theme/spacing';
 
 type Ordering = NonNullable<ProductFilters['ordering']>;
 
@@ -130,7 +133,6 @@ interface FilterFieldsProps {
   setInStock: (v: boolean) => void;
   ratingMin: number | null;
   setRatingMin: (v: number | null) => void;
-  idSuffix?: string;
 }
 
 function FilterFields({
@@ -150,7 +152,6 @@ function FilterFields({
   setInStock,
   ratingMin,
   setRatingMin,
-  idSuffix = '',
 }: FilterFieldsProps) {
   const filteredBrands = useMemo(() => {
     const q = brandQuery.trim().toLowerCase();
@@ -158,56 +159,56 @@ function FilterFields({
     return brands.filter(b => b.toLowerCase().includes(q));
   }, [brands, brandQuery]);
 
-  const inStockId = `filter-in-stock${idSuffix}`;
+  const inStockId = 'filter-in-stock';
+
+  const categoryOptions = useMemo(
+    () => categories.map((c: Category) => ({ value: c.slug, label: c.title })),
+    [categories]
+  );
+
+  const brandOptions = useMemo(
+    () => filteredBrands.map(b => ({ value: b, label: b })),
+    [filteredBrands]
+  );
 
   return (
     <div className="space-y-1">
       <FilterAccordion title="Категория" defaultOpen={true}>
-        <select
+        <FilterChoiceChips
+          options={categoryOptions}
           value={category}
-          onChange={e => setCategorySlug(e.target.value)}
-          className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm text-foreground"
-        >
-          <option value="">Все категории</option>
-          {categories.map((c: Category) => (
-            <option key={c.id} value={c.slug}>
-              {c.title}
-            </option>
-          ))}
-        </select>
+          onChange={setCategorySlug}
+          allLabel="Все категории"
+        />
       </FilterAccordion>
 
-      <FilterAccordion title="Бренд">
-        <Input
-          type="search"
-          placeholder="Поиск бренда..."
-          value={brandQuery}
-          onChange={e => setBrandQuery(e.target.value)}
-          className="mb-2 w-full"
-        />
-        <div className="max-h-48 space-y-2 overflow-y-auto pr-1">
-          {filteredBrands.length === 0 ? (
-            <p className="text-xs text-foreground-muted">Нет совпадений</p>
-          ) : (
-            filteredBrands.map(b => (
-              <label key={b} className="flex cursor-pointer items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  className="h-4 w-4 rounded border-border text-emerald-700 focus:ring-emerald-600"
-                  checked={brand === b}
-                  onChange={() => setBrand(brand === b ? '' : b)}
-                />
-                <span>{b}</span>
-              </label>
-            ))
-          )}
-        </div>
+      <FilterAccordion title="Бренд" defaultOpen={Boolean(brand)}>
+        {brands.length > 8 && (
+          <Input
+            type="search"
+            placeholder="Поиск бренда..."
+            value={brandQuery}
+            onChange={e => setBrandQuery(e.target.value)}
+            className="mb-3 w-full"
+          />
+        )}
+        {brandOptions.length === 0 ? (
+          <p className="text-xs text-foreground-muted">Нет совпадений</p>
+        ) : (
+          <FilterChoiceChips
+            options={brandOptions}
+            value={brand}
+            onChange={setBrand}
+            allLabel="Все бренды"
+          />
+        )}
       </FilterAccordion>
 
       <FilterAccordion title={`Цена, ${CURRENCY_SYMBOL}`}>
         <div className="flex gap-2">
           <Input
             type="number"
+            inputMode="numeric"
             placeholder="От"
             value={minDraft}
             onChange={e => setMinDraft(e.target.value)}
@@ -216,6 +217,7 @@ function FilterFields({
           />
           <Input
             type="number"
+            inputMode="numeric"
             placeholder="До"
             value={maxDraft}
             onChange={e => setMaxDraft(e.target.value)}
@@ -233,7 +235,7 @@ function FilterFields({
               key={n}
               type="button"
               onClick={() => setRatingMin(ratingMin === n ? null : n)}
-              className="rounded-md p-1 transition-colors hover:bg-amber-50"
+              className="inline-flex min-h-[44px] min-w-[44px] touch-manipulation items-center justify-center rounded-md transition-colors hover:bg-amber-50 lg:min-h-0 lg:min-w-0"
               aria-label={`От ${n} звёзд`}
             >
               <Star
@@ -296,6 +298,7 @@ function CatalogInner({
     ? categoryPageHref(categorySlugFromPath)
     : pathname;
   const brand = searchParams.get('brand') ?? '';
+  const model = searchParams.get('model') ?? '';
   const minUrl = searchParams.get('min_price') ?? '';
   const maxUrl = searchParams.get('max_price') ?? '';
   const inStock = ['1', 'true', 'yes'].includes(
@@ -310,13 +313,11 @@ function CatalogInner({
   const storeSlug = searchParams.get('store') ?? '';
 
   const [searchInput, setSearchInput] = useState(urlSearch);
-  const [debouncedSearchInput, setDebouncedSearchInput] = useState('');
   const [minDraft, setMinDraft] = useState(minUrl);
   const [maxDraft, setMaxDraft] = useState(maxUrl);
   const [brandQuery, setBrandQuery] = useState('');
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [sortOpen, setSortOpen] = useState(false);
-  const [searchDropdownOpen, setSearchDropdownOpen] = useState(false);
   const [seoOpen, setSeoOpen] = useState(false);
 
   const [recentSnapshots, setRecentSnapshots] = useState<RecentProductSnapshot[]>([]);
@@ -329,11 +330,6 @@ function CatalogInner({
     setMinDraft(minUrl);
     setMaxDraft(maxUrl);
   }, [minUrl, maxUrl]);
-
-  useEffect(() => {
-    const t = setTimeout(() => setDebouncedSearchInput(searchInput.trim()), 250);
-    return () => clearTimeout(t);
-  }, [searchInput]);
 
   useEffect(() => {
     setRecentSnapshots(readRecentlyViewedProducts());
@@ -375,6 +371,7 @@ function CatalogInner({
       if (categorySlugFromPath) {
         const p = new URLSearchParams(searchParams.toString());
         p.delete('category');
+        p.delete('model');
         const qs = p.toString();
         if (!slug) {
           router.replace(qs ? `/catalog?${qs}` : '/catalog', { scroll: false });
@@ -389,6 +386,7 @@ function CatalogInner({
       replaceQuery(p => {
         if (slug) p.set('category', slug);
         else p.delete('category');
+        p.delete('model');
       });
     },
     [categorySlugFromPath, replaceQuery, router, searchParams]
@@ -399,6 +397,17 @@ function CatalogInner({
       replaceQuery(p => {
         if (b) p.set('brand', b);
         else p.delete('brand');
+        p.delete('model');
+      });
+    },
+    [replaceQuery]
+  );
+
+  const setModel = useCallback(
+    (key: string) => {
+      replaceQuery(p => {
+        if (key) p.set('model', key);
+        else p.delete('model');
       });
     },
     [replaceQuery]
@@ -444,13 +453,34 @@ function CatalogInner({
       in_stock: inStock || undefined,
       store: storeSlug.trim() || undefined,
       ordering,
+      model: model || undefined,
       rating_min: ratingMin != null ? ratingMin : undefined,
     }),
-    [urlSearch, category, brand, minUrl, maxUrl, inStock, storeSlug, ordering, ratingMin]
+    [urlSearch, category, brand, model, minUrl, maxUrl, inStock, storeSlug, ordering, ratingMin]
+  );
+
+  const modelFilterParams = useMemo(
+    () => ({
+      search: urlSearch.trim() || undefined,
+      category: category || undefined,
+      brand: brand || undefined,
+      min_price: minUrl ? Number(minUrl) : undefined,
+      max_price: maxUrl ? Number(maxUrl) : undefined,
+      in_stock: inStock || undefined,
+      store: storeSlug.trim() || undefined,
+      rating_min: ratingMin != null ? ratingMin : undefined,
+    }),
+    [urlSearch, category, brand, minUrl, maxUrl, inStock, storeSlug, ratingMin]
+  );
+
+  const { data: productModels = [], isLoading: modelsLoading } = useProductModels(
+    modelFilterParams
   );
 
   const hasExtraFilters =
-    Boolean(brand || minUrl || maxUrl || urlSearch.trim() || inStock || storeSlug || ratingMin);
+    Boolean(
+      brand || model || minUrl || maxUrl || urlSearch.trim() || inStock || storeSlug || ratingMin
+    );
 
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, isError, error } =
     useProducts(filters, {
@@ -476,13 +506,6 @@ function CatalogInner({
     initialData: initialBrands,
   });
 
-  const { data: autocompleteResults = [], isLoading: autocompleteLoading } = useQuery({
-    queryKey: ['products', 'catalog-autocomplete', debouncedSearchInput],
-    queryFn: () => getProductAutocomplete(debouncedSearchInput),
-    enabled: debouncedSearchInput.length >= 2,
-    staleTime: 60 * 1000,
-  });
-
   const { ref, inView } = useInView({ threshold: 0.1 });
   useEffect(() => {
     if (inView && hasNextPage && !isFetchingNextPage) fetchNextPage();
@@ -503,14 +526,16 @@ function CatalogInner({
   const pageTitle = activeCategory?.title ?? 'Каталог товаров';
   const categorySeoDescription = stripDescriptionHtml(activeCategory?.description);
 
-  const applySearch = useCallback(() => {
-    const trimmed = searchInput.trim();
-    setSearchDropdownOpen(false);
-    replaceQuery(p => {
-      if (trimmed) p.set('search', trimmed);
-      else p.delete('search');
-    });
-  }, [searchInput, replaceQuery]);
+  const applySearch = useCallback(
+    (query?: string) => {
+      const trimmed = (query ?? searchInput).trim();
+      replaceQuery(p => {
+        if (trimmed) p.set('search', trimmed);
+        else p.delete('search');
+      });
+    },
+    [searchInput, replaceQuery]
+  );
 
   const clearAllFilters = useCallback(() => {
     setBrandQuery('');
@@ -556,6 +581,18 @@ function CatalogInner({
         onClear: () =>
           replaceQuery(p => {
             p.delete('brand');
+            p.delete('model');
+          }),
+      });
+    }
+    if (model) {
+      const modelLabel = productModels.find(m => m.key === model)?.label ?? model;
+      list.push({
+        key: 'model',
+        label: `Модель: ${modelLabel}`,
+        onClear: () =>
+          replaceQuery(p => {
+            p.delete('model');
           }),
       });
     }
@@ -615,6 +652,8 @@ function CatalogInner({
     category,
     activeCategory,
     brand,
+    model,
+    productModels,
     minUrl,
     maxUrl,
     inStock,
@@ -630,7 +669,7 @@ function CatalogInner({
       <button
         type="button"
         onClick={() => setSortOpen(v => !v)}
-        className="flex w-full min-w-[200px] items-center justify-between gap-2 rounded-lg border border-border bg-white px-3 py-2 text-sm text-foreground sm:w-auto"
+        className="flex min-h-[44px] w-full min-w-0 touch-manipulation items-center justify-between gap-2 rounded-lg border border-border bg-white px-3 py-2 text-sm text-foreground sm:min-w-[200px] sm:w-auto lg:min-h-0"
       >
         {ORDER_LABELS[ordering]}
         <ChevronDown className="h-4 w-4 shrink-0" />
@@ -648,8 +687,8 @@ function CatalogInner({
                     setSortOpen(false);
                   }}
                   className={cn(
-                    'w-full px-3 py-2 text-left text-sm text-foreground',
-                    ordering === key ? 'bg-zinc-100 font-medium' : 'hover:bg-zinc-50'
+                    'min-h-[44px] w-full touch-manipulation px-3 py-2 text-left text-sm text-foreground lg:min-h-0',
+                    ordering === key ? 'bg-zinc-100 font-medium' : 'hover:bg-zinc-50 active:bg-zinc-100'
                   )}
                 >
                   {ORDER_LABELS[key]}
@@ -663,8 +702,8 @@ function CatalogInner({
   );
 
   return (
-    <div className="min-h-screen bg-background">
-      <PageContainer wide className="py-6">
+    <div className="min-h-screen min-w-0 overflow-x-hidden bg-background">
+      <PageContainer wide className="min-w-0 py-6">
         {/* Хлебные крошки — десктоп */}
         <nav
           className="mb-4 hidden flex-wrap items-center gap-2 text-sm text-foreground-muted sm:flex"
@@ -737,62 +776,20 @@ function CatalogInner({
           )}
         </header>
 
-        <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-4">
-          <div className="relative flex flex-1 gap-2">
-            <div className="relative w-full max-w-md">
-              <Input
-                type="search"
-                placeholder="Поиск по каталогу..."
-                value={searchInput}
-                onChange={e => {
-                  setSearchInput(e.target.value);
-                  setSearchDropdownOpen(true);
-                }}
-                onFocus={() => debouncedSearchInput && setSearchDropdownOpen(true)}
-                onKeyDown={e => e.key === 'Enter' && applySearch()}
-                className="w-full"
-                aria-autocomplete="list"
-              />
-              {searchDropdownOpen && debouncedSearchInput.length >= 2 && (
-                <div className="absolute z-30 mt-1 max-h-80 w-full overflow-auto rounded-xl border border-border bg-white py-1 shadow-lg">
-                  {autocompleteLoading ? (
-                    <div className="px-3 py-3 text-sm text-foreground-muted">Поиск...</div>
-                  ) : autocompleteResults.length === 0 ? (
-                    <div className="px-3 py-3 text-sm text-foreground-muted">Ничего не найдено</div>
-                  ) : (
-                    <ul className="py-1 text-sm">
-                      {autocompleteResults.map(item => (
-                        <li key={item.id}>
-                          <button
-                            type="button"
-                            className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left hover:bg-zinc-50"
-                            onClick={() => {
-                              setSearchInput(item.title);
-                              setSearchDropdownOpen(false);
-                              replaceQuery(p => {
-                                p.set('search', item.title);
-                              });
-                            }}
-                          >
-                            <span className="min-w-0 flex-1 truncate">{item.title}</span>
-                            {item.price && (
-                              <span className="shrink-0 text-xs text-foreground-muted">
-                                {`${Math.round(Number(item.price))} ${CURRENCY_SYMBOL}`}
-                              </span>
-                            )}
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              )}
-            </div>
-            <Button onClick={applySearch} variant="secondary" size="sm" aria-label="Искать">
-              <Search className="h-4 w-4" />
-            </Button>
-          </div>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+        <div className="mb-6 w-full min-w-0 space-y-3">
+          <CatalogSearchBar
+            value={searchInput}
+            onChange={setSearchInput}
+            onApply={q => {
+              setSearchInput(q);
+              applySearch(q);
+            }}
+            onPickSuggestion={title => {
+              setSearchInput(title);
+              applySearch(title);
+            }}
+          />
+          <div className="flex min-w-0 w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
             {sortControl}
             <Button
               variant="secondary"
@@ -866,6 +863,32 @@ function CatalogInner({
           <main className="min-w-0 flex-1">
             <p className="mb-4 text-sm text-foreground-muted">Найдено: {totalCount}</p>
 
+            {(category || brand) && (
+              <div className="mb-4 min-w-0 max-w-full">
+                <p className="mb-2 text-sm font-semibold text-foreground">Модель</p>
+                {modelsLoading ? (
+                  <p className="text-xs text-foreground-muted">Загрузка моделей…</p>
+                ) : productModels.length === 0 ? (
+                  <p className="text-xs text-foreground-muted">
+                    Нет линеек для текущей выборки. Смените категорию или бренд.
+                  </p>
+                ) : (
+                  <div className="-mx-1 max-w-full overflow-x-auto overscroll-x-contain px-1 pb-1">
+                    <FilterChoiceChips
+                      className="min-w-max flex-nowrap"
+                      options={productModels.map(m => ({
+                        value: m.key,
+                        label: `${m.label} (${m.count})`,
+                      }))}
+                      value={model}
+                      onChange={setModel}
+                      allLabel="Все модели"
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+
             {isLoading ? (
               <CatalogSkeleton />
             ) : isError ? (
@@ -895,7 +918,7 @@ function CatalogInner({
               </div>
             ) : (
               <>
-                <div className="grid grid-cols-2 gap-5 sm:gap-6 lg:grid-cols-3 lg:gap-7">
+                <div className={PRODUCT_CARD_GRID_CLASS}>
                   {products.map((product, i) => (
                     <ProductCard
                       key={product.id}
@@ -930,7 +953,7 @@ function CatalogInner({
         {recentSnapshots.length > 0 && (
           <section className="mt-12 border-t border-border pt-10">
             <h2 className="mb-4 text-lg font-semibold text-foreground">Вы смотрели ранее</h2>
-            <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 sm:gap-6 lg:grid-cols-3 lg:gap-7">
+            <div className={PRODUCT_CARD_GRID_CLASS}>
               {recentSnapshots.map((s, i) => (
                 <ProductCard
                   key={s.id}
@@ -1024,7 +1047,6 @@ function CatalogInner({
                 setInStock={setInStock}
                 ratingMin={ratingMin}
                 setRatingMin={setRatingMin}
-                idSuffix="-m"
               />
               <div className="mt-6 flex flex-col gap-2">
                 <Button className="w-full" onClick={() => setFiltersOpen(false)}>

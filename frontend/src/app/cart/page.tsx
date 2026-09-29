@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/Input';
 import { Loading } from '@/components/ui/Loading';
 import { Skeleton } from '@/components/ui/Loading';
 import { PlaceholderBlock } from '@/components/ui/PlaceholderBlock';
+import { FreeDeliveryHighlight } from '@/components/ui/FreeDeliveryBadge';
 import { CartItem } from '@/components/features/cart/CartItem';
 import { CURRENCY_SYMBOL } from '@/lib/constants';
 import { getFriendlyErrorMessage } from '@/lib/errors';
@@ -148,6 +149,7 @@ export default function CartPage() {
                 </div>
               </div>
             </div>
+            <FreeDeliveryHighlight />
             <Button fullWidth asChild>
               <Link href="/checkout">Оформить заказ</Link>
             </Button>
@@ -159,10 +161,6 @@ export default function CartPage() {
         <PlaceholderBlock
           title="Блок: Рекомендованные товары к покупке"
           note="Тут будет кросс-сейл на основе корзины."
-        />
-        <PlaceholderBlock
-          title="Блок: Условия доставки и возврата"
-          note="Тут будет краткий инфоблок перед оформлением заказа."
         />
       </div>
     </PageContainer>

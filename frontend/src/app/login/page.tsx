@@ -96,6 +96,7 @@ function LoginContent() {
             <label className="mb-2 block text-sm font-medium text-foreground">Телефон</label>
             <Input
               type="tel"
+              inputMode="tel"
               placeholder="+7 (999) 123-45-67"
               value={phone}
               onChange={e => setPhone(e.target.value)}

@@ -1,0 +1,11 @@
+# Ringoo demo: ONE ngrok URL -> localhost:3000 (Next.js proxies /api/v1 and /media to Django).
+# Avoids ERR_NGROK_334 and duplicate domains on free plan.
+# ngrok v3: https://ngrok.com/docs/agent/config/v3/
+
+version: 3
+
+endpoints:
+  - name: ringoo-frontend
+    url: https://demanding-most-caramel.ngrok-free.dev
+    upstream:
+      url: http://127.0.0.1:3000

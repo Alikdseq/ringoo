@@ -2,9 +2,10 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Clock, MapPin, Phone } from 'lucide-react';
+import { Clock, MapPin, Phone, Truck } from 'lucide-react';
 import type { StorePage } from '@/lib/api/services/stores.service';
 import { getStoreBySlug, getStoreProducts } from '@/lib/api/services/stores.service';
 import { stripDescriptionHtml } from '@/lib/format-description';
@@ -12,6 +13,18 @@ import { staffProfilePath } from '@/lib/staff-path';
 import { ProductCard } from '@/components/features/products/ProductCard';
 import { Button } from '@/components/ui/Button';
 import { Loading } from '@/components/ui/Loading';
+import { PRODUCT_CARD_GRID_CLASS } from '@/lib/theme/spacing';
+
+const StoresYandexMapDynamic = dynamic(
+  () =>
+    import('@/components/features/stores/StoresYandexMap').then(m => ({
+      default: m.StoresYandexMap,
+    })),
+  {
+    ssr: false,
+    loading: () => <div className="h-64 w-full animate-pulse rounded-2xl bg-zinc-100 sm:h-80" />,
+  }
+);
 
 const DAY_LABELS: Record<string, string> = {
   monday: 'Пн',
@@ -114,6 +127,33 @@ export function StoreDetailContent({ slug, initialStore }: Props) {
         </p>
       )}
 
+      <div className="mt-6 inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-800">
+        <Truck className="h-4 w-4" aria-hidden />
+        Доставка бесплатно от 100 ₽ — привезём домой или на работу
+      </div>
+
+      <section className="mt-8">
+        <h2 className="mb-3 text-lg font-semibold text-foreground">На карте</h2>
+        <div className="overflow-hidden rounded-2xl border border-border bg-white">
+          <StoresYandexMapDynamic
+            stores={[store]}
+            center={
+              store.coordinates
+                ? [Number(store.coordinates.latitude), Number(store.coordinates.longitude)]
+                : undefined
+            }
+            zoom={store.coordinates ? 15 : 12}
+            selectedStoreId={store.id}
+            heightClass="h-64 sm:h-80"
+          />
+          {!store.coordinates && (
+            <p className="border-t border-border px-4 py-2 text-xs text-foreground-muted">
+              Координаты у этого магазина не заданы. Показываем общую карту.
+            </p>
+          )}
+        </div>
+      </section>
+
       <section className="mt-8">
         <h2 className="text-lg font-semibold text-foreground">Команда</h2>
         {managers.length === 0 ? (
@@ -159,7 +199,7 @@ export function StoreDetailContent({ slug, initialStore }: Props) {
         ) : products.length === 0 ? (
           <p className="text-sm text-foreground-muted">Сейчас нет товаров в наличии.</p>
         ) : (
-          <div className="grid grid-cols-2 gap-5 sm:gap-6 lg:grid-cols-3 lg:gap-7">
+          <div className={PRODUCT_CARD_GRID_CLASS}>
             {products.map((product, i) => (
               <ProductCard
                 key={product.id}

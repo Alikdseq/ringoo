@@ -1,11 +1,21 @@
 """
-JWT из HttpOnly-куки, если нет заголовка Authorization (Bearer).
-Порядок в DEFAULT_AUTHENTICATION_CLASSES: сначала стандартный JWTAuthentication.
+JWT: Bearer и HttpOnly-куки.
+Протухший/битый токен не должен ломать публичные эндпоинты (каталог, корзина) — трактуем как гостя.
 """
 
 from django.conf import settings
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
+
+
+class LenientJWTAuthentication(JWTAuthentication):
+    """Bearer JWT: при InvalidToken/TokenError — гость, без 401 на AllowAny."""
+
+    def authenticate(self, request):
+        try:
+            return super().authenticate(request)
+        except (InvalidToken, TokenError):
+            return None
 
 
 class JWTCookieAuthentication(JWTAuthentication):

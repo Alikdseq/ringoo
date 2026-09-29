@@ -1,15 +1,11 @@
-# syntax=docker/dockerfile:1
 # Dev: docker-compose (web, celery, celery-beat). BuildKit required.
-# uv installs deps faster than pip; manylinux wheels avoid gcc.
-# If a package needs compilation, add to apt: build-essential libpq-dev libffi-dev
-# PyPI: PIP_INDEX_URL / PIP_TRUSTED_HOST (compose build args). Proxy: HTTP_PROXY/HTTPS_PROXY.
+# Без ghcr.io/astral-sh/uv — uv ставится через pip (PyPI). При проблемах сети: RINGOO_USE_PIP_ONLY=1
 
 FROM python:3.11-slim-bookworm
 
-COPY --from=ghcr.io/astral-sh/uv:0.11.2 /uv /uvx /bin/
-
 ARG PIP_INDEX_URL=
 ARG PIP_TRUSTED_HOST=
+ARG RINGOO_USE_PIP_ONLY=0
 ARG HTTP_PROXY=
 ARG HTTPS_PROXY=
 ARG NO_PROXY=
@@ -24,10 +20,10 @@ ENV HTTP_PROXY=${HTTP_PROXY} \
     UV_LINK_MODE=copy \
     UV_COMPILE_BYTECODE=0 \
     UV_SYSTEM_PYTHON=1 \
-    UV_HTTP_CONNECT_TIMEOUT=60 \
-    UV_HTTP_TIMEOUT=120 \
-    UV_HTTP_RETRIES=6 \
-    UV_CONCURRENT_DOWNLOADS=4 \
+    UV_HTTP_CONNECT_TIMEOUT=120 \
+    UV_HTTP_TIMEOUT=300 \
+    UV_HTTP_RETRIES=10 \
+    UV_CONCURRENT_DOWNLOADS=2 \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     DJANGO_SETTINGS_MODULE=config.settings.development
@@ -42,12 +38,21 @@ WORKDIR /app
 
 COPY requirements.txt requirements-dev.txt ./
 
-RUN --mount=type=cache,target=/root/.cache/uv \
+RUN --mount=type=cache,target=/root/.cache/pip \
+    --mount=type=cache,target=/root/.cache/uv \
     set -e; \
-    UV_OPTS=""; \
-    if [ -n "${PIP_INDEX_URL}" ]; then UV_OPTS="${UV_OPTS} --index-url ${PIP_INDEX_URL}"; fi; \
-    if [ -n "${PIP_TRUSTED_HOST}" ]; then UV_OPTS="${UV_OPTS} --allow-insecure-host ${PIP_TRUSTED_HOST}"; fi; \
-    uv pip install ${UV_OPTS} --requirement requirements-dev.txt
+    PIP_INSTALL="pip install --no-cache-dir"; \
+    if [ -n "${PIP_INDEX_URL}" ]; then PIP_INSTALL="${PIP_INSTALL} --index-url ${PIP_INDEX_URL}"; fi; \
+    if [ -n "${PIP_TRUSTED_HOST}" ]; then PIP_INSTALL="${PIP_INSTALL} --trusted-host ${PIP_TRUSTED_HOST}"; fi; \
+    if [ "${RINGOO_USE_PIP_ONLY}" = "1" ]; then \
+      ${PIP_INSTALL} -r requirements-dev.txt; \
+    else \
+      ${PIP_INSTALL} "uv==0.11.2"; \
+      UV_OPTS=""; \
+      if [ -n "${PIP_INDEX_URL}" ]; then UV_OPTS="${UV_OPTS} --index-url ${PIP_INDEX_URL}"; fi; \
+      if [ -n "${PIP_TRUSTED_HOST}" ]; then UV_OPTS="${UV_OPTS} --allow-insecure-host ${PIP_TRUSTED_HOST}"; fi; \
+      uv pip install ${UV_OPTS} --requirement requirements-dev.txt; \
+    fi
 
 COPY . .
 

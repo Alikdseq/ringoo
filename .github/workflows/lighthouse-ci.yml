@@ -1,0 +1,30 @@
+name: Lighthouse CI (mobile)
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Понедельник 06:00 UTC — контроль CWV на проде
+    - cron: '0 6 * * 1'
+
+jobs:
+  lighthouse:
+    name: Lighthouse mobile — ringoo.ru
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run Lighthouse CI
+        uses: treosh/lighthouse-ci-action@v12
+        with:
+          urls: |
+            https://ringoo.ru/
+            https://ringoo.ru/catalog/
+          uploadArtifacts: true
+          temporaryPublicStorage: true
+          configPath: './.lighthouserc.json'
+
+      - name: Comment on failure hint
+        if: failure()
+        run: |
+          echo "Lighthouse thresholds not met. Update docs/PERFORMANCE_BASELINE.md after investigation."

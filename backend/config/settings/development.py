@@ -24,7 +24,9 @@ if DEBUG:
 # Локально документация API включена; в prod см. production.API_DOCS_PUBLIC
 API_DOCS_PUBLIC = os.getenv('API_DOCS_PUBLIC', 'True') == 'True'
 
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,0.0.0.0').split(',')
+ALLOWED_HOSTS = [
+    h.strip() for h in os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,0.0.0.0').split(',') if h.strip()
+]
 
 # Database
 # USE_SQLITE=True — запуск без PostgreSQL (для быстрого старта локально).

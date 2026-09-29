@@ -6,7 +6,7 @@ import type { Swiper as SwiperType } from 'swiper';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Navigation } from 'swiper/modules';
 import type { ProductDetail, ProductImage } from '@/types';
-import { getMediaUrl } from '@/lib/image-url';
+import { getMediaUrl, shouldUnoptimizeImage } from '@/lib/image-url';
 import { cn } from '@/lib/theme/utils';
 import { filterImagesForColorGroups, mergeColorGroups } from '@/lib/product-colors';
 import {
@@ -38,6 +38,7 @@ export function ProductGallery({
   const mainRef = useRef<SwiperType | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const [isZoomed, setIsZoomed] = useState(false);
+  const galleryModules = useMemo(() => [Navigation], []);
 
   const allImages = product.images ?? [];
   const colorGroups = useMemo(
@@ -67,6 +68,8 @@ export function ProductGallery({
     }
     return filterImagesForColorGroups(allImages, selectedIdSet) as ProductImage[];
   }, [allImages, colorGroups.length, selectedIdSet]);
+
+  const showGalleryNav = images.length > 1;
 
   const swiperDataKey = useMemo(
     () => `${product.id}:${selectedGroupKey ?? ''}:${images.map(i => i.id).join(',')}`,
@@ -123,7 +126,7 @@ export function ProductGallery({
                 aria-selected={selected}
                 onClick={() => goToSlide(i)}
                 className={cn(
-                  'relative h-16 w-16 shrink-0 overflow-hidden rounded-2xl border-2 bg-white transition-colors sm:h-[72px] sm:w-[72px]',
+                  'relative h-11 w-11 shrink-0 overflow-hidden rounded-2xl border-2 bg-white transition-colors touch-manipulation sm:h-[72px] sm:w-[72px]',
                   selected
                     ? 'border-brand ring-1 ring-brand/30'
                     : 'border-transparent hover:border-zinc-300 dark:bg-zinc-900 dark:hover:border-zinc-600'
@@ -136,7 +139,7 @@ export function ProductGallery({
                   sizes="84px"
                   className="object-contain p-0.5"
                   loading={i < 6 ? 'eager' : 'lazy'}
-                  unoptimized={src.startsWith('http')}
+                  unoptimized={shouldUnoptimizeImage(src)}
                 />
               </button>
             );
@@ -153,9 +156,14 @@ export function ProductGallery({
           <div className="absolute inset-0 min-h-0">
             <Swiper
               key={`main-${swiperDataKey}`}
-              modules={[Navigation]}
-              navigation
-              className="h-full w-full !p-0 [&_.swiper-button-next]:text-brand [&_.swiper-button-prev]:text-brand [&_.swiper-slide]:box-border [&_.swiper-slide]:!flex [&_.swiper-slide]:!h-full [&_.swiper-wrapper]:!h-full"
+              modules={showGalleryNav ? galleryModules : []}
+              navigation={
+                showGalleryNav ? { enabled: true, hideOnClick: false } : false
+              }
+              allowTouchMove
+              touchStartPreventDefault={false}
+              resistanceRatio={0.85}
+              className="h-full w-full touch-pan-y !p-0 max-md:[&_.swiper-button-next]:!hidden max-md:[&_.swiper-button-prev]:!hidden md:[&_.swiper-button-next]:!flex md:[&_.swiper-button-prev]:!flex [&_.swiper-button-next]:right-2 [&_.swiper-button-prev]:left-2 [&_.swiper-button-next]:z-[5] [&_.swiper-button-prev]:z-[5] [&_.swiper-button-next]:!size-10 [&_.swiper-button-prev]:!size-10 [&_.swiper-button-next]:!bg-transparent [&_.swiper-button-prev]:!bg-transparent [&_.swiper-button-next]:!shadow-none [&_.swiper-button-prev]:!shadow-none [&_.swiper-button-next]:text-brand [&_.swiper-button-prev]:text-brand [&_.swiper-button-next]:after:!text-lg [&_.swiper-button-prev]:after:!text-lg [&_.swiper-slide]:box-border [&_.swiper-slide]:!flex [&_.swiper-slide]:!h-full [&_.swiper-wrapper]:!h-full"
               onSwiper={instance => {
                 mainRef.current = instance;
               }}
@@ -208,8 +216,9 @@ export function ProductGallery({
                                     ? IPHONE_COMPACT_PDP_IMAGE_IDLE_CLASS
                                     : 'object-contain object-center scale-100')
                           )}
-                          loading="lazy"
-                          unoptimized={src.startsWith('http')}
+                          priority={slideIndex === 0}
+                          loading={slideIndex === 0 ? 'eager' : 'lazy'}
+                          unoptimized={shouldUnoptimizeImage(src)}
                         />
                       </div>
                     </div>

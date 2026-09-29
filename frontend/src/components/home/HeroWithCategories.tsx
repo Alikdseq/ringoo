@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { LINK_PREFETCH_DEFAULT } from '@/lib/navigation/link-prefetch';
 import Image from 'next/image';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { HomePageHeroSideCategory } from '@/lib/locales/useHomePageCopy';
@@ -80,7 +81,7 @@ export function HeroWithCategories() {
   return (
     <section
       ref={ref}
-      className="relative min-h-0 overflow-hidden bg-background px-2 py-6 sm:min-h-[72vh] sm:px-4 sm:py-8 lg:min-h-[85vh] lg:px-6"
+      className="relative min-h-0 overflow-hidden bg-background px-4 py-6 sm:min-h-[72vh] sm:px-4 sm:py-8 lg:min-h-[85vh] lg:px-6"
     >
       <div className="mx-auto flex h-full max-w-7xl flex-col gap-3 sm:min-h-[68vh] sm:gap-6 lg:min-h-[75vh]">
         <div className="grid h-full min-h-0 flex-1 grid-cols-1 gap-4 lg:min-h-[75vh] lg:grid-cols-[1fr_1.6fr_1fr] lg:gap-6">
@@ -142,6 +143,7 @@ export function HeroWithCategories() {
                 </motion.p>
                 <Link
                   href="/catalog"
+                  prefetch={LINK_PREFETCH_DEFAULT}
                   className="relative inline-flex h-10 items-center justify-center gap-2 rounded-full bg-brand px-6 text-sm font-medium text-white transition-colors hover:bg-[var(--color-brand-muted)]"
                 >
                   {heroCtaLabel(mode)}
@@ -168,6 +170,7 @@ export function HeroWithCategories() {
           <div className="relative flex justify-center pb-2">
             <Link
               href="/catalog"
+              prefetch={LINK_PREFETCH_DEFAULT}
               className="relative inline-flex h-14 items-center justify-center gap-3 rounded-full bg-brand px-10 text-lg font-semibold text-white shadow-lg transition-colors hover:bg-[var(--color-brand-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
               onMouseEnter={() => {
                 if (ctaHoverOnce) return;

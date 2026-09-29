@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1
+# BuildKit; без syntax=docker/dockerfile:1 (offline/TLS-friendly).
 # Production: multi-stage, Next.js standalone (DOCKER_BUILD=1 в next.config)
 
 FROM node:20-bookworm-slim AS deps

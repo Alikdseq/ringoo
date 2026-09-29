@@ -20,6 +20,11 @@ urlpatterns = [
     path("products/", views.ProductListView.as_view(), name="product-list"),
     path("products/brands/", views.ProductBrandsListView.as_view(), name="product-brands"),
     path(
+        "products/product-models/",
+        views.ProductModelsListView.as_view(),
+        name="product-models",
+    ),
+    path(
         "products/autocomplete/",
         views.ProductAutocompleteView.as_view(),
         name="product-autocomplete",

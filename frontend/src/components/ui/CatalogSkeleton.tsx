@@ -1,9 +1,10 @@
+import { PRODUCT_CARD_GRID_CLASS } from '@/lib/theme/spacing';
 import { Skeleton } from './Loading';
 
 /** Скелетон списка товаров каталога при загрузке */
 export function CatalogSkeleton() {
   return (
-    <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-3">
+    <div className={PRODUCT_CARD_GRID_CLASS}>
       {Array.from({ length: 8 }).map((_, i) => (
         <div
           key={i}

@@ -167,17 +167,13 @@ class ProductListSerializer(serializers.ModelSerializer):
         return rows
 
     def get_images(self, obj):
-        """
-        До 10 изображений для карточки каталога (свайп в карточке): сначала главное, затем по sort_order.
-        """
-        qs = list(obj.images.select_related("color").order_by("sort_order", "created_at"))
-        if not qs:
-            return []
-        qs.sort(key=lambda i: (not i.is_main, i.sort_order or 0, i.created_at))
-        out = []
-        for img in qs[:10]:
-            out.append(ProductImageSerializer(img, context=self.context).data)
-        return out
+        """Все фото товара для карточки, сгруппированные по цвету (без лимита 10/36)."""
+        from apps.products.services.product_images import ordered_product_images
+
+        return [
+            ProductImageSerializer(img, context=self.context).data
+            for img in ordered_product_images(obj)
+        ]
 
     def get_discount_percent(self, obj):
         return obj.discount_percent

@@ -10,6 +10,8 @@ import { ProductCard } from '@/components/features/products/ProductCard';
 import { Ringik, useRingikIntersectionTrigger } from '@/components/ringik/Ringik';
 import { useHomePageCopy } from '@/lib/locales/useHomePageCopy';
 import { dedupeById } from '@/lib/dedupe-by-id';
+import { cn } from '@/lib/theme/utils';
+import { HOME_SECTION_CLASS, HOME_SECTION_INNER_CLASS, PRODUCT_CARD_GRID_CLASS } from '@/lib/theme/spacing';
 
 const MOBILE_IPHONE_COUNT = 3;
 const MOBILE_SAMSUNG_COUNT = 1;
@@ -95,8 +97,8 @@ export function TodaysProductsCarousel({
   const errorText = isError ? getFriendlyErrorMessage(error) : null;
 
   return (
-    <section ref={sectionRef} className="relative bg-background px-2 py-12 sm:px-4 lg:px-4">
-      <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
+    <section ref={sectionRef} className={cn('relative', HOME_SECTION_CLASS)}>
+      <div className={HOME_SECTION_INNER_CLASS}>
         <div className="mb-6 flex items-end justify-between gap-4">
           <div>
             <h2 className="text-2xl font-semibold text-foreground sm:text-3xl">
@@ -115,7 +117,7 @@ export function TodaysProductsCarousel({
         </div>
 
         {isLoading ? (
-          <div className="grid grid-cols-2 gap-5 sm:gap-6 lg:grid-cols-3 lg:gap-7">
+          <div className={PRODUCT_CARD_GRID_CLASS}>
             {Array.from({ length: mobileTotal }).map((_, i) => (
               <ProductCardSkeleton key={i} />
             ))}
@@ -129,7 +131,7 @@ export function TodaysProductsCarousel({
             Сейчас нет товаров для отображения.
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-5 sm:gap-6 lg:grid-cols-3 lg:gap-7">
+          <div className={PRODUCT_CARD_GRID_CLASS}>
             {products.map((product, index) => (
               <ProductCard
                 key={product.id}

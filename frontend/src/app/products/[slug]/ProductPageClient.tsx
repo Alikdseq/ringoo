@@ -16,6 +16,7 @@ import { ProductSpecsTable } from '@/components/features/products/ProductSpecsTa
 import { ProductTabs } from '@/components/features/products/ProductTabs';
 import { Modal } from '@/components/ui/Modal';
 import { ProductDetailRecommendations } from '@/components/features/products/ProductDetailRecommendations';
+import { FreeDeliveryBadge } from '@/components/ui/FreeDeliveryBadge';
 import { useProduct } from '@/lib/hooks/useProducts';
 import { CURRENCY_SYMBOL } from '@/lib/constants';
 import { getSpecValue, getSpecValues } from '@/lib/utils/product-specs';
@@ -177,7 +178,7 @@ function ProductContent({ product }: { product: ProductDetail }): ReactElement {
                 visible={ringik.visible}
                 showMessage={ringik.showMessage}
                 message="Топ за свои деньги!"
-                className="-right-6 -top-12 scale-[1.05]"
+                className="pointer-events-none hidden scale-[1.05] lg:pointer-events-auto lg:absolute lg:-right-6 lg:-top-12 lg:block"
               />
             </div>
           </div>
@@ -197,6 +198,8 @@ function ProductContent({ product }: { product: ProductDetail }): ReactElement {
               />
             </div>
           </div>
+
+          <FreeDeliveryBadge className="mb-4" size="sm" />
 
           {(() => {
             const materials = getSpecValues(product, 'Материал');

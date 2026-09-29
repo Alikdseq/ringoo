@@ -12,6 +12,7 @@ import { Loading } from '@/components/ui/Loading';
 import { ProductCard } from '@/components/features/products/ProductCard';
 import type { Product } from '@/types';
 import { PageContainer } from '@/components/layout/PageContainer';
+import { PRODUCT_CARD_GRID_CLASS } from '@/lib/theme/spacing';
 
 export default function WishlistPage() {
   const router = useRouter();
@@ -74,7 +75,7 @@ export default function WishlistPage() {
           </Button>
         </Card>
       ) : (
-        <div className="grid grid-cols-2 gap-4 sm:gap-6 md:grid-cols-3 lg:grid-cols-3">
+        <div className={PRODUCT_CARD_GRID_CLASS}>
           {items.map(item => (
             <div key={item.id} className="relative">
               <ProductCard product={item.product as Product} />

@@ -1,20 +1,19 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { LINK_PREFETCH_DEFAULT } from '@/lib/navigation/link-prefetch';
+import { usePathname } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { LucideIcon } from 'lucide-react';
 import {
   ChevronRight,
-  Heart,
   Info,
   LayoutGrid,
   MapPin,
   PackageSearch,
   Percent,
-  Search,
-  ShoppingBag,
   User,
   X,
 } from 'lucide-react';
@@ -32,11 +31,6 @@ interface MobileMenuProps {
   isOpen: boolean;
   onClose: () => void;
   navItems: NavItem[];
-  cartCount?: number;
-  wishlistCount?: number;
-  onCartClick?: () => void;
-  /** Открыть полноэкранный поиск (после закрытия меню). */
-  onRequestMobileSearch?: () => void;
 }
 
 const MOBILE_CARD_META: Record<
@@ -51,17 +45,13 @@ const MOBILE_CARD_META: Record<
   '/profile': { subtitle: 'Заказы и данные', icon: User },
 };
 
-export function MobileMenu({
-  isOpen,
-  onClose,
-  navItems,
-  cartCount = 0,
-  wishlistCount = 0,
-  onCartClick,
-  onRequestMobileSearch,
-}: MobileMenuProps) {
-  const router = useRouter();
+export function MobileMenu({ isOpen, onClose, navItems }: MobileMenuProps) {
   const pathname = usePathname();
+  const [portalReady, setPortalReady] = useState(false);
+
+  useEffect(() => {
+    setPortalReady(true);
+  }, []);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -72,92 +62,46 @@ export function MobileMenu({
     };
   }, [isOpen]);
 
-  const handleCartClick = () => {
-    onClose();
-    onCartClick?.() ?? router.push('/cart');
-  };
-
-  const handleOpenSearch = () => {
-    onClose();
-    requestAnimationFrame(() => onRequestMobileSearch?.());
-  };
-
-  return (
+  const menu = (
     <AnimatePresence>
       {isOpen && (
         <div
-          className="fixed inset-0 z-50 md:hidden"
+          className="fixed inset-0 z-[200] w-full max-w-[100vw] overflow-hidden md:hidden"
           role="dialog"
           aria-modal="true"
           aria-label="Меню навигации"
         >
-          <motion.button
+          <button
             type="button"
             aria-label="Закрыть меню"
-            className="absolute inset-0 bg-black/20 backdrop-blur-[2px]"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
+            className="absolute inset-0 cursor-default bg-transparent"
             onClick={onClose}
           />
           <motion.div
-            className="pointer-events-none absolute inset-x-0 top-0 z-10 flex max-h-[100dvh] flex-col px-2 pt-[max(0.5rem,env(safe-area-inset-top))]"
+            className="pointer-events-none absolute inset-x-0 top-0 z-10 flex w-full max-w-full max-h-[100dvh] flex-col px-2 pt-[max(0.5rem,env(safe-area-inset-top))]"
             initial={{ y: '-104%', opacity: 0.6 }}
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: '-104%', opacity: 0.5 }}
             transition={{ type: 'spring', damping: 28, stiffness: 320, mass: 0.85 }}
           >
             <div
-              className="pointer-events-auto flex max-h-[min(100dvh-0.5rem,640px)] flex-col overflow-hidden rounded-2xl border border-white/40 bg-transparent shadow-[0_8px_40px_rgba(0,0,0,0.12)]"
+              className="pointer-events-auto mx-auto flex w-full max-w-full max-h-[min(100dvh-0.5rem,640px)] flex-col overflow-hidden bg-transparent"
               onClick={e => e.stopPropagation()}
             >
-              <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border/60 bg-white/95 px-3 py-2.5 backdrop-blur-md supports-[backdrop-filter]:bg-white/88">
-                <BrandLogo href="/" onClick={onClose} height={64} />
-                <div className="flex shrink-0 items-center gap-0.5">
-                  <button
-                    type="button"
-                    onClick={handleOpenSearch}
-                    className="inline-flex min-h-[44px] min-w-[44px] touch-manipulation items-center justify-center rounded-full text-foreground transition-colors hover:bg-zinc-100"
-                    aria-label="Поиск"
-                  >
-                    <Search className="h-5 w-5" />
-                  </button>
-                  <Link
-                    href="/wishlist"
-                    onClick={onClose}
-                    className="relative inline-flex min-h-[44px] min-w-[44px] touch-manipulation items-center justify-center rounded-full text-foreground transition-colors hover:bg-zinc-100"
-                    aria-label="Избранное"
-                  >
-                    <Heart className="h-5 w-5" />
-                    {wishlistCount > 0 && (
-                      <span className="absolute right-1 top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--color-brand)] px-1 text-[9px] font-bold text-white">
-                        {wishlistCount > 99 ? '99+' : wishlistCount}
-                      </span>
-                    )}
-                  </Link>
-                  <button
-                    type="button"
-                    onClick={handleCartClick}
-                    className="relative inline-flex min-h-[44px] min-w-[44px] touch-manipulation items-center justify-center rounded-full text-foreground transition-colors hover:bg-zinc-100"
-                    aria-label="Корзина"
-                  >
-                    <ShoppingBag className="h-5 w-5" />
-                    {cartCount > 0 && (
-                      <span className="absolute right-1 top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--color-brand)] px-1 text-[9px] font-bold text-white">
-                        {cartCount > 99 ? '99+' : cartCount}
-                      </span>
-                    )}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={onClose}
-                    aria-label="Закрыть меню"
-                    className="inline-flex min-h-[44px] min-w-[44px] touch-manipulation items-center justify-center rounded-full bg-zinc-900 text-white transition-colors hover:bg-zinc-800"
-                  >
-                    <X className="h-5 w-5" strokeWidth={2} />
-                  </button>
-                </div>
+              <div className="flex min-w-0 shrink-0 items-center justify-between gap-2 border-b border-border/60 bg-white/95 px-3 py-2.5 backdrop-blur-md supports-[backdrop-filter]:bg-white/88">
+                <BrandLogo
+                  href="/"
+                  onClick={onClose}
+                  boxClassName="h-12 w-[min(120px,40vw)] max-w-[40vw] shrink-0"
+                />
+                <button
+                  type="button"
+                  onClick={onClose}
+                  aria-label="Закрыть меню"
+                  className="inline-flex min-h-[44px] min-w-[44px] shrink-0 touch-manipulation items-center justify-center rounded-full bg-zinc-900 text-white transition-colors hover:bg-zinc-800"
+                >
+                  <X className="h-5 w-5" strokeWidth={2} />
+                </button>
               </div>
 
               <nav
@@ -177,6 +121,7 @@ export function MobileMenu({
                       <li key={item.href}>
                         <Link
                           href={item.href}
+                          prefetch={LINK_PREFETCH_DEFAULT}
                           scroll
                           onClick={onClose}
                           aria-current={active ? 'page' : undefined}
@@ -222,4 +167,7 @@ export function MobileMenu({
       )}
     </AnimatePresence>
   );
+
+  if (!portalReady) return null;
+  return createPortal(menu, document.body);
 }

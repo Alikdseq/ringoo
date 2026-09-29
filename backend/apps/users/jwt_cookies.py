@@ -49,8 +49,18 @@ def set_jwt_cookies(
     samesite = getattr(settings, "JWT_COOKIE_SAMESITE", "Lax")
     access_name = getattr(settings, "JWT_COOKIE_ACCESS_NAME", "ringoo_access")
     refresh_name = getattr(settings, "JWT_COOKIE_REFRESH_NAME", "ringoo_refresh")
+    session_name = getattr(settings, "JWT_COOKIE_SESSION_HINT_NAME", "ringoo_session")
     path = getattr(settings, "JWT_COOKIE_PATH", "/")
 
+    response.set_cookie(
+        key=session_name,
+        value="1",
+        max_age=_refresh_max_age(),
+        httponly=False,
+        secure=secure,
+        samesite=samesite,
+        path=path,
+    )
     response.set_cookie(
         key=access_name,
         value=access_token,
@@ -75,6 +85,7 @@ def set_jwt_cookies(
 def clear_jwt_cookies(response) -> None:
     access_name = getattr(settings, "JWT_COOKIE_ACCESS_NAME", "ringoo_access")
     refresh_name = getattr(settings, "JWT_COOKIE_REFRESH_NAME", "ringoo_refresh")
+    session_name = getattr(settings, "JWT_COOKIE_SESSION_HINT_NAME", "ringoo_session")
     path = getattr(settings, "JWT_COOKIE_PATH", "/")
-    for name in (access_name, refresh_name):
+    for name in (access_name, refresh_name, session_name):
         response.delete_cookie(key=name, path=path)

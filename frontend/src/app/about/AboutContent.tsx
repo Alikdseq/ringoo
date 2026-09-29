@@ -22,6 +22,8 @@ import type { Order } from '@/types/api';
 import type { Store } from '@/types';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { FilterSelect } from '@/components/ui/FilterSelect';
+import { MOBILE_SECTION_BLEED_CLASS } from '@/lib/theme/spacing';
 import { Loading } from '@/components/ui/Loading';
 import { cn } from '@/lib/theme/utils';
 import { formatRuDateLong } from '@/lib/format-date';
@@ -370,9 +372,9 @@ export function AboutContent() {
   return (
     <div className="bg-background">
       {/* HERO */}
-      <section className="bg-background px-2 py-10 sm:px-4 sm:py-14 lg:px-6">
-        <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
-          <Card className="relative overflow-hidden rounded-[32px] border border-border bg-white p-6 sm:p-10">
+      <section className="bg-background px-4 py-10 sm:px-4 sm:py-14 lg:px-6">
+        <div className="mx-auto w-full max-w-7xl sm:px-6 lg:px-8">
+          <Card className="relative overflow-hidden rounded-[32px] border border-border bg-white p-4 sm:p-10">
             <div
               className="pointer-events-none absolute inset-0 opacity-[0.10]"
               aria-hidden
@@ -381,8 +383,8 @@ export function AboutContent() {
                   'radial-gradient(circle at 10% 10%, rgba(34, 197, 94, 0.35), transparent 45%), radial-gradient(circle at 70% 30%, rgba(59, 130, 246, 0.22), transparent 45%), radial-gradient(circle at 40% 90%, rgba(245, 158, 11, 0.18), transparent 50%)',
               }}
             />
-            <div className="relative grid gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
-              <div>
+            <div className="relative grid gap-8 max-md:flex max-md:flex-col lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
+              <div className="min-w-0">
                 <p className="text-sm font-semibold text-brand">О компании Ringoo</p>
                 <h1 className="mt-3 text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
                   Ringoo — техника, которой доверяют
@@ -391,7 +393,7 @@ export function AboutContent() {
                   Крупнейшая сеть магазинов электроники в Северной Осетии. Работаем с 2015 года.
                 </p>
 
-                <div className="mt-6 grid gap-3 sm:grid-cols-3">
+                <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
                   <div className="rounded-2xl border border-border bg-white/70 px-4 py-3 backdrop-blur">
                     <p className="text-2xl font-semibold text-foreground">10 000+</p>
                     <p className="text-sm text-foreground-muted">довольных клиентов</p>
@@ -415,14 +417,23 @@ export function AboutContent() {
                 </div>
               </div>
 
-              {/* Визуал */}
-              <div className="relative overflow-hidden rounded-3xl border border-border bg-[radial-gradient(circle_at_20%_20%,rgba(34,197,94,0.22),transparent_55%),linear-gradient(180deg,#ffffff,#f6fff8)] p-6 sm:p-10">
-                <p className="text-sm font-semibold text-foreground">Команда Ringoo</p>
-                <p className="mt-2 text-sm text-foreground-muted">
-                  Консультации в магазине и онлайн — быстро, честно и без лишних обещаний.
-                </p>
-                <div className="mt-6">
-                  <PageHeroGallery images={aboutHeroGallery} />
+              <div
+                className={cn(
+                  'max-md:order-last max-md:col-span-full',
+                  MOBILE_SECTION_BLEED_CLASS,
+                  'md:mx-0 md:w-full'
+                )}
+              >
+                <div className="relative overflow-hidden max-md:rounded-none md:rounded-3xl md:border md:border-border md:bg-[radial-gradient(circle_at_20%_20%,rgba(34,197,94,0.22),transparent_55%),linear-gradient(180deg,#ffffff,#f6fff8)] md:p-6 lg:p-10">
+                  <div className="max-md:px-4 md:px-0">
+                    <p className="text-sm font-semibold text-foreground">Команда Ringoo</p>
+                    <p className="mt-2 text-sm text-foreground-muted">
+                      Консультации в магазине и онлайн — быстро, честно и без лишних обещаний.
+                    </p>
+                  </div>
+                  <div className="mt-4 md:mt-6">
+                    <PageHeroGallery images={aboutHeroGallery} fullBleed />
+                  </div>
                 </div>
               </div>
             </div>
@@ -489,46 +500,36 @@ export function AboutContent() {
               <Card className="mb-6 rounded-3xl border border-border bg-white p-4 sm:p-5">
                 <p className="mb-3 text-sm font-semibold text-foreground">Фильтр по магазину</p>
                 <div className="grid gap-4 sm:grid-cols-2 lg:max-w-3xl">
-                  <div>
-                    <label htmlFor="about-managers-city" className="mb-1 block text-sm text-foreground-muted">
-                      Город
-                    </label>
-                    <select
-                      id="about-managers-city"
-                      value={filterCity}
-                      onChange={e => {
-                        setFilterCity(e.target.value);
-                        setFilterStoreId('all');
-                      }}
-                      className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary dark:bg-zinc-900"
-                    >
-                      <option value="all">Все города</option>
-                      {managerCities.map(city => (
-                        <option key={city} value={city}>
-                          {city}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label htmlFor="about-managers-store" className="mb-1 block text-sm text-foreground-muted">
-                      Магазин
-                    </label>
-                    <select
-                      id="about-managers-store"
-                      value={filterStoreId}
-                      onChange={e => setFilterStoreId(e.target.value)}
-                      className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary dark:bg-zinc-900"
-                    >
-                      <option value="all">Все магазины{filterCity !== 'all' ? ` (${filterCity})` : ''}</option>
-                      {storesForFilter.map(s => (
-                        <option key={s.id} value={s.id}>
-                          {s.name}
-                          {filterCity === 'all' && s.city ? ` — ${s.city}` : ''}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                  <FilterSelect
+                    id="about-managers-city"
+                    label="Город"
+                    value={filterCity}
+                    onChange={e => {
+                      setFilterCity(e.target.value);
+                      setFilterStoreId('all');
+                    }}
+                  >
+                    <option value="all">Все города</option>
+                    {managerCities.map(city => (
+                      <option key={city} value={city}>
+                        {city}
+                      </option>
+                    ))}
+                  </FilterSelect>
+                  <FilterSelect
+                    id="about-managers-store"
+                    label="Магазин"
+                    value={filterStoreId}
+                    onChange={e => setFilterStoreId(e.target.value)}
+                  >
+                    <option value="all">Все магазины{filterCity !== 'all' ? ` (${filterCity})` : ''}</option>
+                    {storesForFilter.map(s => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                        {filterCity === 'all' && s.city ? ` — ${s.city}` : ''}
+                      </option>
+                    ))}
+                  </FilterSelect>
                 </div>
                 <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-sm text-foreground-muted">
                   <span>

@@ -5,7 +5,7 @@ import { useUiMode } from '@/lib/providers/UiModeProvider';
 import { UI_MODE_SVOI_ENABLED } from '@/lib/ui-mode/featureFlags';
 import { cn } from '@/lib/theme/utils';
 
-type Variant = 'header' | 'header-compact' | 'mobile';
+type Variant = 'header' | 'header-compact' | 'mobile' | 'mobile-menu';
 
 export function UiModeToggle({ variant = 'header' }: { variant?: Variant }) {
   const { mode, setMode } = useUiMode();
@@ -61,13 +61,13 @@ export function UiModeToggle({ variant = 'header' }: { variant?: Variant }) {
     );
   }
 
-  if (variant === 'mobile') {
+  if (variant === 'mobile' || variant === 'mobile-menu') {
+    const shellClass =
+      variant === 'mobile-menu'
+        ? 'mb-2 rounded-xl border border-border/50 bg-transparent px-1 py-2'
+        : 'mb-2 rounded-xl border border-border/80 bg-white/95 px-3 py-2.5 shadow-sm backdrop-blur-sm';
     return (
-      <div
-        className="mb-2 rounded-xl border border-border/80 bg-white/95 px-3 py-2.5 shadow-sm backdrop-blur-sm"
-        role="group"
-        aria-label="Режим оформления сайта"
-      >
+      <div className={shellClass} role="group" aria-label="Режим оформления сайта">
         <div className="flex items-center gap-2">
           <button
             type="button"

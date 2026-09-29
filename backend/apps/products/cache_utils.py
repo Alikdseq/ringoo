@@ -34,6 +34,7 @@ def product_list_cache_key(request) -> str:
         ("in_stock", request.query_params.get("in_stock") or ""),
         ("rating_min", request.query_params.get("rating_min") or ""),
         ("store", request.query_params.get("store") or ""),
+        ("model", request.query_params.get("model") or ""),
     ]
     raw = "&".join(f"{k}={v}" for k, v in params)
     h = hashlib.md5(raw.encode("utf-8"), usedforsecurity=False).hexdigest()
@@ -43,6 +44,23 @@ def product_list_cache_key(request) -> str:
 def brands_cache_key() -> str:
     version = cache.get("products_list_version") or 0
     return f"products_brands:v{version}"
+
+
+def product_models_cache_key(request) -> str:
+    version = cache.get("products_list_version") or 0
+    params = [
+        ("category", request.query_params.get("category") or ""),
+        ("brand", request.query_params.get("brand") or ""),
+        ("min_price", request.query_params.get("min_price") or ""),
+        ("max_price", request.query_params.get("max_price") or ""),
+        ("search", request.query_params.get("search") or ""),
+        ("in_stock", request.query_params.get("in_stock") or ""),
+        ("rating_min", request.query_params.get("rating_min") or ""),
+        ("store", request.query_params.get("store") or ""),
+    ]
+    raw = "&".join(f"{k}={v}" for k, v in params)
+    h = hashlib.md5(raw.encode("utf-8"), usedforsecurity=False).hexdigest()
+    return f"products_models:v{version}:{h}"
 
 
 def autocomplete_cache_key(q: str) -> str:

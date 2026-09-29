@@ -38,16 +38,23 @@ function devApiHttpOrigins(): string[] {
   for (const raw of [
     process.env.NEXT_PUBLIC_API_URL,
     process.env.NEXT_PUBLIC_API_V1_URL?.replace(/\/api\/v1\/?$/i, ""),
+    process.env.NEXT_PUBLIC_SITE_URL,
+    process.env.NEXT_PUBLIC_APP_URL,
   ]) {
     if (!raw?.trim()) continue;
     try {
       const u = new URL(raw.trim());
-      if (u.protocol === "http:") out.add(u.origin);
+      out.add(u.origin);
     } catch {
       /* ignore */
     }
   }
   return [...out];
+}
+
+function apiProxyTarget(): string | null {
+  const raw = process.env.RINGOO_API_PROXY_TARGET?.trim();
+  return raw ? raw.replace(/\/+$/, "") : null;
 }
 
 /** Локальная разработка (Docker / localhost API). */
@@ -74,6 +81,26 @@ const YANDEX_MAPS_STATIC = "https://yastatic.net";
 const YANDEX_MAPS_CONNECT =
   "https://api-maps.yandex.ru https://yandex.ru https://*.yandex.ru https://*.yandex.net https://yastatic.net";
 
+/** Ngrok / внешний origin в dev: без этого Next блокирует /_next/* и ломается страница. */
+function buildAllowedDevOrigins(): string[] {
+  const hosts = new Set<string>([
+    "demanding-most-caramel.ngrok-free.dev",
+    "*.ngrok-free.dev",
+  ]);
+  for (const raw of [
+    process.env.NEXT_PUBLIC_SITE_URL,
+    process.env.NEXT_PUBLIC_APP_URL,
+  ]) {
+    if (!raw?.trim()) continue;
+    try {
+      hosts.add(new URL(raw.trim()).host);
+    } catch {
+      /* ignore */
+    }
+  }
+  return [...hosts];
+}
+
 /** CSP собирается при старте сервера (учитывает env из Docker/.env.local). */
 function buildContentSecurityPolicy(): string {
   return [
@@ -92,10 +119,23 @@ function buildContentSecurityPolicy(): string {
 }
 
 const nextConfig: NextConfig = {
+  // Dev через ngrok: разрешить cross-origin к /_next (иначе пустая главная и ошибки HMR в консоли)
+  ...(process.env.NODE_ENV === "development" || process.env.RINGOO_NGROK_DEMO === "1"
+    ? { allowedDevOrigins: buildAllowedDevOrigins() }
+    : {}),
+  // Ngrok / демо: без индикатора Turbopack в углу
+  ...(process.env.RINGOO_NGROK_DEMO === "1" ? { devIndicators: false as const } : {}),
   // Production Docker-образ (frontend/Dockerfile, DOCKER_BUILD=1)
   ...(process.env.DOCKER_BUILD === "1" ? { output: "standalone" as const } : {}),
+  // Иначе /api/v1/... ловит 308 и ломает прокси к Django
+  trailingSlash: true,
+  skipTrailingSlashRedirect: true,
   experimental: {
     optimizePackageImports: ["lucide-react"],
+    // Docker VM ~5 ГБ: 4 воркера сборки роняют процесс, и prerender падает с useContext/use === null.
+    ...(process.env.RINGOO_BUILD_CPUS
+      ? { cpus: Number(process.env.RINGOO_BUILD_CPUS) }
+      : {}),
   },
   async redirects() {
     return [
@@ -103,6 +143,7 @@ const nextConfig: NextConfig = {
       { source: '/order-track', destination: '/order-status', permanent: true },
     ];
   },
+  // API/media proxy: src/app/api/v1/[...path]/route.ts and src/app/media/[...path]/route.ts
   async headers() {
     const contentSecurityPolicy = buildContentSecurityPolicy();
     const securityHeaders: { key: string; value: string }[] = [
@@ -131,15 +172,16 @@ const nextConfig: NextConfig = {
   },
   images: {
     // Dev/Docker: оптимизатор в контейнере не достучится до localhost:8000 на хосте
-    unoptimized: process.env.NODE_ENV === "development",
+    unoptimized:
+      process.env.NODE_ENV === "development" ||
+      process.env.RINGOO_NGROK_DEMO === "1",
     // Без этого fetch к http://localhost:8000/media/... резолвится в 127.0.0.1 → ImageError 400
     dangerouslyAllowLocalIP:
       process.env.NODE_ENV === "development" ||
       process.env.IMAGES_ALLOW_LOCAL_IP === "true",
     qualities: [75, 80, 90],
     localPatterns: [
-      { pathname: "/magazins/**" },
-      { pathname: "/menegers/**" },
+      { pathname: "/**" },
     ],
     remotePatterns: [
       {
@@ -178,6 +220,15 @@ const nextConfig: NextConfig = {
     minimumCacheTTL: 3600,
   },
   compress: true,
+  webpack: (config, { dev, isServer }) => {
+    if (dev && !isServer && process.env.RINGOO_DISABLE_HMR === "1") {
+      config.plugins = config.plugins.filter(
+        (plugin: { constructor?: { name?: string } }) =>
+          plugin?.constructor?.name !== "HotModuleReplacementPlugin"
+      );
+    }
+    return config;
+  },
 };
 
 export default withSentryConfig(withBundleAnalyzer(nextConfig), {

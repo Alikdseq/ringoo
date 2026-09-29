@@ -3,6 +3,8 @@
 import { X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
+import { usePrefersReducedMotion } from '@/lib/hooks/usePrefersReducedMotion';
+import { TOUCH_TARGET_MOBILE_CLASS } from '@/lib/theme/spacing';
 
 type ChipVariant = 'filter' | 'removable';
 
@@ -14,19 +16,20 @@ export interface ChipProps {
 }
 
 export function Chip({ children, variant = 'filter', onRemove, className }: ChipProps) {
+  const reducedMotion = usePrefersReducedMotion();
   const isRemovable = variant === 'removable' && onRemove;
 
   return (
     <motion.span
-      layout
-      initial={{ opacity: 0, scale: 0.9 }}
+      layout={!reducedMotion}
+      initial={reducedMotion ? false : { opacity: 0, scale: 0.9 }}
       animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.9 }}
-      transition={{ duration: 0.15 }}
+      exit={reducedMotion ? undefined : { opacity: 0, scale: 0.9 }}
+      transition={{ duration: reducedMotion ? 0 : 0.15 }}
       className={clsx(
-        'inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-medium',
+        'inline-flex min-h-[36px] items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium touch-manipulation sm:min-h-0',
         'bg-brand-soft text-brand-muted transition-colors duration-150',
-        'hover:bg-brand hover:text-white',
+        'hover:bg-brand hover:text-white active:bg-brand active:text-white',
         isRemovable && 'pr-1.5',
         className
       )}
@@ -39,10 +42,13 @@ export function Chip({ children, variant = 'filter', onRemove, className }: Chip
             e.stopPropagation();
             onRemove?.();
           }}
-          className="rounded-full p-0.5 transition-colors hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
+          className={clsx(
+            'inline-flex items-center justify-center rounded-full transition-colors hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50 active:bg-white/30',
+            TOUCH_TARGET_MOBILE_CLASS
+          )}
           aria-label="Удалить"
         >
-          <X className="h-3.5 w-3.5" />
+          <X className="h-4 w-4" />
         </button>
       )}
     </motion.span>

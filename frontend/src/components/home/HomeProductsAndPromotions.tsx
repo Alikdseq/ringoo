@@ -16,6 +16,7 @@ import { Loading } from '@/components/ui/Loading';
 import { CURRENCY_SYMBOL } from '@/lib/constants';
 import { cn } from '@/lib/theme/utils';
 import { usePromotionCountdown } from '@/lib/hooks/usePromotionCountdown';
+import { PRODUCT_CARD_GRID_CLASS } from '@/lib/theme/spacing';
 
 const HOME_PRODUCTS_LIMIT = 8;
 const HOME_PROMOTIONS_LIMIT = 4;
@@ -108,7 +109,7 @@ export function HomeProductsAndPromotions() {
             Сейчас нет товаров для отображения.
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-3">
+          <div className={PRODUCT_CARD_GRID_CLASS}>
             {products.map((product, index) => (
               <ProductCard key={product.id} product={product} priority={index === 0} />
             ))}

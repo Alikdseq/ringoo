@@ -6,6 +6,9 @@
 #   зеркало: PIP_INDEX_URL=https://<зеркало>/simple и PIP_TRUSTED_HOST=<хост>
 #   или прокси: HTTP_PROXY / HTTPS_PROXY / NO_PROXY (пробрасываются в build)
 # либо VPN на хосте.
+#
+# Сборка: DOCKER_BUILDKIT=1 (по умолчанию в Docker Desktop). Не используйте # syntax=docker/dockerfile:1
+# в Dockerfile — иначе лишний pull docker/dockerfile с Hub (TLS handshake timeout).
 
 x-backend-build: &backend-build
   context: ./backend
@@ -13,6 +16,7 @@ x-backend-build: &backend-build
   args:
     PIP_INDEX_URL: ${PIP_INDEX_URL:-}
     PIP_TRUSTED_HOST: ${PIP_TRUSTED_HOST:-}
+    RINGOO_USE_PIP_ONLY: ${RINGOO_USE_PIP_ONLY:-0}
     HTTP_PROXY: ${HTTP_PROXY:-}
     HTTPS_PROXY: ${HTTPS_PROXY:-}
     NO_PROXY: ${NO_PROXY:-}
@@ -79,7 +83,7 @@ services:
     build:
       <<: *backend-build
     container_name: ringoo_backend
-    command: python manage.py runserver 0.0.0.0:8000
+    command: python manage.py runserver 0.0.0.0:8000 --noreload
     volumes:
       - ./backend:/app
       - ./frontend/public:/ringoo_catalog_public:ro
@@ -97,6 +101,8 @@ services:
       - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
       - RINGOO_PUBLIC_CATALOG_ROOT=/ringoo_catalog_public
       - PUBLIC_API_ORIGIN=http://localhost:${BACKEND_PORT:-8000}
+      # restart не подхватывает env_file — задаём здесь; .ngrok-free.dev = все free-поддомены ngrok
+      - ALLOWED_HOSTS=${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,0.0.0.0,web,backend,demanding-most-caramel.ngrok-free.dev,.ngrok-free.dev}
     depends_on:
       db:
         condition: service_healthy
@@ -118,7 +124,8 @@ services:
     networks:
       - ringoo_network
 
-  # Next.js Frontend (dev, hot reload)
+  # Next.js: production (как ngrok-демо). Dev webpack компилирует страницу при каждом заходе.
+  # Сборка один раз, дальше `next start` отдаёт готовые страницы.
   frontend:
     build:
       <<: *frontend-build
@@ -127,9 +134,16 @@ services:
       - sh
       - -c
       - |
+        set -e
         node scripts/generate-magazins-manifest.mjs 2>/dev/null || true
         node scripts/generate-menegers-manifest.mjs 2>/dev/null || true
-        exec npm run dev -- --hostname 0.0.0.0 --port 3000
+        if [ ! -f .next/BUILD_ID ]; then
+          echo "=== Ringoo: production build ==="
+          npm run build
+        fi
+        test -f .next/BUILD_ID || (echo "Build failed: .next/BUILD_ID missing" >&2; exit 1)
+        echo "=== Ringoo: next start :3000 ==="
+        exec npm run start -- -H 0.0.0.0 -p 3000
     volumes:
       - ./frontend:/app
       - frontend_node_modules:/app/node_modules
@@ -141,15 +155,20 @@ services:
       - path: ./frontend/.env.local
         required: false
     environment:
-      - NODE_ENV=development
+      - NODE_ENV=production
+      - NODE_OPTIONS=--max-old-space-size=2048
+      - RINGOO_BUILD_CPUS=1
       - RINGOO_RELAX_CSP=1
       - WATCHPACK_POLLING=true
       - CHOKIDAR_USEPOLLING=true
       - NEXT_TELEMETRY_DISABLED=1
-      - NEXT_PUBLIC_API_V1_URL=http://localhost:${BACKEND_PORT:-8000}/api/v1
-      - NEXT_PUBLIC_API_URL=http://localhost:${BACKEND_PORT:-8000}
-      - NEXT_PUBLIC_SITE_URL=http://localhost:${FRONTEND_PORT:-3000}
+      # Из корневого .env / frontend/.env.local (ngrok sync); иначе localhost
+      - NEXT_PUBLIC_API_V1_URL=${NEXT_PUBLIC_API_V1_URL:-http://localhost:${BACKEND_PORT:-8000}/api/v1}
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:${BACKEND_PORT:-8000}}
+      - NEXT_PUBLIC_SITE_URL=${NEXT_PUBLIC_SITE_URL:-http://localhost:${FRONTEND_PORT:-3000}}
       - API_INTERNAL_V1_URL=http://web:8000/api/v1
+      - RINGOO_API_PROXY_TARGET=http://web:8000
+      - RINGOO_DISABLE_HMR=${RINGOO_DISABLE_HMR:-0}
       - IMAGES_ALLOW_LOCAL_IP=true
     depends_on:
       web:
@@ -162,7 +181,7 @@ services:
         ]
       interval: 30s
       timeout: 10s
-      start_period: 120s
+      start_period: 600s
       retries: 5
     networks:
       - ringoo_network

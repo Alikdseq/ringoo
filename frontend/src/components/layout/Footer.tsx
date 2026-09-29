@@ -6,6 +6,7 @@ import { createMissingProductRequest } from '@/lib/api/services/crm.service';
 import { ConsentCheckboxes } from '@/components/legal/ConsentCheckboxes';
 import Link from 'next/link';
 import { ArrowRight, Instagram } from 'lucide-react';
+import { LINK_PREFETCH_DEFAULT } from '@/lib/navigation/link-prefetch';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { useCategories } from '@/lib/hooks/useProducts';
@@ -94,6 +95,7 @@ export function Footer({ initialCategories }: FooterProps) {
                 <li key={item.label}>
                   <Link
                     href={item.href}
+                    prefetch={LINK_PREFETCH_DEFAULT}
                     className="text-sm text-zinc-300 transition-colors hover:text-white"
                   >
                     {item.label}
@@ -113,6 +115,7 @@ export function Footer({ initialCategories }: FooterProps) {
                 <li key={item.href}>
                   <Link
                     href={item.href}
+                    prefetch={LINK_PREFETCH_DEFAULT}
                     className="text-sm text-zinc-300 transition-colors hover:text-white"
                   >
                     {item.label}
@@ -132,6 +135,7 @@ export function Footer({ initialCategories }: FooterProps) {
                 <li key={item.href}>
                   <Link
                     href={item.href}
+                    prefetch={LINK_PREFETCH_DEFAULT}
                     className="text-sm text-zinc-300 transition-colors hover:text-white"
                   >
                     {item.label}

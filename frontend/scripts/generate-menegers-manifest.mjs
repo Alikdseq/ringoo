@@ -8,10 +8,10 @@ const ROOT = path.join(process.cwd(), 'public', 'menegers');
 const OUT = path.join(ROOT, 'manifest.json');
 const EXT = new Set(['.jpg', '.jpeg', '.png', '.webp']);
 
-/** Папка → slug менеджера в API */
+/** Папка → slug(и) менеджера (латиница + кириллица из Django slugify) */
 const FOLDER_SLUG = {
-  Джалилбек: 'dzhalilbek',
-  'Авакян Эллина': 'avakyan-ellina',
+  Джалилбек: ['dzhalilbek', 'джалилов-джалилбек'],
+  'Авакян Эллина': ['avakyan-ellina', 'авакян-элина', 'авакян-елина'],
 };
 
 function pickPhotos(files) {
@@ -26,15 +26,19 @@ if (fs.existsSync(ROOT)) {
   for (const folder of fs.readdirSync(ROOT)) {
     const full = path.join(ROOT, folder);
     if (!fs.statSync(full).isDirectory()) continue;
-    const slug = FOLDER_SLUG[folder];
-    if (!slug) continue;
+    const slugs = FOLDER_SLUG[folder];
+    if (!slugs) continue;
+    const slugList = Array.isArray(slugs) ? slugs : [slugs];
     const files = fs.readdirSync(full);
     const photos = pickPhotos(files);
     if (photos.length === 0) continue;
     const urls = photos.map(
       photo => `/menegers/${folder}/${photo}`.replace(/\\/g, '/')
     );
-    managers[slug] = urls.length === 1 ? urls[0] : urls;
+    const value = urls.length === 1 ? urls[0] : urls;
+    for (const slug of slugList) {
+      managers[slug] = value;
+    }
   }
 }
 

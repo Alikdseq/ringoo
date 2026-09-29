@@ -116,6 +116,7 @@ function RegisterContent() {
             </label>
             <Input
               type="tel"
+              inputMode="tel"
               placeholder="+7 (999) 123-45-67"
               value={phone}
               onChange={e => setPhone(e.target.value)}

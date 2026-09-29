@@ -12,10 +12,10 @@ export interface InputProps extends Omit<
 
 export function Input({ className, error, prefix, suffix, disabled, ...props }: InputProps) {
   return (
-    <div className="space-y-1">
+    <div className="w-full min-w-0 space-y-1">
       <div
         className={clsx(
-          'flex items-center gap-2 rounded-xl border bg-white px-3 py-2.5 text-sm',
+          'flex min-h-[44px] w-full min-w-0 items-center gap-2 rounded-xl border bg-white px-3 py-2.5 text-base touch-manipulation sm:min-h-0 sm:text-sm',
           'border-border placeholder:text-foreground-subtle text-foreground',
           'focus-within:ring-2 focus-within:ring-brand focus-within:ring-offset-1 focus-within:border-brand',
           'transition-colors duration-150',

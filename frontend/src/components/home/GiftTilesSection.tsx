@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { Gift, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/theme/utils';
+import { HOME_SECTION_CLASS, HOME_SECTION_INNER_CLASS } from '@/lib/theme/spacing';
 import { useRef } from 'react';
 import { Ringik, useRingikIntersectionTrigger } from '@/components/ringik/Ringik';
 
@@ -48,8 +49,8 @@ export function GiftTilesSection() {
   const sectionRef = useRef<HTMLElement>(null);
   const ringik = useRingikIntersectionTrigger(sectionRef, 'home_gifts_gift');
   return (
-    <section ref={sectionRef} className="relative bg-background px-2 py-12 sm:px-4 lg:px-4">
-      <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
+    <section ref={sectionRef} className={cn('relative', HOME_SECTION_CLASS)}>
+      <div className={HOME_SECTION_INNER_CLASS}>
         <div className="mb-6 flex items-end justify-between gap-4">
           <div>
             <h2 className="text-2xl font-semibold text-foreground sm:text-3xl">Подарки</h2>

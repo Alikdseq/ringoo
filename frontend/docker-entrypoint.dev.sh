@@ -1,5 +1,4 @@
 #!/bin/sh
-set -e
 
 # Опциональные манифесты статики (magazins / menegers)
 if [ -f scripts/generate-magazins-manifest.mjs ]; then

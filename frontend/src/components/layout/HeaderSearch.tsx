@@ -15,6 +15,7 @@ import { useQuery } from '@tanstack/react-query';
 import { getProductAutocomplete } from '@/lib/api/services/products.service';
 import { CURRENCY_SYMBOL } from '@/lib/constants';
 import { getMediaUrl } from '@/lib/image-url';
+import { HEADER_ICON_BUTTON_CLASS } from '@/lib/theme/spacing';
 import { cn } from '@/lib/theme/utils';
 
 const DEBOUNCE_MS = 300;
@@ -87,7 +88,7 @@ export const HeaderSearch = forwardRef<HeaderSearchHandle, object>(function Head
     <>
       {/* Десктоп: поле поиска в шапке */}
       <div
-        className="relative hidden min-w-[160px] flex-1 lg:block lg:max-w-md xl:max-w-lg"
+        className="relative hidden w-44 shrink-0 lg:block xl:w-52"
         ref={dropdownRef}
       >
         <div className="relative">
@@ -165,11 +166,10 @@ export const HeaderSearch = forwardRef<HeaderSearchHandle, object>(function Head
         <button
           type="button"
           onClick={() => setMobileOpen(true)}
-          className="flex flex-col items-center gap-0.5 rounded-xl px-2 py-1.5 transition-colors hover:bg-zinc-100"
+          className={HEADER_ICON_BUTTON_CLASS}
           aria-label="Открыть поиск"
         >
-          <Search className="h-5 w-5 text-foreground" />
-          <span className="text-[10px] font-medium text-foreground">Поиск</span>
+          <Search className="text-foreground" />
         </button>
       </div>
 

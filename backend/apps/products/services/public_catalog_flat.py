@@ -139,7 +139,26 @@ def guess_hex_for_slug(slug: str) -> str | None:
     return None
 
 
+_COLOR_LABEL_OVERRIDES: dict[str, str] = {
+    "skyblue": "Sky Blue",
+    "silvershadow": "Silver Shadow",
+    "silver-shadow": "Silver Shadow",
+    "cobaltviolet": "Cobalt Violet",
+    "cobalt-violet": "Cobalt Violet",
+    "pinkgold": "Pink Gold",
+    "pink-gold": "Pink Gold",
+    "iceblue": "Ice Blue",
+    "rosegold": "Rose Gold",
+    "lightgrey": "Light Grey",
+    "graygreen": "Gray Green",
+    "charcoal": "Charcoal",
+}
+
+
 def label_from_color_slug(slug: str) -> str:
+    key = slug.lower().strip()
+    if key in _COLOR_LABEL_OVERRIDES:
+        return _COLOR_LABEL_OVERRIDES[key]
     return slug.replace("-", " ").replace("_", " ").strip().title() or slug
 
 
@@ -209,6 +228,10 @@ def group_flat_images_by_color(files: list[Path]) -> dict[str, list[Path]]:
     for f, s_adj in adjusted:
         rem = s_adj[len(lcp) :].lstrip("-_") if lcp and s_adj.startswith(lcp) else s_adj
         label_raw = _normalize_remainder(rem)
+        if not label_raw and lcp:
+            tail = lcp.rstrip("-_").split("-")[-1]
+            if tail and (guess_hex_for_slug(slugify(tail) or tail) or tail.lower() in COLOR_HEX_HINTS):
+                label_raw = tail
         if not label_raw:
             key = slugify(f.stem) or "variant"
         else:
@@ -224,10 +247,18 @@ def group_flat_images_by_color(files: list[Path]) -> dict[str, list[Path]]:
         key = canonical_color_slug(key)
         groups[key].append(f)
 
-    if len(groups) <= 1:
+    if not groups:
         return {}
 
     sorted_groups: dict[str, list[Path]] = {}
     for key, lst in groups.items():
         sorted_groups[key] = sorted(lst, key=lambda p: _shot_rank(p.name))
+
+    if len(sorted_groups) == 1:
+        only_key = next(iter(sorted_groups))
+        # Один оттенок, несколько кадров — всё равно привязываем к ProductColor.
+        if not only_key or only_key == "variant":
+            return {}
+        return sorted_groups
+
     return sorted_groups

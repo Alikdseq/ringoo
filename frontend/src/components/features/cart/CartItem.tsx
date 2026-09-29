@@ -8,6 +8,9 @@ import type { CartItem as CartItemType } from '@/types';
 import { Card } from '@/components/ui/Card';
 import { getMediaUrl } from '@/lib/image-url';
 import { CURRENCY_SYMBOL } from '@/lib/constants';
+import { usePrefersReducedMotion } from '@/lib/hooks/usePrefersReducedMotion';
+import { TOUCH_TARGET_MOBILE_CLASS } from '@/lib/theme/spacing';
+import { cn } from '@/lib/theme/utils';
 
 interface CartItemProps {
   item: CartItemType;
@@ -17,17 +20,23 @@ interface CartItemProps {
 }
 
 export function CartItem({ item, onIncrease, onDecrease, onRemove }: CartItemProps) {
+  const reducedMotion = usePrefersReducedMotion();
   const product = item.product;
   const mainImage = product.images?.[0];
   const imageSrc = mainImage ? getMediaUrl(mainImage.image) : null;
 
+  const qtyBtnClass = cn(
+    'inline-flex items-center justify-center rounded-full text-zinc-500 hover:bg-zinc-100 active:bg-zinc-200 dark:hover:bg-zinc-800 dark:active:bg-zinc-700',
+    TOUCH_TARGET_MOBILE_CLASS
+  );
+
   return (
     <motion.div
-      layout
-      initial={{ opacity: 0, y: 8 }}
+      layout={!reducedMotion}
+      initial={reducedMotion ? false : { opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -8, scale: 0.98 }}
-      transition={{ duration: 0.18 }}
+      exit={reducedMotion ? undefined : { opacity: 0, y: -8, scale: 0.98 }}
+      transition={{ duration: reducedMotion ? 0 : 0.18 }}
     >
       <Card className="flex gap-4">
         <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-xl bg-zinc-100 dark:bg-zinc-900">
@@ -51,7 +60,7 @@ export function CartItem({ item, onIncrease, onDecrease, onRemove }: CartItemPro
             <div>
               <Link
                 href={`/products/${product.slug}`}
-                className="text-sm font-medium text-zinc-900 hover:underline dark:text-zinc-50"
+                className="text-sm font-medium text-zinc-900 hover:underline active:text-brand dark:text-zinc-50"
               >
                 {product.title}
               </Link>
@@ -65,30 +74,33 @@ export function CartItem({ item, onIncrease, onDecrease, onRemove }: CartItemPro
             <button
               type="button"
               onClick={onRemove}
-              className="rounded-full p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:text-zinc-500 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+              className={cn(
+                'rounded-full text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 active:bg-zinc-200 dark:text-zinc-500 dark:hover:bg-zinc-800 dark:hover:text-zinc-200',
+                TOUCH_TARGET_MOBILE_CLASS
+              )}
               aria-label="Удалить из корзины"
             >
-              <Trash2 className="h-4 w-4" />
+              <Trash2 className="h-5 w-5" />
             </button>
           </div>
           <div className="mt-auto flex items-center justify-between gap-4">
-            <div className="inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-white px-2 py-1 dark:border-zinc-700 dark:bg-zinc-900">
+            <div className="inline-flex items-center gap-1 rounded-full border border-zinc-200 bg-white px-1 py-1 dark:border-zinc-700 dark:bg-zinc-900 sm:gap-2 sm:px-2">
               <button
                 type="button"
                 onClick={onDecrease}
-                className="rounded-full p-1 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                className={qtyBtnClass}
                 aria-label="Уменьшить количество"
               >
-                <Minus className="h-3 w-3" />
+                <Minus className="h-4 w-4" />
               </button>
-              <span className="w-8 text-center text-sm">{item.quantity}</span>
+              <span className="w-8 text-center text-sm tabular-nums">{item.quantity}</span>
               <button
                 type="button"
                 onClick={onIncrease}
-                className="rounded-full p-1 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                className={qtyBtnClass}
                 aria-label="Увеличить количество"
               >
-                <Plus className="h-3 w-3" />
+                <Plus className="h-4 w-4" />
               </button>
             </div>
             <div className="text-right">

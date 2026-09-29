@@ -6,6 +6,7 @@ import { ArrowRight, ChevronDown } from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/theme/utils';
+import { HOME_SECTION_CLASS, HOME_SECTION_INNER_CLASS } from '@/lib/theme/spacing';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { CURRENCY_SYMBOL } from '@/lib/constants';
@@ -40,8 +41,8 @@ export function InstallmentZeroSection() {
   }, [parsedPrice, term]);
 
   return (
-    <section ref={sectionRef} className="relative bg-background px-2 py-12 sm:px-4 lg:px-4">
-      <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
+    <section ref={sectionRef} className={cn('relative', HOME_SECTION_CLASS)}>
+      <div className={HOME_SECTION_INNER_CLASS}>
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           whileInView={{ opacity: 1, y: 0 }}

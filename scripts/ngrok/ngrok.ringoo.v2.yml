@@ -1,0 +1,8 @@
+# ngrok v2 — one tunnel (frontend 3000). Dual: add ringoo-backend tunnel manually.
+version: "2"
+
+tunnels:
+  ringoo-frontend:
+    proto: http
+    addr: 3000
+    hostname: demanding-most-caramel.ngrok-free.dev

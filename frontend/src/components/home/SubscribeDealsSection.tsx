@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { cn } from '@/lib/theme/utils';
+import { HOME_SECTION_CLASS, HOME_SECTION_INNER_CLASS } from '@/lib/theme/spacing';
 import { useAuth, AUTH_ME_QUERY_KEY } from '@/lib/hooks/useAuth';
 import { updateMarketingOptIn } from '@/lib/api/services/auth.service';
 import { Ringik, useRingikIntersectionTrigger } from '@/components/ringik/Ringik';
@@ -61,8 +62,8 @@ export function SubscribeDealsSection() {
   };
 
   return (
-    <section ref={sectionRef} className="relative bg-background px-2 py-12 sm:px-4 lg:px-4">
-      <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
+    <section ref={sectionRef} className={cn('relative', HOME_SECTION_CLASS)}>
+      <div className={HOME_SECTION_INNER_CLASS}>
         <Card className="relative overflow-visible rounded-[32px] border border-border bg-white p-6 sm:p-10">
           <div
             className="pointer-events-none absolute -right-16 -top-16 h-64 w-64 rounded-full bg-[--color-brand-soft] blur-2xl"

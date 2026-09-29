@@ -12,6 +12,8 @@ interface BrandLogoProps {
   height?: number;
   /** Ширина контейнера; по умолчанию ~3.8× height. В хедере задайте меньше, чтобы «Каталог» был у знака. */
   width?: number;
+  /** Адаптивный бокс (Tailwind); если задан — inline width/height не используются. */
+  boxClassName?: string;
   priority?: boolean;
   onClick?: () => void;
 }
@@ -20,8 +22,9 @@ export function BrandLogo({
   link = true,
   href = '/',
   className,
-  height = 36,
+  height = 52,
   width: widthProp,
+  boxClassName,
   priority = false,
   onClick,
 }: BrandLogoProps) {
@@ -29,15 +32,18 @@ export function BrandLogo({
 
   const image = (
     <span
-      className="relative inline-block shrink-0"
-      style={{ width, height }}
+      className={cn(
+        'relative inline-block shrink-0',
+        boxClassName ?? undefined
+      )}
+      style={boxClassName ? undefined : { width, height }}
     >
       <Image
         src={LOGO_SRC}
         alt={link ? '' : 'Ringoo'}
         fill
         className="object-contain object-left"
-        sizes={`${width}px`}
+        sizes={boxClassName ? '(max-width: 768px) 162px, 204px' : `${width}px`}
         priority={priority}
         aria-hidden={link || undefined}
       />

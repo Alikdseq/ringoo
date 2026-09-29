@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1
+# BuildKit; без syntax=docker/dockerfile:1 (offline/TLS-friendly).
 # Production: multi-stage, venv, без dev-зависимостей.
 # BuildKit + кэш uv/apt. Зависимости: uv pip (быстрее pip).
 

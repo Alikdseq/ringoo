@@ -19,12 +19,14 @@ from rest_framework.views import APIView
 from apps.stores.models import Stock
 from config.throttling import AnonReadRateThrottle, UserReadRateThrottle
 
+from .catalog_filters import aggregate_product_models, apply_catalog_filters
 from .cache_utils import (
     apply_public_cache_headers,
     autocomplete_cache_key,
     brands_cache_key,
     product_detail_cache_key,
     product_list_cache_key,
+    product_models_cache_key,
 )
 from .models import Category, Product, ProductColor, ProductImage
 from .search_synonyms import get_search_terms
@@ -153,70 +155,30 @@ class ProductListView(ListAPIView):
             .order_by(*base_order)
         )
 
-        category_slug = self.request.query_params.get("category")
-        if category_slug:
-            qs = qs.filter(category__slug=category_slug)
+        return apply_catalog_filters(qs, self.request.query_params)
 
-        brand = self.request.query_params.get("brand", "").strip()
-        if brand:
-            brand_terms = get_search_terms(brand)
-            if brand_terms:
-                qs = qs.filter(
-                    Q(*(Q(brand__iexact=t) for t in brand_terms), _connector=Q.OR)
-                )
 
-        min_price = self.request.query_params.get("min_price")
-        if min_price is not None:
-            try:
-                qs = qs.filter(price__gte=float(min_price))
-            except (TypeError, ValueError):
-                pass
-        max_price = self.request.query_params.get("max_price")
-        if max_price is not None:
-            try:
-                qs = qs.filter(price__lte=float(max_price))
-            except (TypeError, ValueError):
-                pass
+class ProductModelsListView(APIView):
+    """
+    GET /api/v1/products/products/product-models/
+    Линейки моделей в текущей выборке (те же фильтры, что у списка, без model).
+    """
 
-        search = self.request.query_params.get("search", "").strip()
-        if search:
-            terms = get_search_terms(search)
-            if terms:
-                search_q = Q()
-                for term in terms:
-                    search_q |= (
-                        Q(title__icontains=term)
-                        | Q(sku__icontains=term)
-                        | Q(description__icontains=term)
-                    )
-                qs = qs.filter(search_q)
+    permission_classes = [AllowAny]
+    throttle_classes = [AnonReadRateThrottle, UserReadRateThrottle]
 
-        in_stock = self.request.query_params.get("in_stock", "").strip().lower()
-        if in_stock in ("true", "1", "yes"):
-            has_stock = Stock.objects.filter(
-                product_id=OuterRef("pk"),
-            ).filter(
-                quantity__gt=F("reserved_quantity"),
-            )
-            qs = qs.filter(Exists(has_stock))
+    def get(self, request):
+        cache_key = product_models_cache_key(request)
+        timeout = getattr(settings, "CACHE_TIMEOUT_PRODUCTS_LIST", 300)
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return apply_public_cache_headers(Response({"results": cached}))
 
-        rating_min = self.request.query_params.get("rating_min")
-        if rating_min is not None and str(rating_min).strip() != "":
-            try:
-                qs = qs.filter(rating__gte=float(rating_min))
-            except (TypeError, ValueError):
-                pass
-
-        store_slug = self.request.query_params.get("store", "").strip()
-        if store_slug:
-            has_stock_in_store = Stock.objects.filter(
-                product_id=OuterRef("pk"),
-                store__slug=store_slug,
-                store__is_active=True,
-            ).filter(quantity__gt=F("reserved_quantity"))
-            qs = qs.filter(Exists(has_stock_in_store))
-
-        return qs
+        qs = Product.objects.filter(is_active=True, category__is_active=True)
+        qs = apply_catalog_filters(qs, request.query_params, exclude_model=True)
+        results = aggregate_product_models(qs)
+        cache.set(cache_key, results, timeout=timeout)
+        return apply_public_cache_headers(Response({"results": results}))
 
 
 class ProductBrandsListView(APIView):

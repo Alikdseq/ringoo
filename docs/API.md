@@ -69,7 +69,8 @@ Content-Type: application/json
 
 ### Каталог товаров
 
-- `GET /api/v1/products/products/` - Список товаров (с фильтрацией и поиском). Параметры: `category` (slug), `brand`, `min_price`, `max_price`, `search`, `in_stock` (`true`/`1`), `store` (slug магазина — только товары в наличии в этом магазине), `rating_min` (число), `ordering` (`popular`, `price_asc`, `price_desc`, `rating_desc`, `created_at`), `page`, `page_size`. В ответе списка есть поле `created_at` (для бейджей «новинка»). В объекте `colors[]` у товара могут быть `price` и `old_price` (цена варианта цвета; при отсутствии используется базовая цена товара).
+- `GET /api/v1/products/products/` - Список товаров (с фильтрацией и поиском). Параметры: `category` (slug), `brand`, `model` (ключ линейки из product-models), `min_price`, `max_price`, `search`, `in_stock` (`true`/`1`), `store` (slug магазина — только товары в наличии в этом магазине), `rating_min` (число), `ordering` (`popular`, `price_asc`, `price_desc`, `rating_desc`, `created_at`), `page`, `page_size`. В ответе списка есть поле `created_at` (для бейджей «новинка»). В объекте `colors[]` у товара могут быть `price` и `old_price` (цена варианта цвета; при отсутствии используется базовая цена товара).
+- `GET /api/v1/products/products/product-models/` - Линейки моделей в текущей выборке (те же фильтры, что у списка, **без** `model`). Ответ: `{ "results": [{ "key": "iphone-17-pro-max", "label": "iPhone 17 Pro Max", "count": 12 }] }`.
 - `GET /api/v1/products/products/{slug}/` - Детали товара
 - `GET /api/v1/products/products/{product_id}/stock/` - Наличие товара в магазинах (`product_id` — UUID)
 - `GET /api/v1/categories/` - Список категорий

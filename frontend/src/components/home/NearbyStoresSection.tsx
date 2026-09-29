@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { useHomePageCopy } from '@/lib/locales/useHomePageCopy';
 import { cn } from '@/lib/theme/utils';
+import { HOME_SECTION_CLASS, HOME_SECTION_INNER_CLASS } from '@/lib/theme/spacing';
 import dynamic from 'next/dynamic';
 
 const StoresMapDynamic = dynamic(
@@ -163,25 +164,30 @@ export function NearbyStoresSection() {
   const errorText = isError ? getFriendlyErrorMessage(error) : null;
 
   return (
-    <section className="bg-background px-2 py-12 sm:px-4 lg:px-4">
-      <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="mb-6 flex items-end justify-between gap-4">
-          <div>
-            <h2 className="text-2xl font-semibold text-foreground sm:text-3xl">{ns.title}</h2>
-            <p className="mt-2 text-sm text-foreground-muted">{ns.subtitle}</p>
+    <section className={HOME_SECTION_CLASS}>
+      <div className={HOME_SECTION_INNER_CLASS}>
+        <div className="mb-6 flex flex-col gap-4 max-md:items-stretch md:flex-row md:items-end md:justify-between">
+          <div className="min-w-0">
+            <h2 className="text-2xl font-semibold leading-tight tracking-tight text-foreground sm:text-3xl">
+              {ns.title}
+            </h2>
+            <p className="mt-2 max-w-none text-sm text-foreground-muted sm:text-base">
+              {ns.subtitle}
+            </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap gap-2 max-md:w-full md:shrink-0 md:justify-end">
             <Button
               type="button"
               variant="secondary"
               size="sm"
+              className="max-md:flex-1 sm:max-md:flex-none"
               onClick={handleDetectLocation}
               loading={geoLoading}
             >
-              <Navigation className="mr-2 h-4 w-4" />
+              <Navigation className="mr-2 h-4 w-4 shrink-0" />
               {ns.detectLocation}
             </Button>
-            <Button asChild variant="secondary" size="sm">
+            <Button asChild variant="secondary" size="sm" className="max-md:flex-1 sm:max-md:flex-none">
               <Link href="/stores">{ns.allStores}</Link>
             </Button>
           </div>
