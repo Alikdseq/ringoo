@@ -2,7 +2,7 @@
 Celery tasks for users app.
 """
 
-from celery import shared_task
+from config.optional_task import shared_task
 
 
 @shared_task

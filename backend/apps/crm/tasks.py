@@ -4,7 +4,7 @@ Celery-задачи CRM (задача 2.4.4). Заглушка отправки 
 
 import logging
 
-from celery import shared_task
+from config.optional_task import shared_task
 
 from config.pii import mask_phone
 

@@ -15,7 +15,6 @@ from django.db import transaction
 from django.utils.text import slugify
 
 from apps.products.utils import slugify_product_title, unique_product_slug
-from openpyxl import Workbook, load_workbook
 
 from apps.products.models import Category, Product, ProductColor, ProductImage
 from apps.products.services.image_pipeline import bytes_to_webp_on_white
@@ -86,6 +85,8 @@ def _normalize_header(raw: str) -> str:
 
 
 def build_import_template_xlsx() -> bytes:
+    from openpyxl import Workbook
+
     wb = Workbook()
     ws = wb.active
     ws.title = "Товары"
@@ -158,6 +159,8 @@ def _parse_decimal(val: str) -> Decimal | None:
 
 
 def parse_product_rows(xlsx_bytes: bytes) -> tuple[list[str], list[dict[str, Any]]]:
+    from openpyxl import load_workbook
+
     wb = load_workbook(io.BytesIO(xlsx_bytes), read_only=True, data_only=True)
     ws = wb[wb.sheetnames[0]]
     rows_iter = ws.iter_rows(values_only=True)

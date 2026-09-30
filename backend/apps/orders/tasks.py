@@ -5,7 +5,8 @@ Celery-задачи заказов: уведомления (F.3 — письмо
 import logging
 
 from django.utils import timezone
-from celery import shared_task
+
+from config.optional_task import shared_task
 
 logger = logging.getLogger(__name__)
 
