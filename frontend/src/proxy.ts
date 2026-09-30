@@ -26,7 +26,7 @@ function isOrdersPublicPath(pathname: string): boolean {
   return /^\/orders\/[^/]+\/success\/?$/.test(pathname);
 }
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (API_PROXY_TARGET) {
