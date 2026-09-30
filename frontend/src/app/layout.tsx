@@ -52,7 +52,12 @@ export default async function RootLayout({
     : `(function(){try{document.documentElement.setAttribute('data-ui-mode','official');}catch(e){document.documentElement.setAttribute('data-ui-mode','official');}})();`;
 
   const bodyModeClass = initialUiMode === 'svoi' ? 'mode-svoi' : 'mode-official';
-  const initialCategories = await fetchCategoriesServer();
+  let initialCategories: Awaited<ReturnType<typeof fetchCategoriesServer>> = [];
+  try {
+    initialCategories = await fetchCategoriesServer();
+  } catch {
+    initialCategories = [];
+  }
 
   return (
     <html lang="ru" suppressHydrationWarning data-ui-mode={initialUiMode}>

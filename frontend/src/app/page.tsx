@@ -57,10 +57,13 @@ const HOME_PRODUCT_FILTERS = {
 };
 
 export default async function Home() {
-  const [samsungPage, iphonePage] = await Promise.all([
+  const [samsungPage, iphonePage, allPage] = await Promise.all([
     fetchProductsServer({ ...HOME_PRODUCT_FILTERS, category: 'samsung' }),
     fetchProductsServer({ ...HOME_PRODUCT_FILTERS, category: 'iphone' }),
+    fetchProductsServer(HOME_PRODUCT_FILTERS),
   ]);
+  const androidPage = samsungPage.results.length > 0 ? samsungPage : allPage;
+  const applePage = iphonePage.results.length > 0 ? iphonePage : allPage;
 
   return (
     <>
@@ -68,10 +71,10 @@ export default async function Home() {
       <HomeSvoiDialogueGate />
       <HeroWithCategories />
       <PromoFomoCarousel />
-      <TodaysProductsCarousel initialIphone={iphonePage} initialAndroid={samsungPage} />
+      <TodaysProductsCarousel initialIphone={applePage} initialAndroid={androidPage} />
       <InstallmentZeroSection />
       <NearbyStoresSection />
-      <PopularNowSection initialSamsung={samsungPage} initialIphone={iphonePage} />
+      <PopularNowSection initialSamsung={androidPage} initialIphone={applePage} />
       <VideoReviewsSection />
       <GiftTilesSection />
       <BenefitsSection />

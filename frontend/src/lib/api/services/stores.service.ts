@@ -93,11 +93,15 @@ export async function getStoreBySlug(slug: string): Promise<StorePage> {
 
 export async function fetchStoreBySlugServer(slug: string): Promise<StorePage | null> {
   const base = getApiV1BaseUrl();
-  const res = await fetch(`${base}/stores/by-slug/${encodeURIComponent(slug)}/`, {
-    next: { revalidate: SERVER_REVALIDATE },
-  });
-  if (!res.ok) return null;
-  return res.json() as Promise<StorePage>;
+  try {
+    const res = await fetch(`${base}/stores/by-slug/${encodeURIComponent(slug)}/`, {
+      next: { revalidate: SERVER_REVALIDATE },
+    });
+    if (!res.ok) return null;
+    return (await res.json()) as StorePage;
+  } catch {
+    return null;
+  }
 }
 
 export async function getStoreProducts(
@@ -120,11 +124,15 @@ export async function getManagerBySlug(slug: string): Promise<ManagerDetail> {
 
 export async function fetchManagerBySlugServer(slug: string): Promise<ManagerDetail | null> {
   const base = getApiV1BaseUrl();
-  const res = await fetch(`${base}/stores/managers/by-slug/${encodeURIComponent(slug)}/`, {
-    next: { revalidate: SERVER_REVALIDATE },
-  });
-  if (!res.ok) return null;
-  return res.json() as Promise<ManagerDetail>;
+  try {
+    const res = await fetch(`${base}/stores/managers/by-slug/${encodeURIComponent(slug)}/`, {
+      next: { revalidate: SERVER_REVALIDATE },
+    });
+    if (!res.ok) return null;
+    return (await res.json()) as ManagerDetail;
+  } catch {
+    return null;
+  }
 }
 
 export async function getManagerReviews(slug: string): Promise<ManagerReview[]> {

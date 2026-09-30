@@ -76,32 +76,43 @@ export async function getProductDetail(slug: string): Promise<ProductDetail> {
   return data;
 }
 
+const EMPTY_PRODUCTS: PaginatedResponse<Product> = {
+  count: 0,
+  next: null,
+  previous: null,
+  results: [],
+};
+
+async function fetchServerJson<T>(url: string, fallback: T): Promise<T> {
+  try {
+    const res = await fetch(url, { next: { revalidate: SERVER_REVALIDATE } });
+    if (!res.ok) return fallback;
+    return (await res.json()) as T;
+  } catch {
+    return fallback;
+  }
+}
+
 export async function fetchProductDetailServer(slug: string): Promise<ProductDetail | null> {
   const base = getApiV1BaseUrl();
-  const res = await fetch(`${base}/products/products/${encodeURIComponent(slug)}/`, {
-    next: { revalidate: SERVER_REVALIDATE },
-  });
-  if (!res.ok) return null;
-  return res.json() as Promise<ProductDetail>;
+  return fetchServerJson<ProductDetail | null>(
+    `${base}/products/products/${encodeURIComponent(slug)}/`,
+    null
+  );
 }
 
 export async function fetchCategoriesServer(): Promise<Category[]> {
   const base = getApiV1BaseUrl();
-  const res = await fetch(`${base}/products/categories/`, {
-    next: { revalidate: SERVER_REVALIDATE },
-  });
-  if (!res.ok) return [];
-  const data = (await res.json()) as PaginatedResponse<Category> | Category[];
+  const data = await fetchServerJson<PaginatedResponse<Category> | Category[]>(
+    `${base}/products/categories/`,
+    []
+  );
   return Array.isArray(data) ? data : (data.results ?? []);
 }
 
 export async function fetchBrandsServer(): Promise<string[]> {
   const base = getApiV1BaseUrl();
-  const res = await fetch(`${base}/products/products/brands/`, {
-    next: { revalidate: SERVER_REVALIDATE },
-  });
-  if (!res.ok) return [];
-  const data = (await res.json()) as string[];
+  const data = await fetchServerJson<string[]>(`${base}/products/products/brands/`, []);
   return Array.isArray(data) ? data : [];
 }
 
@@ -123,13 +134,10 @@ export async function fetchProductsServer(
   if (filters.ordering) params.set('ordering', filters.ordering);
   if (filters.in_stock) params.set('in_stock', 'true');
 
-  const res = await fetch(`${base}/products/products/?${params.toString()}`, {
-    next: { revalidate: SERVER_REVALIDATE },
-  });
-  if (!res.ok) {
-    return { count: 0, next: null, previous: null, results: [] };
-  }
-  return res.json() as Promise<PaginatedResponse<Product>>;
+  return fetchServerJson<PaginatedResponse<Product>>(
+    `${base}/products/products/?${params.toString()}`,
+    EMPTY_PRODUCTS
+  );
 }
 
 /** Элемент ответа автодополнения: id, title, slug, sku, price, image (URL). */
