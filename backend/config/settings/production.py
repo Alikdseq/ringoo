@@ -37,7 +37,19 @@ if not DEBUG and not ALLOWED_HOSTS:
         'Set a comma-separated list of hostnames (e.g. example.com,www.example.com).'
     )
 
-if not DEBUG:
+if ON_VERCEL:
+    _sk = SECRET_KEY or ''
+    if len(_sk) < 48 or 'django-insecure' in _sk:
+        import hashlib
+
+        seed = (os.getenv('VERCEL_PROJECT_ID') or 'ringoo').strip()
+        SECRET_KEY = (
+            hashlib.sha256(f'ringoo-vercel:{seed}'.encode()).hexdigest()
+            + hashlib.sha256(f'ringoo-jwt:{seed}'.encode()).hexdigest()
+        )
+        SIMPLE_JWT['SIGNING_KEY'] = SECRET_KEY
+
+if not DEBUG and not ON_VERCEL:
     _sk = SECRET_KEY or ''
     if len(_sk) < 48 or 'django-insecure' in _sk:
         raise ImproperlyConfigured(
@@ -65,6 +77,27 @@ def _database_from_url(url: str) -> dict:
 _database_url = os.getenv('DATABASE_URL', '').strip()
 if _database_url:
     DATABASES = {'default': _database_from_url(_database_url)}
+elif ON_VERCEL:
+    import shutil
+    from pathlib import Path
+
+    _bundled_db = Path(BASE_DIR) / 'vercel_data' / 'catalog.db'
+    if os.getenv('RINGOO_VERCEL_BUILD') == '1':
+        _bundled_db.parent.mkdir(parents=True, exist_ok=True)
+        _sqlite_name = _bundled_db
+    else:
+        _runtime_db = Path('/tmp/ringoo-catalog.db')
+        if _bundled_db.exists():
+            shutil.copy2(_bundled_db, _runtime_db)
+            _sqlite_name = _runtime_db
+        else:
+            _sqlite_name = _bundled_db
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': _sqlite_name,
+        }
+    }
 else:
     DATABASES = {
         'default': {
@@ -115,8 +148,22 @@ if ON_VERCEL:
             CSRF_TRUSTED_ORIGINS.append(origin)
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
+if ON_VERCEL:
+    MEDIA_ROOT = BASE_DIR / 'catalog_media'
+    SERVE_MEDIA = True
+    _public_host = (
+        os.getenv('VERCEL_PROJECT_PRODUCTION_URL', '').strip()
+        or os.getenv('VERCEL_URL', '').strip()
+    )
+    if _public_host:
+        PUBLIC_API_ORIGIN = f'https://{_public_host}'.rstrip('/')
+
 # Security Settings
-SECURE_SSL_REDIRECT = os.getenv('SECURE_SSL_REDIRECT', 'True') == 'True'
+# На Vercel TLS обрывается на платформе. Редирект внутри функции даёт лишний цикл.
+SECURE_SSL_REDIRECT = os.getenv(
+    'SECURE_SSL_REDIRECT',
+    'False' if ON_VERCEL else 'True',
+) == 'True'
 SESSION_COOKIE_SECURE = os.getenv('SESSION_COOKIE_SECURE', 'True') == 'True'
 CSRF_COOKIE_SECURE = os.getenv('CSRF_COOKIE_SECURE', 'True') == 'True'
 # По умолчанию выкл.: заголовок X-XSS-Protection устарел; при необходимости legacy-клиентов — True в env.
@@ -189,32 +236,34 @@ LOGGING = {
             'formatter': 'verbose',
             'filters': ['redact_pii'],
         },
-        'file': {
-            'class': 'logging.handlers.RotatingFileHandler',
-            'filename': os.getenv('LOG_FILE_PATH', '/app/logs/django.log'),
-            'maxBytes': 1024 * 1024 * 10,  # 10 MB
-            'backupCount': 5,
-            'formatter': 'json',
-            'filters': ['redact_pii'],
-        },
+        **({} if ON_VERCEL else {
+            'file': {
+                'class': 'logging.handlers.RotatingFileHandler',
+                'filename': os.getenv('LOG_FILE_PATH', '/app/logs/django.log'),
+                'maxBytes': 1024 * 1024 * 10,  # 10 MB
+                'backupCount': 5,
+                'formatter': 'json',
+                'filters': ['redact_pii'],
+            },
+        }),
     },
     'root': {
-        'handlers': ['console', 'file'],
+        'handlers': ['console'] if ON_VERCEL else ['console', 'file'],
         'level': 'INFO',
     },
     'loggers': {
         'django': {
-            'handlers': ['console', 'file'],
+            'handlers': ['console'] if ON_VERCEL else ['console', 'file'],
             'level': 'INFO',
             'propagate': False,
         },
         'django.request': {
-            'handlers': ['console', 'file'],
+            'handlers': ['console'] if ON_VERCEL else ['console', 'file'],
             'level': 'ERROR',
             'propagate': False,
         },
         'ringoo.security': {
-            'handlers': ['console', 'file'],
+            'handlers': ['console'] if ON_VERCEL else ['console', 'file'],
             'level': 'INFO',
             'propagate': False,
         },

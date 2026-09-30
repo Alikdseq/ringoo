@@ -11,7 +11,8 @@
       "entrypoint": "config.wsgi:application",
       "functions": {
         "config/wsgi.py": {
-          "maxDuration": 60
+          "maxDuration": 60,
+          "includeFiles": "{catalog_media/**,vercel_data/**}"
         }
       }
     }

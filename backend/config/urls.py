@@ -44,6 +44,18 @@ else:
         path('', RedirectView.as_view(url='/health/', permanent=False), name='root'),
     )
 
+# На Vercel медиа витрины лежат в репозитории (catalog_media) и отдаются этой функцией.
+if not settings.DEBUG and getattr(settings, "SERVE_MEDIA", False):
+    from django.views.static import serve
+
+    urlpatterns += [
+        path(
+            "media/<path:path>",
+            serve,
+            {"document_root": settings.MEDIA_ROOT},
+        ),
+    ]
+
 # Serve media files and Debug Toolbar in development
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

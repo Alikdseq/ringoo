@@ -67,6 +67,8 @@ def absolute_media_url(request, url: str | None) -> str | None:
         parsed = urlparse(built)
         if _is_internal_host(parsed.netloc):
             return urljoin(public + "/", raw.lstrip("/"))
+        if os.getenv("VERCEL") == "1" and built.startswith("http://"):
+            built = "https://" + built[len("http://") :]
         return built
 
     return urljoin(public + "/", raw.lstrip("/"))
