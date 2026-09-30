@@ -3,7 +3,10 @@ import type { NextRequest } from 'next/server';
 
 import { authCookiesMode } from '@/lib/auth-mode';
 
-const API_PROXY_TARGET = process.env.RINGOO_API_PROXY_TARGET?.replace(/\/+$/, '') ?? '';
+const API_PROXY_TARGET =
+  process.env.VERCEL === '1'
+    ? ''
+    : (process.env.RINGOO_API_PROXY_TARGET?.replace(/\/+$/, '') ?? '');
 
 const ACCESS_COOKIE =
   process.env.NEXT_PUBLIC_JWT_COOKIE_ACCESS_NAME ?? 'ringoo_access';

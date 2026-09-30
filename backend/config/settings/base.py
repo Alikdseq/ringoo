@@ -376,10 +376,30 @@ SESSION_CACHE_ALIAS = 'sessions'
 # Sentry Configuration (if DSN is provided)
 SENTRY_DSN = os.getenv('SENTRY_DSN', '')
 if SENTRY_DSN:
-    import sentry_sdk
-    from sentry_sdk.integrations.django import DjangoIntegration
-    from sentry_sdk.integrations.celery import CeleryIntegration
-    from sentry_sdk.integrations.logging import LoggingIntegration
+    try:
+        import sentry_sdk
+        from sentry_sdk.integrations.django import DjangoIntegration
+        from sentry_sdk.integrations.logging import LoggingIntegration
+    except ImportError:
+        sentry_sdk = None
+    else:
+        _sentry_integrations = [
+            DjangoIntegration(
+                transaction_style='url',
+                middleware_spans=True,
+                signals_spans=True,
+            ),
+            LoggingIntegration(
+                level=None,
+                event_level=None,
+            ),
+        ]
+        try:
+            from sentry_sdk.integrations.celery import CeleryIntegration
+
+            _sentry_integrations.append(CeleryIntegration())
+        except ImportError:
+            pass
     
     # Фильтрация чувствительных данных
     def before_send(event, hint):
@@ -440,33 +460,20 @@ if SENTRY_DSN:
         
         return event
     
-    # Настройка Sentry
-    sentry_sdk.init(
-        dsn=SENTRY_DSN,
-        integrations=[
-            DjangoIntegration(
-                transaction_style='url',
-                middleware_spans=True,
-                signals_spans=True,
-            ),
-            CeleryIntegration(),
-            LoggingIntegration(
-                level=None,  # Capture all logs
-                event_level=None,  # Send all events
-            ),
-        ],
-        traces_sample_rate=float(os.getenv('SENTRY_TRACES_SAMPLE_RATE', '0.1')),
-        send_default_pii=False,  # Не отправлять PII по умолчанию
-        before_send=before_send,  # Фильтрация чувствительных данных
-        environment=os.getenv('SENTRY_ENVIRONMENT', 'development'),
-        release=os.getenv('SENTRY_RELEASE', None),  # Версия приложения (опционально)
-        # Дополнительные настройки безопасности
-        max_breadcrumbs=50,
-        attach_stacktrace=True,
-        # Игнорировать определенные исключения (опционально)
-        ignore_errors=[
-            KeyboardInterrupt,
-            'django.http.Http404',
-            'django.http.Http403',
-        ],
-    )
+    if sentry_sdk is not None:
+        sentry_sdk.init(
+            dsn=SENTRY_DSN,
+            integrations=_sentry_integrations,
+            traces_sample_rate=float(os.getenv('SENTRY_TRACES_SAMPLE_RATE', '0.1')),
+            send_default_pii=False,  # Не отправлять PII по умолчанию
+            before_send=before_send,  # Фильтрация чувствительных данных
+            environment=os.getenv('SENTRY_ENVIRONMENT', 'development'),
+            release=os.getenv('SENTRY_RELEASE', None),  # Версия приложения (опционально)
+            max_breadcrumbs=50,
+            attach_stacktrace=True,
+            ignore_errors=[
+                KeyboardInterrupt,
+                'django.http.Http404',
+                'django.http.Http403',
+            ],
+        )

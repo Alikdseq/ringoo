@@ -12,7 +12,7 @@
       "functions": {
         "config/wsgi.py": {
           "maxDuration": 60,
-          "includeFiles": "{catalog_media/**,vercel_data/**}"
+          "includeFiles": "catalog_media/**"
         }
       }
     }

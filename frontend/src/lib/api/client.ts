@@ -8,13 +8,30 @@ import {
   setAuthTokens,
 } from '@/lib/storage/token-storage';
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_V1_URL ??
-  (process.env.NEXT_PUBLIC_API_URL
-    ? `${process.env.NEXT_PUBLIC_API_URL.replace(/\/+$/, '')}/api/v1`
-    : process.env.VERCEL === '1'
-      ? '/api/v1'
-      : 'http://localhost:8000/api/v1');
+function resolveApiBaseUrl(): string {
+  const explicit =
+    process.env.NEXT_PUBLIC_API_V1_URL ??
+    (process.env.NEXT_PUBLIC_API_URL
+      ? `${process.env.NEXT_PUBLIC_API_URL.replace(/\/+$/, '')}/api/v1`
+      : '');
+  const pointsAtLocalMachine = /localhost|127\.0\.0\.1|0\.0\.0\.0|host\.docker\.internal/i.test(
+    explicit
+  );
+  const onVercel = process.env.VERCEL === '1';
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname;
+    const browserIsLocal = host === 'localhost' || host === '127.0.0.1';
+    if (!browserIsLocal && (onVercel || !explicit || pointsAtLocalMachine)) {
+      return '/api/v1';
+    }
+  } else if (onVercel && process.env.VERCEL_URL && (!explicit || pointsAtLocalMachine)) {
+    return `https://${process.env.VERCEL_URL.replace(/\/+$/, '')}/api/v1`;
+  }
+  if (explicit) return explicit.replace(/\/+$/, '');
+  return 'http://localhost:8000/api/v1';
+}
+
+const API_BASE_URL = resolveApiBaseUrl();
 
 export interface PaginatedResponse<T> {
   count: number;

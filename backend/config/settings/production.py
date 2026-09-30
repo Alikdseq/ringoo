@@ -87,11 +87,9 @@ elif ON_VERCEL:
         _sqlite_name = _bundled_db
     else:
         _runtime_db = Path('/tmp/ringoo-catalog.db')
-        if _bundled_db.exists():
+        if _bundled_db.exists() and not _runtime_db.exists():
             shutil.copy2(_bundled_db, _runtime_db)
-            _sqlite_name = _runtime_db
-        else:
-            _sqlite_name = _bundled_db
+        _sqlite_name = _runtime_db
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
@@ -114,8 +112,7 @@ else:
         }
     }
 
-_redis_url = os.getenv('REDIS_URL', '')
-if ON_VERCEL and (not _redis_url or '://redis:' in _redis_url or _redis_url.startswith('redis://redis')):
+if ON_VERCEL:
     CACHES = {
         'default': {
             'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
