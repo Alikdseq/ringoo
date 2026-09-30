@@ -174,7 +174,8 @@ const nextConfig: NextConfig = {
     // Dev/Docker: оптимизатор в контейнере не достучится до localhost:8000 на хосте
     unoptimized:
       process.env.NODE_ENV === "development" ||
-      process.env.RINGOO_NGROK_DEMO === "1",
+      process.env.RINGOO_NGROK_DEMO === "1" ||
+      process.env.VERCEL === "1",
     // Без этого fetch к http://localhost:8000/media/... резолвится в 127.0.0.1 → ImageError 400
     dangerouslyAllowLocalIP:
       process.env.NODE_ENV === "development" ||

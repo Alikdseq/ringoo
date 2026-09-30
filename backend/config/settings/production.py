@@ -2,9 +2,13 @@
 Production settings for Ringoo project.
 """
 
+import urllib.parse
+
 from django.core.exceptions import ImproperlyConfigured
 
 from .base import *
+
+ON_VERCEL = os.getenv('VERCEL') == '1'
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'False') == 'True'
@@ -18,6 +22,15 @@ API_DOCS_PUBLIC = os.getenv('API_DOCS_PUBLIC', 'False') == 'True'
 ALLOWED_HOSTS = [
     h.strip() for h in os.getenv('ALLOWED_HOSTS', '').split(',') if h.strip()
 ]
+if ON_VERCEL:
+    for host in (
+        '.vercel.app',
+        os.getenv('VERCEL_URL', '').strip(),
+        os.getenv('VERCEL_BRANCH_URL', '').strip(),
+        os.getenv('VERCEL_PROJECT_PRODUCTION_URL', '').strip(),
+    ):
+        if host and host not in ALLOWED_HOSTS:
+            ALLOWED_HOSTS.append(host)
 if not DEBUG and not ALLOWED_HOSTS:
     raise ImproperlyConfigured(
         'ALLOWED_HOSTS is empty or contains only blanks. '
@@ -32,21 +45,54 @@ if not DEBUG:
             '"django-insecure" development value. Set a strong key in the environment.'
         )
 
-# Database (connection pooling: CONN_MAX_AGE для уменьшения накладных расходов под нагрузкой)
-DATABASES = {
-    'default': {
+def _database_from_url(url: str) -> dict:
+    parsed = urllib.parse.urlparse(url)
+    options: dict = {'connect_timeout': 10}
+    if ON_VERCEL or os.getenv('DB_SSL', '').lower() in ('1', 'true', 'require'):
+        options['sslmode'] = 'require'
+    return {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.getenv('DB_NAME', 'ringoo_prod'),
-        'USER': os.getenv('DB_USER', 'postgres'),
-        'PASSWORD': os.getenv('DB_PASSWORD', ''),
-        'HOST': os.getenv('DB_HOST', 'db'),
-        'PORT': os.getenv('DB_PORT', '5432'),
-        'CONN_MAX_AGE': int(os.getenv('DB_CONN_MAX_AGE', '60')),
-        'OPTIONS': {
-            'connect_timeout': 10,
+        'NAME': parsed.path.lstrip('/'),
+        'USER': urllib.parse.unquote(parsed.username or ''),
+        'PASSWORD': urllib.parse.unquote(parsed.password or ''),
+        'HOST': parsed.hostname or '',
+        'PORT': str(parsed.port or 5432),
+        'CONN_MAX_AGE': 0 if ON_VERCEL else int(os.getenv('DB_CONN_MAX_AGE', '60')),
+        'OPTIONS': options,
+    }
+
+
+_database_url = os.getenv('DATABASE_URL', '').strip()
+if _database_url:
+    DATABASES = {'default': _database_from_url(_database_url)}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': os.getenv('DB_NAME', 'ringoo_prod'),
+            'USER': os.getenv('DB_USER', 'postgres'),
+            'PASSWORD': os.getenv('DB_PASSWORD', ''),
+            'HOST': os.getenv('DB_HOST', 'db'),
+            'PORT': os.getenv('DB_PORT', '5432'),
+            'CONN_MAX_AGE': 0 if ON_VERCEL else int(os.getenv('DB_CONN_MAX_AGE', '60')),
+            'OPTIONS': {
+                'connect_timeout': 10,
+            },
+        }
+    }
+
+_redis_url = os.getenv('REDIS_URL', '')
+if ON_VERCEL and (not _redis_url or '://redis:' in _redis_url or _redis_url.startswith('redis://redis')):
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'ringoo',
+        },
+        'sessions': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'ringoo-sessions',
         },
     }
-}
 
 # CORS: только разрешённые домены (2.6.3), в prod не разрешать все
 CORS_ALLOW_ALL_ORIGINS = False
@@ -57,6 +103,17 @@ if not DEBUG and os.getenv("CORS_ALLOW_ALL_ORIGINS", "").lower() in ("1", "true"
 
 # CSRF: для запросов с фронта с другого домена (если нужна сессия/куки)
 CSRF_TRUSTED_ORIGINS = [o.strip() for o in os.getenv('CSRF_TRUSTED_ORIGINS', '').split(',') if o.strip()]
+if ON_VERCEL:
+    for origin in (
+        'https://*.vercel.app',
+        f"https://{os.getenv('VERCEL_URL', '').strip()}" if os.getenv('VERCEL_URL') else '',
+        f"https://{os.getenv('VERCEL_PROJECT_PRODUCTION_URL', '').strip()}"
+        if os.getenv('VERCEL_PROJECT_PRODUCTION_URL')
+        else '',
+    ):
+        if origin and origin not in CSRF_TRUSTED_ORIGINS:
+            CSRF_TRUSTED_ORIGINS.append(origin)
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 # Security Settings
 SECURE_SSL_REDIRECT = os.getenv('SECURE_SSL_REDIRECT', 'True') == 'True'
