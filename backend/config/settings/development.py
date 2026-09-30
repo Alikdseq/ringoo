@@ -85,19 +85,22 @@ if not _use_redis or not _redis_url:
         },
     }
 
-# Debug Toolbar (only in development)
+# Debug Toolbar (only in development, and only if the package is installed)
 if DEBUG:
-    INSTALLED_APPS += ['debug_toolbar']
-    MIDDLEWARE += ['debug_toolbar.middleware.DebugToolbarMiddleware']
-    
-    INTERNAL_IPS = [
-        '127.0.0.1',
-        'localhost',
-    ]
-    
-    DEBUG_TOOLBAR_CONFIG = {
-        'SHOW_TOOLBAR_CALLBACK': lambda request: DEBUG,
-    }
+    try:
+        import debug_toolbar  # noqa: F401
+    except ImportError:
+        debug_toolbar = None
+    else:
+        INSTALLED_APPS += ['debug_toolbar']
+        MIDDLEWARE += ['debug_toolbar.middleware.DebugToolbarMiddleware']
+        INTERNAL_IPS = [
+            '127.0.0.1',
+            'localhost',
+        ]
+        DEBUG_TOOLBAR_CONFIG = {
+            'SHOW_TOOLBAR_CALLBACK': lambda request: DEBUG,
+        }
 
 # CORS: разрешить любой Origin только при DEBUG=True (этот модуль — только dev).
 # В production используется config.settings.production: там CORS_ALLOW_ALL_ORIGINS = False.

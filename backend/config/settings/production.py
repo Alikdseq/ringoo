@@ -197,18 +197,21 @@ if USE_S3:
         'CacheControl': 'max-age=86400',
     }
     
-    # Static files
-    STATICFILES_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
+    # Static files. Django 5.1+ читает STORAGES, не STATICFILES_STORAGE.
     STATIC_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/static/'
-    
-    # Media files
-    DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
     MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/media/'
+    STORAGES = {
+        "default": {"BACKEND": "storages.backends.s3boto3.S3Boto3Storage"},
+        "staticfiles": {"BACKEND": "storages.backends.s3boto3.S3Boto3Storage"},
+    }
 else:
     # Use WhiteNoise for static files
     INSTALLED_APPS = ['whitenoise.runserver_nostatic'] + INSTALLED_APPS
     MIDDLEWARE = ['whitenoise.middleware.WhiteNoiseMiddleware'] + MIDDLEWARE
-    STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+    STORAGES = {
+        "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+        "staticfiles": {"BACKEND": "whitenoise.storage.CompressedStaticFilesStorage"},
+    }
 
 # Logging Configuration
 # Каталог для LOG_FILE_PATH должен существовать (создайте в entrypoint или задайте путь в существующую директорию).

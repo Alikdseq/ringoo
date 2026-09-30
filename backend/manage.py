@@ -29,7 +29,12 @@ if sys.platform == "win32":
 
 def main():
     """Run administrative tasks."""
-    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings.development')
+    # Vercel вызывает manage.py collectstatic без DJANGO_SETTINGS_MODULE.
+    # development.py подключает debug_toolbar, его нет в зависимостях деплоя.
+    if os.environ.get("VERCEL") == "1":
+        os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings.production")
+    else:
+        os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings.development")
     try:
         from django.core.management import execute_from_command_line
     except ImportError as exc:
