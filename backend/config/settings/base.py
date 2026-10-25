@@ -83,6 +83,7 @@ INSTALLED_APPS = [
     'apps.users',
     'apps.products',
     'apps.orders',
+    'apps.payments',
     'apps.stores',
     'apps.content',
     'apps.cart',
@@ -259,6 +260,9 @@ REST_FRAMEWORK = {
         'cart_read': '600/hour',         # GET корзины
         'cart_write': '600/hour',        # PATCH/DELETE корзины (user)
         'cart_write_anon': '300/hour',   # POST в корзину (guest)
+        'payment_pay_anon': '20/hour',   # инициация оплаты (гость)
+        'payment_pay_user': '60/hour',   # инициация оплаты (user)
+        'payment_callback': '120/minute',  # callback Сбера (по IP шлюза)
     },
 }
 
@@ -328,6 +332,17 @@ CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = TIME_ZONE
+# Периодическая отмена неоплаченных online (нужен celery beat). Иначе — cron manage.py.
+CELERY_BEAT_SCHEDULE = {
+    'expire-unpaid-online-orders': {
+        'task': 'apps.payments.tasks.expire_unpaid_online_orders_task',
+        'schedule': 60.0 * 5,  # каждые 5 минут
+    },
+    'reconcile-open-payments': {
+        'task': 'apps.payments.tasks.reconcile_open_payments_task',
+        'schedule': 60.0 * 3,  # каждые 3 минуты — пропущенный callback
+    },
+}
 
 # Email (integrations 2.4.2): используется в dev (console) и prod (SMTP)
 DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@ringoo.local')
@@ -343,6 +358,61 @@ YANDEX_GEOCODER_API_KEY = os.getenv('YANDEX_GEOCODER_API_KEY', '')
 
 # Таймаут для внешних API (геокодер и т.д.) — чтобы не вешать сайт при их недоступности
 EXTERNAL_API_TIMEOUT = int(os.getenv('EXTERNAL_API_TIMEOUT', '10'))
+
+# 1С:УТ 11 HTTP-сервисы (integrations/onec). По умолчанию выключены.
+# Подтверждённые пути: CatalogFolders/folders, CatalogProducts/products,
+# SiteRegistration/registrate. Заказы — не реализованы (нет метода в инструкции).
+# localhost в ONE_C_API_BASE_URL — только если сервис доступен из окружения сайта.
+# Секреты: предпочтительно ONE_C_LOGIN / ONE_C_PASSWORD (инструкция 1С);
+# ONE_C_API_USER / ONE_C_API_PASSWORD — совместимость с этапом 1.
+ONE_C_API_BASE_URL = os.getenv('ONE_C_API_BASE_URL', 'http://localhost/ut11_test/hs').rstrip('/')
+ONE_C_LOGIN = os.getenv('ONE_C_LOGIN', '') or os.getenv('ONE_C_API_USER', '')
+ONE_C_PASSWORD = os.getenv('ONE_C_PASSWORD', '') or os.getenv('ONE_C_API_PASSWORD', '')
+ONE_C_API_USER = ONE_C_LOGIN  # alias
+ONE_C_API_PASSWORD = ONE_C_PASSWORD  # alias
+ONE_C_API_TIMEOUT = int(os.getenv('ONE_C_API_TIMEOUT', '60'))
+ONE_C_API_ENABLED = os.getenv('ONE_C_API_ENABLED', '').strip().lower() in (
+    '1',
+    'true',
+    'yes',
+    'on',
+)
+# Не вызывать регистрацию партнёра из signup без явного флага (сервисный слой готов).
+ONE_C_SYNC_PARTNER_ON_REGISTER = os.getenv(
+    'ONE_C_SYNC_PARTNER_ON_REGISTER', ''
+).strip().lower() in ('1', 'true', 'yes', 'on')
+
+# --- Сбербанк ecom (интернет-эквайринг). По умолчанию тест, выключен. ---
+# Бой: https://epay.sberbank.ru — только после явного подтверждения, не переключать автоматически.
+SBER_ECOM_BASE_URL = os.getenv(
+    'SBER_ECOM_BASE_URL', 'https://ecomtest.sberbank.ru'
+).rstrip('/')
+SBER_ECOM_USERNAME = os.getenv('SBER_ECOM_USERNAME', '')
+SBER_ECOM_PASSWORD = os.getenv('SBER_ECOM_PASSWORD', '')
+SBER_ECOM_TIMEOUT = int(os.getenv('SBER_ECOM_TIMEOUT', '30'))
+SBER_ECOM_ENABLED = os.getenv('SBER_ECOM_ENABLED', '').strip().lower() in (
+    '1',
+    'true',
+    'yes',
+    'on',
+)
+# Явный флаг для https://epay.sberbank.ru — без него клиент откажется от боевого URL
+SBER_ECOM_ALLOW_PRODUCTION = os.getenv(
+    'SBER_ECOM_ALLOW_PRODUCTION', ''
+).strip().lower() in ('1', 'true', 'yes', 'on')
+# Шаблоны URL возврата; плейсхолдеры {order_id}, {order_number}. Пусто → FRONTEND_URL/...
+SBER_ECOM_RETURN_URL = os.getenv('SBER_ECOM_RETURN_URL', '')
+SBER_ECOM_FAIL_URL = os.getenv('SBER_ECOM_FAIL_URL', '')
+# Публичный HTTPS callback для ЛК Сбера / dynamicCallbackUrl (опционально)
+SBER_ECOM_CALLBACK_URL = os.getenv('SBER_ECOM_CALLBACK_URL', '')
+# Неоплаченные online-заказы: отмена + снятие резерва (минуты)
+ONLINE_PAYMENT_TIMEOUT_MINUTES = int(
+    os.getenv('ONLINE_PAYMENT_TIMEOUT_MINUTES', '20')
+)
+# Оплата после cancel: manual | revive | reverse
+LATE_ONLINE_PAYMENT_POLICY = (
+    os.getenv('LATE_ONLINE_PAYMENT_POLICY', 'manual') or 'manual'
+).strip().lower()
 
 # Redis Cache Configuration (задача 2.5.1)
 CACHE_TIMEOUT_PRODUCTS_LIST = 60  # список товаров; сигналы инвалидируют при сохранении в админке

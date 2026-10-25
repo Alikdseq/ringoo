@@ -66,7 +66,10 @@ function resolveDeliveryAddressForApi(d: DeliveryFormState): {
 } {
   const line = d.addressLine.trim();
   const cityField = d.city.trim();
-  const parts = line.split(',').map(s => s.trim()).filter(Boolean);
+  const parts = line
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean);
 
   if (cityField) {
     return {
@@ -162,7 +165,24 @@ export default function CheckoutPage() {
           /* согласие не критично для завершения заказа */
         }
       }
-      router.push('/orders');
+      if (variables.data.payment_type === 'online') {
+        try {
+          const { initiateOrderPayment, stashPayPhone } = await import(
+            '@/lib/api/services/payments.service'
+          );
+          const phone = variables.data.phone;
+          stashPayPhone(order.id, phone);
+          const pay = await initiateOrderPayment(order.id, { phone });
+          if (pay.form_url) {
+            window.location.assign(pay.form_url);
+            return;
+          }
+        } catch {
+          router.push(`/orders/${order.id}/payment/fail`);
+          return;
+        }
+      }
+      router.push(`/orders/${order.id}/success`);
     },
   });
 
@@ -193,8 +213,7 @@ export default function CheckoutPage() {
       } else {
         const addr = resolveDeliveryAddressForApi(delivery);
         if (!addr.city.trim()) {
-          errors.city =
-            'Укажите город или полный адрес через запятую: город, улица, дом';
+          errors.city = 'Укажите город или полный адрес через запятую: город, улица, дом';
         }
         if (!addr.street.trim() || !addr.house.trim()) {
           errors.addressLine = errors.addressLine ?? 'Укажите улицу и дом (можно через запятую)';
@@ -718,8 +737,8 @@ export default function CheckoutPage() {
               </div>
             </div>
             <p className="pt-2 text-xs text-zinc-500 dark:text-zinc-400">
-              Промокоды и скидки появятся здесь после подключения к API пересчёта — сумма заказа сейчас совпадает с
-              корзиной и с тем, что сохранит сервер.
+              Промокоды и скидки появятся здесь после подключения к API пересчёта — сумма заказа
+              сейчас совпадает с корзиной и с тем, что сохранит сервер.
             </p>
           </Card>
 

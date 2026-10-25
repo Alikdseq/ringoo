@@ -12,6 +12,7 @@ urlpatterns = [
     path("stores/", include("apps.stores.urls")),
     path("cart/", include("apps.cart.urls")),
     path("orders/", include("apps.orders.urls")),
+    path("payments/", include("apps.payments.urls")),
     # Бонусы: приложение apps.bonus остаётся в проекте, публичный API временно отключён.
     # path("bonus/", include("apps.bonus.urls")),
     path("content/", include("apps.content.urls")),

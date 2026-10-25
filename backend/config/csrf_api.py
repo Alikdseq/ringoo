@@ -17,6 +17,8 @@ _CSRF_EXEMPT_PREFIXES = (
     "/api/v1/auth/register/",
     "/api/v1/auth/token/refresh/",
     "/api/v1/auth/logout/",
+    # Callback шлюза Сбера (server-to-server, без CSRF/JWT браузера)
+    "/api/v1/payments/sber/callback/",
 )
 
 _UNSAFE_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})

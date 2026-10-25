@@ -4,6 +4,8 @@ URL-маршруты заказов.
 
 from django.urls import path
 
+from apps.payments.views import OrderPaymentStatusView, OrderPayView
+
 from . import views
 
 app_name = "orders"
@@ -20,5 +22,11 @@ urlpatterns = [
     ),
     path("<uuid:pk>/reorder/", views.OrderReorderView.as_view(), name="order-reorder"),
     path("<uuid:pk>/cancel/", views.OrderCancelView.as_view(), name="order-cancel"),
+    path("<uuid:pk>/pay/", OrderPayView.as_view(), name="order-pay"),
+    path(
+        "<uuid:pk>/payment/",
+        OrderPaymentStatusView.as_view(),
+        name="order-payment-status",
+    ),
     path("<uuid:pk>/", views.OrderDetailView.as_view(), name="order-detail"),
 ]

@@ -40,6 +40,21 @@ GitHub Secrets используются для хранения чувствит
 | `DEPLOY_SSH_KEY` | Приватный SSH ключ |
 | `DEPLOY_PATH` | Путь на сервере (`/opt/ringoo`) |
 
+#### Staging / интеграции (не в CI unit-тестах; на сервере / в env staging)
+
+| Secret Name | Описание |
+|------------|----------|
+| `SBER_ECOM_USERNAME` | Логин `*-api` Сбера (тест) |
+| `SBER_ECOM_PASSWORD` | Пароль API Сбера |
+| `SBER_ECOM_ENABLED` | `true` только на staging с реальным тестом |
+| `SBER_ECOM_BASE_URL` | `https://ecomtest.sberbank.ru` (бой — только после подтверждения) |
+| `SBER_ECOM_CALLBACK_URL` | Публичный HTTPS callback |
+| `ONE_C_LOGIN` / `ONE_C_PASSWORD` | Доступ к HTTP 1С (когда сеть есть) |
+| `ONE_C_API_BASE_URL` | Базовый URL hs |
+| `LATE_ONLINE_PAYMENT_POLICY` | `manual` \| `revive` \| `reverse` |
+
+Полный список: `backend/.env.example`. Runbook: `docs/integrations/sber-staging-runbook.md`.
+
 ## Использование в GitHub Actions
 
 Secrets доступны через `${{ secrets.SECRET_NAME }}`:

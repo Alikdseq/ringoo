@@ -474,8 +474,9 @@ class OrderCancelView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        order.status = Order.STATUS_CANCELLED
-        order.save(update_fields=["status", "updated_at"])
+        from .services import cancel_order_and_release_stock
+
+        order = cancel_order_and_release_stock(order, reason="user_cancel")
         serializer = OrderSerializer(order)
         return Response(serializer.data, status=status.HTTP_200_OK)
 

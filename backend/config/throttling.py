@@ -113,3 +113,21 @@ class LegalAnalyticsAnonThrottle(DynamicThrottleRatesMixin, AnonRateThrottle):
 
     scope = "legal_analytics"
 
+
+class PaymentPayAnonThrottle(DynamicThrottleRatesMixin, AnonRateThrottle):
+    """POST /orders/{id}/pay/ (гость по IP) — защита от спама register.do."""
+
+    scope = "payment_pay_anon"
+
+
+class PaymentPayUserThrottle(DynamicThrottleRatesMixin, UserRateThrottle):
+    """POST /orders/{id}/pay/ (авторизованный)."""
+
+    scope = "payment_pay_user"
+
+
+class PaymentCallbackAnonThrottle(DynamicThrottleRatesMixin, AnonRateThrottle):
+    """POST /payments/sber/callback/ — смягчение flood; банк шлёт редко."""
+
+    scope = "payment_callback"
+

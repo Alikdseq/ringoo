@@ -64,6 +64,9 @@ _rates = dict(_REST_FW.get('DEFAULT_THROTTLE_RATES') or {})
 _rates['auth_login'] = '10000/minute'
 _rates['auth_register'] = '10000/minute'
 _rates['legal_analytics'] = '10000/minute'
+_rates['payment_pay_anon'] = '10000/minute'
+_rates['payment_pay_user'] = '10000/minute'
+_rates['payment_callback'] = '10000/minute'
 _REST_FW['DEFAULT_THROTTLE_RATES'] = _rates
 REST_FRAMEWORK = _REST_FW
 
