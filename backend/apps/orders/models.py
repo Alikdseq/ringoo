@@ -143,6 +143,112 @@ class Order(models.Model):
         null=True,
         verbose_name="Обезличен (удаление аккаунта)",
     )
+
+    # --- Синхронизация с 1С (SiteOrders) ---
+    ONEC_SYNC_PENDING = "pending"
+    ONEC_SYNC_SYNCED = "synced"
+    ONEC_SYNC_PAID = "paid_synced"
+    ONEC_SYNC_CANCELLED = "cancelled"
+    ONEC_SYNC_ERROR = "error"
+    ONEC_SYNC_BLOCKED = "blocked"
+    ONEC_SYNC_DISABLED = "disabled"
+    ONEC_SYNC_PENDING_REVIEW = "pending_review"
+    ONEC_SYNC_CHOICES = [
+        (ONEC_SYNC_PENDING, "Ожидает отправки"),
+        (ONEC_SYNC_SYNCED, "Заказ в 1С (paid=false)"),
+        (ONEC_SYNC_PAID, "Реализация в 1С (paid=true)"),
+        (ONEC_SYNC_CANCELLED, "Отменён в 1С"),
+        (ONEC_SYNC_ERROR, "Ошибка синхронизации"),
+        (ONEC_SYNC_BLOCKED, "Заблокирован (нет склада/клиента)"),
+        (ONEC_SYNC_DISABLED, "Синхронизация выключена"),
+        (ONEC_SYNC_PENDING_REVIEW, "Требует сверки с 1С"),
+    ]
+
+    onec_client_id = models.CharField(
+        max_length=64,
+        blank=True,
+        default="",
+        db_index=True,
+        verbose_name="ClientId 1С",
+        help_text="UUID контрагента из SiteRegistration/registrate",
+    )
+    onec_warehouse_id = models.CharField(
+        max_length=64,
+        blank=True,
+        default="",
+        verbose_name="warehouseId 1С",
+    )
+    onec_document_id = models.CharField(
+        max_length=64,
+        blank=True,
+        default="",
+        verbose_name="documentId 1С (текущий)",
+    )
+    onec_document_number = models.CharField(
+        max_length=64,
+        blank=True,
+        default="",
+        verbose_name="documentNumber 1С",
+    )
+    onec_document_type = models.CharField(
+        max_length=64,
+        blank=True,
+        default="",
+        verbose_name="documentType 1С",
+    )
+    onec_order_document_id = models.CharField(
+        max_length=64,
+        blank=True,
+        default="",
+        verbose_name="documentId ЗаказКлиента",
+        help_text="Сохраняется при первом paid=false; после оплаты текущий — реализация",
+    )
+    onec_paid = models.BooleanField(
+        default=False,
+        verbose_name="paid принят в 1С",
+        help_text="Последний успешно принятый признак оплаты документа в 1С",
+    )
+    onec_posted = models.BooleanField(
+        default=False,
+        verbose_name="Документ проведён в 1С",
+    )
+    onec_sync_status = models.CharField(
+        max_length=20,
+        choices=ONEC_SYNC_CHOICES,
+        blank=True,
+        default="",
+        db_index=True,
+        verbose_name="Статус синхронизации 1С",
+    )
+    onec_last_error = models.CharField(
+        max_length=512,
+        blank=True,
+        default="",
+        verbose_name="Последняя ошибка 1С",
+    )
+    onec_synced_at = models.DateTimeField(
+        blank=True,
+        null=True,
+        verbose_name="Последняя успешная синхронизация 1С",
+    )
+    onec_sync_attempts = models.PositiveIntegerField(
+        default=0,
+        verbose_name="Попыток синхронизации 1С",
+    )
+    onec_sync_claim = models.CharField(
+        max_length=64,
+        blank=True,
+        default="",
+        verbose_name="Токен захвата sync-задачи",
+        help_text="Защита от параллельных воркеров и устаревших HTTP-ответов",
+    )
+    onec_payload_snapshot = models.JSONField(
+        default=dict,
+        blank=True,
+        verbose_name="Снимок payload SiteOrders",
+        help_text="Исходный запрос (кроме paid) для идемпотентных повторов и перехода paid=true",
+    )
+
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата создания")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="Дата обновления")
 
@@ -156,6 +262,7 @@ class Order(models.Model):
             models.Index(fields=["status"]),
             models.Index(fields=["user"]),
             models.Index(fields=["created_at"]),
+            models.Index(fields=["onec_sync_status"]),
         ]
 
     def __str__(self):
@@ -201,6 +308,20 @@ class OrderItem(models.Model):
         blank=True,
         null=True,
         verbose_name="Артикул",
+    )
+    onec_product_code = models.CharField(
+        max_length=64,
+        blank=True,
+        default="",
+        verbose_name="Код номенклатуры 1С",
+        help_text="productCode для SiteOrders (снимок на момент заказа)",
+    )
+    onec_series_id = models.CharField(
+        max_length=64,
+        blank=True,
+        default="",
+        verbose_name="seriesId 1С",
+        help_text="UUID серии; пусто → в JSON уходит null",
     )
     quantity = models.PositiveIntegerField(verbose_name="Количество")
     price = models.DecimalField(

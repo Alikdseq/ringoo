@@ -174,11 +174,6 @@ class OrderCreateSerializer(serializers.Serializer):
         store = attrs.get("store")
 
         if delivery_type == Order.DELIVERY_DELIVERY:
-            if store:
-                raise serializers.ValidationError(
-                    {"store": "Для доставки поле «магазин» не указывается."}
-                )
-            attrs["store"] = None
             addr = attrs.get("delivery_address") or {}
             required = ("city", "street", "house")
             missing = [k for k in required if not addr.get(k)]
@@ -186,12 +181,25 @@ class OrderCreateSerializer(serializers.Serializer):
                 raise serializers.ValidationError(
                     {"delivery_address": f"Для доставки укажите: {', '.join(required)}."}
                 )
+            if not store:
+                raise serializers.ValidationError(
+                    {
+                        "store": (
+                            "Для доставки укажите магазин комплектации, "
+                            "в котором все товары корзины есть в наличии."
+                        )
+                    }
+                )
         elif delivery_type == Order.DELIVERY_PICKUP:
             if not store:
                 raise serializers.ValidationError(
                     {"store": "Для самовывоза укажите магазин."}
                 )
-            if not Store.objects.filter(pk=store, is_active=True).exists():
+
+        if store:
+            if not Store.objects.filter(
+                pk=store, is_active=True, is_warehouse=False
+            ).exists():
                 raise serializers.ValidationError(
                     {"store": "Магазин не найден или недоступен для заказа."}
                 )
@@ -225,7 +233,10 @@ class OrderCreateSerializer(serializers.Serializer):
             )
         attrs["items"] = resolved
 
-        delivery_cost = attrs.get("delivery_cost") if attrs.get("delivery_cost") is not None else Decimal("0")
+        # Стоимость доставки и итог — только сервер (клиентский delivery_cost/total игнорируются).
+        # Сейчас доставка бесплатная; при появлении тарифа расчёт должен жить здесь, не во frontend.
+        delivery_cost = Decimal("0")
+        attrs["delivery_cost"] = delivery_cost
         bonus_used = attrs.get("bonus_used") if attrs.get("bonus_used") is not None else Decimal("0")
         subtotal = sum(r["price"] * r["quantity"] for r in resolved)
         attrs["total_amount"] = subtotal + delivery_cost - bonus_used

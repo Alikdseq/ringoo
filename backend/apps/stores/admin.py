@@ -30,9 +30,18 @@ class StockInline(admin.TabularInline):
 
 @admin.register(Store)
 class StoreAdmin(admin.ModelAdmin):
-    list_display = ("name", "slug", "city", "address", "is_active", "created_at")
-    search_fields = ("name", "slug", "city", "address")
-    list_filter = ("is_active", "city")
+    list_display = (
+        "name",
+        "slug",
+        "city",
+        "address",
+        "is_active",
+        "is_warehouse",
+        "onec_warehouse_id",
+        "created_at",
+    )
+    search_fields = ("name", "slug", "city", "address", "onec_warehouse_id", "onec_warehouse_name")
+    list_filter = ("is_active", "is_warehouse", "city")
     readonly_fields = ("id", "created_at", "updated_at")
     fieldsets = (
         (
@@ -52,6 +61,20 @@ class StoreAdmin(admin.ModelAdmin):
                     "description",
                     "is_active",
                 )
+            },
+        ),
+        (
+            "1С / склад",
+            {
+                "fields": (
+                    "onec_warehouse_id",
+                    "onec_warehouse_name",
+                    "is_warehouse",
+                ),
+                "description": (
+                    "onec_warehouse_id обязателен для синхронизации заказов. "
+                    "is_warehouse=True — склад без самовывоза (не показывается покупателям)."
+                ),
             },
         ),
         (

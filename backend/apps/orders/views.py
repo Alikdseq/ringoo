@@ -183,7 +183,6 @@ class OrderListCreateView(APIView):
         delivery_type = attrs.get("delivery_type")
         items_data = attrs["items"]
 
-        from apps.stores.models import Stock
         from apps.products.models import Product
 
         try:
@@ -228,39 +227,65 @@ class OrderListCreateView(APIView):
                     for p in Product.objects.filter(pk__in=product_ids, is_active=True)
                 }
 
+                from integrations.onec.orders import (
+                    InsufficientStockAtStore,
+                    plan_and_reserve_at_store,
+                )
+
+                # Резерв только в выбранном магазине (без поиска по сети / перемещений).
+                if not store_id:
+                    raise InsufficientStockError()
+
                 for it in items_data:
                     product = products_by_id.get(str(it["product_id"]))
-                    OrderItem.objects.create(
-                        order=order,
-                        product=product,
-                        product_title=product.title if product else "",
-                        product_sku=product.sku if product else None,
-                        quantity=it["quantity"],
-                        price=it["price"],
-                        item_total=it["price"] * it["quantity"],
-                    )
-
-                # Самовывоз и доставка: резерв по суммарным остаткам сети. Точка самовывоза (store)
-                # задаётся для клиента; не требуем отдельной строки Stock в этом магазине — иначе
-                # заказ часто падает, хотя товар есть в сети (доставка при этом проходит).
-                if delivery_type in (Order.DELIVERY_PICKUP, Order.DELIVERY_DELIVERY):
-                    for it in items_data:
-                        if not Stock.reserve_for_delivery(
-                            it["product_id"], it["quantity"]
-                        ):
-                            raise InsufficientStockError()
+                    if not product:
+                        raise InsufficientStockError()
+                    try:
+                        lines = plan_and_reserve_at_store(
+                            product=product,
+                            quantity=it["quantity"],
+                            price=it["price"],
+                            store_id=store_id,
+                        )
+                    except InsufficientStockAtStore as exc:
+                        raise InsufficientStockError() from exc
+                    for line in lines:
+                        OrderItem.objects.create(
+                            order=order,
+                            product=product,
+                            product_title=product.title,
+                            product_sku=product.sku,
+                            quantity=line["quantity"],
+                            price=line["price"],
+                            item_total=line["item_total"],
+                            onec_product_code=line["onec_product_code"],
+                            onec_series_id=line["onec_series_id"],
+                        )
 
                 if cart:
                     cart.items.all().delete()
 
         except InsufficientStockError:
-            detail = "Недостаточно товара на складах для оформления заказа."
+            detail = (
+                "Недостаточно товара в выбранном магазине. "
+                "Выберите магазин, где все позиции корзины есть в наличии."
+            )
             return Response(
                 {"code": "INSUFFICIENT_STOCK", "detail": detail},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
         send_order_notifications.delay(order.id)
+
+        from .tasks import enqueue_order_sync
+
+        order_pk = order.id
+
+        def _enqueue_onec():
+            # Сначала paid=false; для online после оплаты Сбера уйдёт paid=true
+            enqueue_order_sync(order_pk, paid=False)
+
+        transaction.on_commit(_enqueue_onec)
 
         response_data = OrderSerializer(order).data
         response = Response(response_data, status=status.HTTP_201_CREATED)

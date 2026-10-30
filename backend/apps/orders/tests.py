@@ -238,7 +238,50 @@ class TestOrderCreateSerializer(TestCase):
         self.assertFalse(s.is_valid())
         self.assertIn("store", s.errors)
 
-    def test_delivery_rejects_store(self):
+    def test_pickup_warehouse_store_rejected(self):
+        wh = Store.objects.create(
+            name="Склад",
+            slug="wh-order",
+            address="А",
+            city="М",
+            is_active=True,
+            is_warehouse=True,
+            onec_warehouse_id="wh-order-1",
+        )
+        data = {
+            "full_name": "Test",
+            "phone": "+7",
+            "delivery_type": "pickup",
+            "payment_type": "cash",
+            "store": str(wh.id),
+            "items": [
+                {"product_id": str(self.product.id), "quantity": 1, "price": "100.00"}
+            ],
+            "total_amount": Decimal("100.00"),
+            "consent_personal_data": True,
+        }
+        s = OrderCreateSerializer(data=data)
+        self.assertFalse(s.is_valid())
+        self.assertIn("store", s.errors)
+
+    def test_delivery_requires_store(self):
+        data = {
+            "full_name": "Test",
+            "phone": "+7",
+            "delivery_type": "delivery",
+            "delivery_address": {"city": "М", "street": "С", "house": "1"},
+            "payment_type": "cash",
+            "items": [
+                {"product_id": str(self.product.id), "quantity": 1, "price": "100.00"}
+            ],
+            "total_amount": Decimal("100.00"),
+            "consent_personal_data": True,
+        }
+        s = OrderCreateSerializer(data=data)
+        self.assertFalse(s.is_valid())
+        self.assertIn("store", s.errors)
+
+    def test_delivery_accepts_store(self):
         data = {
             "full_name": "Test",
             "phone": "+7",
@@ -253,8 +296,7 @@ class TestOrderCreateSerializer(TestCase):
             "consent_personal_data": True,
         }
         s = OrderCreateSerializer(data=data)
-        self.assertFalse(s.is_valid())
-        self.assertIn("store", s.errors)
+        self.assertTrue(s.is_valid(), s.errors)
 
     def test_pickup_unknown_store_uuid_rejected(self):
         data = {
@@ -395,8 +437,8 @@ class TestOrderListCreateViewAPI(TransactionTestCase):
         self.assertEqual(len(data["items"]), 1)
         self.assertEqual(data["items"][0]["quantity"], 2)
 
-    def test_post_pickup_reserves_network_stock_not_only_selected_store(self):
-        """Самовывоз: резерв по сети; остаток может быть не в выбранной точке."""
+    def test_post_pickup_does_not_use_other_store_stock(self):
+        """Нет остатка в выбранном магазине → 400, даже если товар есть в другом."""
         other = Store.objects.create(
             name="Другой",
             slug="other",
@@ -420,8 +462,10 @@ class TestOrderListCreateViewAPI(TransactionTestCase):
             "consent_personal_data": True,
         }
         response = self.client.post(url, payload, format="json")
-        self.assertEqual(response.status_code, 201, response.json())
-        self.assertEqual(response.json()["store"], str(self.store.id))
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json().get("code"), "INSUFFICIENT_STOCK")
+        other_row = Stock.objects.get(product=self.product, store=other)
+        self.assertEqual(other_row.reserved_quantity, 0)
 
     def test_post_from_cart_empty_returns_400(self):
         url = reverse("api_v1:orders:order-list-create")
@@ -469,16 +513,29 @@ class TestOrderListCreateViewAPI(TransactionTestCase):
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.json().get("code"), "INSUFFICIENT_STOCK")
 
-    def test_post_delivery_reserves_stock_across_stores(self):
-        s2 = Store.objects.create(
-            name="М2",
-            slug="m2",
-            address="Б",
-            city="Москва",
-            is_active=True,
-        )
-        Stock.objects.filter(product=self.product, store=self.store).update(quantity=2)
-        Stock.objects.create(product=self.product, store=s2, quantity=2)
+    def test_post_delivery_requires_store_and_reserves_only_there(self):
+        Stock.objects.filter(product=self.product, store=self.store).update(quantity=4)
+        url = reverse("api_v1:orders:order-list-create")
+        payload = {
+            "full_name": "Иван",
+            "phone": "+79991234567",
+            "delivery_type": "delivery",
+            "store": str(self.store.id),
+            "delivery_address": {"city": "Москва", "street": "Ленина", "house": "1"},
+            "payment_type": "cash",
+            "items": [
+                {"product_id": str(self.product.id), "quantity": 3, "price": "1.00"}
+            ],
+            "total_amount": "3.00",
+            "consent_personal_data": True,
+        }
+        response = self.client.post(url, payload, format="json")
+        self.assertEqual(response.status_code, 201, response.json())
+        self.assertEqual(response.json()["store"], str(self.store.id))
+        row = Stock.objects.get(product=self.product, store=self.store, onec_series_id="")
+        self.assertEqual(row.reserved_quantity, 3)
+
+    def test_post_delivery_without_store_returns_400(self):
         url = reverse("api_v1:orders:order-list-create")
         payload = {
             "full_name": "Иван",
@@ -487,33 +544,64 @@ class TestOrderListCreateViewAPI(TransactionTestCase):
             "delivery_address": {"city": "Москва", "street": "Ленина", "house": "1"},
             "payment_type": "cash",
             "items": [
-                {"product_id": str(self.product.id), "quantity": 4, "price": "1.00"}
+                {"product_id": str(self.product.id), "quantity": 1, "price": "100.00"}
             ],
-            "total_amount": "4.00",
+            "total_amount": "100.00",
             "consent_personal_data": True,
         }
         response = self.client.post(url, payload, format="json")
-        self.assertEqual(response.status_code, 201, response.json())
-        self.assertEqual(response.json()["total_amount"], "400.00")
-        row1 = Stock.objects.get(product=self.product, store=self.store)
-        row2 = Stock.objects.get(product=self.product, store=s2)
-        self.assertEqual(row1.reserved_quantity + row2.reserved_quantity, 4)
-        self.assertEqual(row1.reserved_quantity, 2)
-        self.assertEqual(row2.reserved_quantity, 2)
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("store", response.json())
 
-    def test_post_delivery_insufficient_aggregate_stock_returns_400(self):
+    def test_post_delivery_insufficient_at_selected_store_returns_400(self):
         Stock.objects.filter(product=self.product, store=self.store).update(quantity=1)
         url = reverse("api_v1:orders:order-list-create")
         payload = {
             "full_name": "Иван",
             "phone": "+79991234567",
             "delivery_type": "delivery",
+            "store": str(self.store.id),
             "delivery_address": {"city": "Москва", "street": "Ленина", "house": "1"},
             "payment_type": "cash",
             "items": [
                 {"product_id": str(self.product.id), "quantity": 5, "price": "100.00"}
             ],
             "total_amount": "500.00",
+            "consent_personal_data": True,
+        }
+        response = self.client.post(url, payload, format="json")
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json().get("code"), "INSUFFICIENT_STOCK")
+
+    def test_post_multi_item_requires_all_at_selected_store(self):
+        from apps.products.models import Product
+
+        p2 = Product.objects.create(
+            title="P2",
+            slug="p2-order-test",
+            sku="SKU-P2",
+            category=self.product.category,
+            price=Decimal("50.00"),
+            is_active=True,
+        )
+        Stock.objects.filter(product=self.product, store=self.store).update(quantity=5)
+        # p2 только в другом магазине
+        other = Store.objects.create(
+            name="М2", slug="m2-x", address="Б", city="Москва", is_active=True
+        )
+        Stock.objects.create(product=p2, store=other, quantity=5)
+        url = reverse("api_v1:orders:order-list-create")
+        payload = {
+            "full_name": "Иван",
+            "phone": "+79991234567",
+            "delivery_type": "pickup",
+            "store": str(self.store.id),
+            "payment_type": "cash",
+            "items": [
+                {"product_id": str(self.product.id), "quantity": 1, "price": "100.00"},
+                {"product_id": str(p2.id), "quantity": 1, "price": "50.00"},
+            ],
+            "total_amount": "150.00",
             "consent_personal_data": True,
         }
         response = self.client.post(url, payload, format="json")

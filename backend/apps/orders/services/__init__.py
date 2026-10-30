@@ -1,4 +1,4 @@
-"""Сервисные операции над заказами (отмена, резерв)."""
+"""Сервисные операции над заказами (отмена, резерв, обезличивание)."""
 
 from __future__ import annotations
 
@@ -6,9 +6,7 @@ import logging
 
 from django.db import transaction
 
-from apps.stores.models import Stock
-
-from .models import Order
+from apps.orders.models import Order
 
 logger = logging.getLogger(__name__)
 
@@ -34,9 +32,17 @@ def cancel_order_and_release_stock(order: Order, *, reason: str = "") -> Order:
     # Снимаем резерв при первой отмене. Повторный вызов не снимает повторно
     # (иначе можно «съесть» чужой резерв) — только если только что отменили.
     if was_active:
-        for item in locked.items.all():
-            if not item.product_id:
-                continue
-            Stock.release_for_delivery(item.product_id, item.quantity)
+        from integrations.onec.orders import release_order_item_reservations
+
+        release_order_item_reservations(locked)
+
+        order_pk = locked.pk
+
+        def _enqueue_onec_cancel():
+            from apps.orders.tasks import enqueue_order_cancel
+
+            enqueue_order_cancel(order_pk)
+
+        transaction.on_commit(_enqueue_onec_cancel)
 
     return locked

@@ -31,6 +31,15 @@ class Category(models.Model):
     )
     title = models.CharField(max_length=255, verbose_name="Название")
     slug = models.SlugField(max_length=255, unique=True, verbose_name="Slug")
+    onec_code = models.CharField(
+        max_length=64,
+        unique=True,
+        blank=True,
+        null=True,
+        db_index=True,
+        verbose_name="Код папки в 1С",
+        help_text="Внешний идентификатор категории из 1С (Папка.code). Не путать со slug сайта.",
+    )
     parent = models.ForeignKey(
         "self",
         on_delete=models.SET_NULL,
@@ -96,6 +105,22 @@ class Product(models.Model):
         blank=True,
         null=True,
         verbose_name="Артикул",
+    )
+    onec_code = models.CharField(
+        max_length=64,
+        unique=True,
+        blank=True,
+        null=True,
+        db_index=True,
+        verbose_name="Код номенклатуры в 1С",
+        help_text="Внешний идентификатор товара из 1С (Товар.code). Один код — одна карточка.",
+    )
+    onec_type = models.CharField(
+        max_length=64,
+        blank=True,
+        null=True,
+        verbose_name="Вид номенклатуры 1С",
+        help_text="Значение Товар.type из выгрузки (Телефоны, Аксессуары и т.д.).",
     )
     description = models.TextField(
         blank=True,

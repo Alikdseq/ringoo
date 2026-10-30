@@ -151,6 +151,23 @@ class TestStoreListView(TestCase):
         results = response.json()["results"]
         self.assertIsNotNone(results[0].get("coordinates"))
 
+    def test_list_excludes_is_warehouse(self):
+        Store.objects.create(
+            name="Склад 1С",
+            slug="wh-only",
+            address="В",
+            city="Москва",
+            is_active=True,
+            is_warehouse=True,
+            onec_warehouse_id="wh-uuid-1",
+        )
+        url = reverse("api_v1:stores:store-list")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        slugs = [s["slug"] for s in response.json()["results"]]
+        self.assertIn("active-store", slugs)
+        self.assertNotIn("wh-only", slugs)
+
 
 class TestStoreDetailView(TestCase):
     def setUp(self):
@@ -170,6 +187,20 @@ class TestStoreDetailView(TestCase):
         data = response.json()
         self.assertEqual(data["slug"], "detail-store")
         self.assertIn("coordinates", data)
+
+    def test_retrieve_warehouse_returns_404(self):
+        wh = Store.objects.create(
+            name="Склад",
+            slug="only-wh",
+            address="А",
+            city="Город",
+            is_active=True,
+            is_warehouse=True,
+            onec_warehouse_id="wh-detail-1",
+        )
+        url = reverse("api_v1:stores:store-detail", kwargs={"pk": wh.pk})
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 404)
 
 
 class TestStockListView(TestCase):
@@ -220,3 +251,21 @@ class TestProductStockView(TestCase):
         quantities = {r["store"]: r["quantity"] for r in data["results"]}
         self.assertEqual(quantities[str(self.store1.id)], 3)
         self.assertEqual(quantities[str(self.store2.id)], 7)
+
+    def test_list_product_stock_excludes_warehouse(self):
+        wh = Store.objects.create(
+            name="WH",
+            slug="m-wh",
+            address="В",
+            city="Москва",
+            is_active=True,
+            is_warehouse=True,
+            onec_warehouse_id="wh-stock-1",
+        )
+        Stock.objects.create(product=self.product, store=wh, quantity=99)
+        url = reverse("api_v1:products:product-stock", kwargs={"pk": self.product.pk})
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        store_ids = {r["store"] for r in response.json()["results"]}
+        self.assertIn(str(self.store1.id), store_ids)
+        self.assertNotIn(str(wh.id), store_ids)

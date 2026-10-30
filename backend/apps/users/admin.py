@@ -38,9 +38,10 @@ class CustomUserAdmin(BaseUserAdmin):
         "is_active",
         "is_phone_verified",
         "is_email_verified",
+        "onec_partner_status",
         "created_at",
     )
-    search_fields = ("phone", "email", "username")
+    search_fields = ("phone", "email", "username", "onec_partner_id")
     ordering = ("-created_at",)
     inlines = (UserProfileInline, DeliveryAddressInline)
 
@@ -58,6 +59,17 @@ class CustomUserAdmin(BaseUserAdmin):
                     "privacy_policy_accepted_at",
                     "marketing_opt_in",
                     "marketing_opt_in_at",
+                )
+            },
+        ),
+        (
+            "1С партнёр",
+            {
+                "fields": (
+                    "onec_partner_id",
+                    "onec_partner_status",
+                    "onec_partner_synced_at",
+                    "onec_partner_last_error",
                 )
             },
         ),
@@ -90,6 +102,8 @@ class CustomUserAdmin(BaseUserAdmin):
         "last_login",
         "privacy_policy_accepted_at",
         "marketing_opt_in_at",
+        "onec_partner_synced_at",
+        "onec_partner_last_error",
     )
 
 

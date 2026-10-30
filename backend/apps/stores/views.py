@@ -82,6 +82,14 @@ class ManagerReviewsBySlugView(ListAPIView):
         )
 
 
+def _public_store_queryset():
+    """
+    Точки для покупателя: активные магазины, не чистые склады 1С.
+    Склады (is_warehouse=True) участвуют в остатках, но не в самовывозе/витрине.
+    """
+    return Store.objects.filter(is_active=True, is_warehouse=False)
+
+
 class StoreListView(ListAPIView):
     """
     Список магазинов (GET /api/v1/stores/).
@@ -92,7 +100,8 @@ class StoreListView(ListAPIView):
     throttle_classes = [AnonReadRateThrottle, UserReadRateThrottle]
 
     def get_queryset(self):
-        qs = Store.objects.all().order_by("city", "name")
+        # Склады 1С (is_warehouse) никогда не отдаём в публичный список / checkout.
+        qs = Store.objects.filter(is_warehouse=False).order_by("city", "name")
         is_active = self.request.query_params.get("is_active")
         if is_active is not None:
             if str(is_active).lower() in ("true", "1", "yes"):
@@ -118,7 +127,7 @@ class StoreBySlugView(RetrieveAPIView):
     def get_queryset(self):
         managers_qs = _manager_queryset_with_ratings().order_by("order", "name")
         return (
-            Store.objects.filter(is_active=True)
+            _public_store_queryset()
             .prefetch_related(
                 Prefetch("images", queryset=StoreImage.objects.filter(is_active=True)),
                 Prefetch("managers", queryset=managers_qs, to_attr="active_managers"),
@@ -133,7 +142,7 @@ class StoreDetailView(RetrieveAPIView):
 
     permission_classes = [AllowAny]
     serializer_class = StoreDetailSerializer
-    queryset = Store.objects.all()
+    queryset = Store.objects.filter(is_warehouse=False)
     throttle_classes = [AnonReadRateThrottle, UserReadRateThrottle]
 
 
@@ -145,7 +154,9 @@ class StoreProductsBySlugView(ListAPIView):
     throttle_classes = [AnonReadRateThrottle, UserReadRateThrottle]
 
     def get_queryset(self):
-        store = get_object_or_404(Store, slug=self.kwargs["slug"], is_active=True)
+        store = get_object_or_404(
+            Store, slug=self.kwargs["slug"], is_active=True, is_warehouse=False
+        )
         has_stock = Stock.objects.filter(
             product_id=OuterRef("pk"),
             store=store,
@@ -193,6 +204,7 @@ class StockListView(ListAPIView):
 class ProductStockView(ListAPIView):
     """
     Наличие товара во всех магазинах (GET /api/v1/products/{id}/stock/).
+    Только точки продаж (без is_warehouse) — для PDP и checkout.
     """
 
     permission_classes = [AllowAny]
@@ -201,7 +213,11 @@ class ProductStockView(ListAPIView):
     def get_queryset(self):
         product_id = self.kwargs.get("pk")
         return (
-            Stock.objects.filter(product_id=product_id)
+            Stock.objects.filter(
+                product_id=product_id,
+                store__is_active=True,
+                store__is_warehouse=False,
+            )
             .select_related("product", "store")
             .order_by("store__city", "store__name")
         )

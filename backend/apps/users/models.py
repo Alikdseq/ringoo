@@ -93,6 +93,45 @@ class CustomUser(AbstractUser):
         null=True,
         verbose_name="Дата согласия на маркетинг",
     )
+    # Связь с партнёром 1С (POST SiteRegistration/registrate → partnerId)
+    onec_partner_id = models.CharField(
+        max_length=64,
+        blank=True,
+        null=True,
+        unique=True,
+        db_index=True,
+        verbose_name="ID партнёра в 1С",
+        help_text="UUID partnerId из 1С. При наличии повторная регистрация в 1С не выполняется.",
+    )
+    ONEC_PARTNER_NONE = "none"
+    ONEC_PARTNER_SYNCED = "synced"
+    ONEC_PARTNER_PENDING_REVIEW = "pending_review"
+    ONEC_PARTNER_ERROR = "error"
+    ONEC_PARTNER_STATUS_CHOICES = [
+        (ONEC_PARTNER_NONE, "Не регистрировался"),
+        (ONEC_PARTNER_SYNCED, "Синхронизирован"),
+        (ONEC_PARTNER_PENDING_REVIEW, "Требует сверки с 1С"),
+        (ONEC_PARTNER_ERROR, "Ошибка интеграции"),
+    ]
+    onec_partner_status = models.CharField(
+        max_length=32,
+        choices=ONEC_PARTNER_STATUS_CHOICES,
+        default=ONEC_PARTNER_NONE,
+        db_index=True,
+        verbose_name="Статус партнёра 1С",
+    )
+    onec_partner_synced_at = models.DateTimeField(
+        blank=True,
+        null=True,
+        verbose_name="Дата синхронизации партнёра 1С",
+    )
+    onec_partner_last_error = models.CharField(
+        max_length=500,
+        blank=True,
+        default="",
+        verbose_name="Последняя ошибка регистрации в 1С",
+        help_text="Техническое сообщение для админов; пользователю не показывается.",
+    )
 
     USERNAME_FIELD = "phone"
     REQUIRED_FIELDS = ["email"]

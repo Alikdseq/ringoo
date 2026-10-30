@@ -30,6 +30,27 @@ class Store(models.Model):
     )
     name = models.CharField(max_length=255, verbose_name="Название")
     slug = models.SlugField(max_length=255, unique=True, verbose_name="Slug")
+    onec_warehouse_id = models.CharField(
+        max_length=64,
+        unique=True,
+        blank=True,
+        null=True,
+        db_index=True,
+        verbose_name="ID склада в 1С",
+        help_text="Внешний идентификатор склада (Товар.skladID).",
+    )
+    onec_warehouse_name = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        verbose_name="Название склада в 1С",
+        help_text="Как в выгрузке (Товар.sklad), например Apple Room.",
+    )
+    is_warehouse = models.BooleanField(
+        default=False,
+        verbose_name="Склад (не точка самовывоза)",
+        help_text="True для складов вроде Apple Room: остаток учитывается, самовывоз не предлагается.",
+    )
     address = models.CharField(max_length=500, verbose_name="Адрес")
     city = models.CharField(max_length=255, verbose_name="Город")
     phone = models.CharField(
@@ -190,6 +211,20 @@ class Stock(models.Model):
         related_name="stock_items",
         verbose_name="Магазин",
     )
+    onec_series_id = models.CharField(
+        max_length=64,
+        blank=True,
+        default="",
+        db_index=True,
+        verbose_name="seriesId 1С",
+        help_text="UUID серии; пустая строка — товар без серии на этом складе",
+    )
+    onec_series_name = models.CharField(
+        max_length=255,
+        blank=True,
+        default="",
+        verbose_name="Название серии 1С",
+    )
     quantity = models.PositiveIntegerField(
         default=0,
         verbose_name="Количество",
@@ -206,13 +241,14 @@ class Stock(models.Model):
         verbose_name_plural = "Остатки"
         constraints = [
             models.UniqueConstraint(
-                fields=["product", "store"],
-                name="stores_stock_product_store_uniq",
+                fields=["product", "store", "onec_series_id"],
+                name="stores_stock_product_store_series_uniq",
             ),
         ]
         indexes = [
             models.Index(fields=["product"]),
             models.Index(fields=["store"]),
+            models.Index(fields=["onec_series_id"]),
         ]
 
     def __str__(self):
@@ -232,24 +268,128 @@ class Stock(models.Model):
         self.save(update_fields=["reserved_quantity", "updated_at"])
 
     @classmethod
-    def reserve_atomic(cls, product_id, store_id, amount):
+    def available_quantity_at_store(cls, product_id, store_id) -> int:
+        """Суммарный доступный остаток товара в конкретном магазине (все серии)."""
+        total = 0
+        for row in cls.objects.filter(product_id=product_id, store_id=store_id):
+            total += max(0, int(row.quantity) - int(row.reserved_quantity))
+        return total
+
+    @classmethod
+    def reserve_series_atomic(cls, product_id, store_id, series_id, amount=1):
         """
-        Атомарно зарезервировать количество на складе.
-        Использовать только внутри transaction.atomic() при создании заказа.
-        Возвращает True при успехе, False если недостаточно остатка (без гонок).
+        Атомарно зарезервировать конкретную серию в магазине.
+        Не переносит резерв на другой магазин и не подменяет seriesId.
         """
         if amount <= 0:
             return True
+        series_id = (series_id or "").strip()
+        if not series_id:
+            return False
         updated = cls.objects.filter(
             product_id=product_id,
             store_id=store_id,
-        ).filter(
-            quantity__gte=F("reserved_quantity") + amount,
+            onec_series_id=series_id,
+            quantity__gte=F("reserved_quantity") + int(amount),
         ).update(
-            reserved_quantity=F("reserved_quantity") + amount,
+            reserved_quantity=F("reserved_quantity") + int(amount),
             updated_at=timezone.now(),
         )
         return updated == 1
+
+    @classmethod
+    def release_series_atomic(cls, product_id, store_id, series_id, amount=1):
+        """Снять резерв конкретной серии в магазине."""
+        if amount <= 0:
+            return True
+        series_id = (series_id or "").strip()
+        if not series_id:
+            return False
+        take = int(amount)
+        updated = cls.objects.filter(
+            product_id=product_id,
+            store_id=store_id,
+            onec_series_id=series_id,
+            reserved_quantity__gte=take,
+        ).update(
+            reserved_quantity=F("reserved_quantity") - take,
+            updated_at=timezone.now(),
+        )
+        return updated == 1
+
+    @classmethod
+    def reserve_atomic(cls, product_id, store_id, amount):
+        """
+        Атомарно зарезервировать количество в выбранном магазине.
+        Серийные строки (onec_series_id ≠ '') не используются — для них
+        reserve_series_atomic. Берутся только строки без серии.
+        """
+        if amount <= 0:
+            return True
+        need = int(amount)
+        rows = list(
+            cls.objects.select_for_update()
+            .filter(product_id=product_id, store_id=store_id, onec_series_id="")
+            .order_by("pk")
+        )
+        plan = []
+        remaining = need
+        for row in rows:
+            if remaining <= 0:
+                break
+            available = int(row.quantity) - int(row.reserved_quantity)
+            if available <= 0:
+                continue
+            take = min(available, remaining)
+            plan.append((row.pk, take))
+            remaining -= take
+        if remaining > 0:
+            return False
+        for pk, take in plan:
+            updated = cls.objects.filter(
+                pk=pk,
+                quantity__gte=F("reserved_quantity") + take,
+            ).update(
+                reserved_quantity=F("reserved_quantity") + take,
+                updated_at=timezone.now(),
+            )
+            if updated != 1:
+                return False
+        return True
+
+    @classmethod
+    def release_at_store(cls, product_id, store_id, amount):
+        """Снять резерв несерийного остатка в конкретном магазине."""
+        if amount <= 0:
+            return True
+        need = int(amount)
+        rows = list(
+            cls.objects.select_for_update()
+            .filter(
+                product_id=product_id,
+                store_id=store_id,
+                onec_series_id="",
+                reserved_quantity__gt=0,
+            )
+            .order_by("-reserved_quantity", "pk")
+        )
+        remaining = need
+        for row in rows:
+            if remaining <= 0:
+                break
+            take = min(int(row.reserved_quantity), remaining)
+            if take <= 0:
+                continue
+            updated = cls.objects.filter(
+                pk=row.pk,
+                reserved_quantity__gte=take,
+            ).update(
+                reserved_quantity=F("reserved_quantity") - take,
+                updated_at=timezone.now(),
+            )
+            if updated == 1:
+                remaining -= take
+        return remaining == 0
 
     @classmethod
     def reserve_for_delivery(cls, product_id, amount):
@@ -298,3 +438,37 @@ class Stock(models.Model):
             return
         self.reserved_quantity = max(0, self.reserved_quantity - amount)
         self.save(update_fields=["reserved_quantity", "updated_at"])
+
+    @classmethod
+    def release_for_delivery(cls, product_id, amount):
+        """
+        Снять резерв по товару в сети (зеркало reserve_for_delivery).
+        Жадно уменьшает reserved_quantity со складов с наибольшим резервом.
+        Без журнала резерваций по заказу — лучшее приближение при текущей модели.
+        Только внутри transaction.atomic().
+        """
+        if amount <= 0:
+            return True
+        need = int(amount)
+        rows = list(
+            cls.objects.select_for_update()
+            .filter(product_id=product_id, reserved_quantity__gt=0)
+            .order_by("-reserved_quantity", "store_id", "pk")
+        )
+        remaining = need
+        for row in rows:
+            if remaining <= 0:
+                break
+            take = min(int(row.reserved_quantity), remaining)
+            if take <= 0:
+                continue
+            updated = cls.objects.filter(
+                pk=row.pk,
+                reserved_quantity__gte=take,
+            ).update(
+                reserved_quantity=F("reserved_quantity") - take,
+                updated_at=timezone.now(),
+            )
+            if updated == 1:
+                remaining -= take
+        return remaining == 0

@@ -16,8 +16,17 @@ from .models import ManagerRating, Order, OrderItem
 class OrderItemInline(admin.TabularInline):
     model = OrderItem
     extra = 0
-    fields = ("product", "product_title", "product_sku", "quantity", "price", "item_total")
-    readonly_fields = ("item_total",)
+    fields = (
+        "product",
+        "product_title",
+        "product_sku",
+        "onec_product_code",
+        "onec_series_id",
+        "quantity",
+        "price",
+        "item_total",
+    )
+    readonly_fields = ("item_total", "onec_product_code", "onec_series_id")
     raw_id_fields = ("product",)
 
 
@@ -29,18 +38,44 @@ class OrderAdmin(admin.ModelAdmin):
         "phone",
         "total_amount",
         "status",
+        "onec_sync_status",
         "delivery_type",
         "payment_type",
         "created_at",
     )
-    list_filter = ("status", "payment_type", "delivery_type", "created_at")
-    search_fields = ("phone", "full_name", "order_number")
+    list_filter = (
+        "status",
+        "payment_type",
+        "delivery_type",
+        "onec_sync_status",
+        "created_at",
+    )
+    search_fields = (
+        "phone",
+        "full_name",
+        "order_number",
+        "onec_client_id",
+        "onec_document_id",
+    )
     readonly_fields = (
         "id",
         "order_number",
         "created_at",
         "updated_at",
         "confirmation_email_sent_at",
+        "onec_client_id",
+        "onec_warehouse_id",
+        "onec_document_id",
+        "onec_document_number",
+        "onec_document_type",
+        "onec_order_document_id",
+        "onec_paid",
+        "onec_posted",
+        "onec_sync_status",
+        "onec_last_error",
+        "onec_synced_at",
+        "onec_sync_attempts",
+        "onec_payload_snapshot",
     )
     inlines = [OrderItemInline]
     actions = ["action_set_status_confirmed", "action_export_csv"]
