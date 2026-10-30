@@ -1,0 +1,14 @@
+[
+  {
+    "slug": "store-center",
+    "onec_warehouse_id": "REPLACE-WITH-1C-SKLAD-UUID",
+    "onec_warehouse_name": "Магазин Центр",
+    "is_warehouse": false
+  },
+  {
+    "slug": "apple-room",
+    "onec_warehouse_id": "REPLACE-WITH-1C-SKLAD-UUID",
+    "onec_warehouse_name": "Apple Room",
+    "is_warehouse": true
+  }
+]
