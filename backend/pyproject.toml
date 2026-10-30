@@ -20,6 +20,7 @@ dependencies = [
     "django-axes>=6.4,<7",
     "django-otp>=1.5,<2",
     "qrcode[pil]>=7.4",
+    "defusedxml>=0.7.1",
 ]
 
 # Docker по-прежнему ставит полный requirements.txt.

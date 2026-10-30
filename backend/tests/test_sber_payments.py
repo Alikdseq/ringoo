@@ -273,6 +273,7 @@ class PaymentServiceTests(TestCase):
             "actionCode": 0,
             "amount": 100000,
             "orderNumber": "sync1",
+            "currency": "643",
         }
         updated = sync_payment_from_bank(payment, client=mock_client)
         self.assertEqual(updated.status, Payment.STATUS_PAID)
@@ -311,6 +312,8 @@ class PaymentServiceTests(TestCase):
             "orderStatus": 2,
             "actionCode": 0,
             "amount": 100000,
+            "orderNumber": payment.merchant_order_number,
+            "currency": "643",
         }
         handle_sber_callback(
             {
@@ -399,6 +402,8 @@ class PaymentServiceTests(TestCase):
             "orderStatus": 2,
             "actionCode": 0,
             "amount": 100000,
+            "orderNumber": payment.merchant_order_number,
+            "currency": "643",
         }
         result = expire_unpaid_online_orders(client=mock_client)
         self.assertEqual(result["cancelled"], 0)
@@ -500,6 +505,8 @@ class PaymentServiceTests(TestCase):
             "orderStatus": 2,
             "actionCode": 0,
             "amount": 100000,
+            "orderNumber": payment.merchant_order_number,
+            "currency": "643",
         }
         result = reconcile_open_payments(
             client=mock_client, older_than_minutes=2, limit=50
@@ -585,6 +592,8 @@ class PaymentApiTests(TestCase):
             "orderStatus": 2,
             "actionCode": 0,
             "amount": 100000,
+            "orderNumber": payment.merchant_order_number,
+            "currency": "643",
         }
         with patch(
             "apps.payments.services.SberEcomClient", return_value=mock_client
@@ -601,14 +610,14 @@ class PaymentApiTests(TestCase):
             )
         self.assertEqual(resp.status_code, 200)
         self.assertTrue(resp.data["ok"])
-        self.assertTrue(resp.data["found"])
+        self.assertNotIn("found", resp.data)
         payment.refresh_from_db()
         self.assertEqual(payment.status, Payment.STATUS_PAID)
         order.refresh_from_db()
         self.assertEqual(order.status, Order.STATUS_CONFIRMED)
         mock_client.get_order_status.assert_called()
 
-    def test_callback_unknown_mdorder_still_200(self):
+    def test_callback_unknown_mdorder_still_200_no_oracle(self):
         resp = self.client.post(
             "/api/v1/payments/sber/callback/",
             {
@@ -620,7 +629,7 @@ class PaymentApiTests(TestCase):
         )
         self.assertEqual(resp.status_code, 200)
         self.assertTrue(resp.data["ok"])
-        self.assertFalse(resp.data["found"])
+        self.assertNotIn("found", resp.data)
 
 
 class PaymentMigrationFileTests(TestCase):

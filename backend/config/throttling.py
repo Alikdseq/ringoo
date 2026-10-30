@@ -131,3 +131,15 @@ class PaymentCallbackAnonThrottle(DynamicThrottleRatesMixin, AnonRateThrottle):
 
     scope = "payment_callback"
 
+
+class PaymentStatusAnonThrottle(DynamicThrottleRatesMixin, AnonRateThrottle):
+    """GET /orders/{id}/payment/ — ограничение polling → getOrderStatusExtended."""
+
+    scope = "payment_status_anon"
+
+
+class PaymentStatusUserThrottle(DynamicThrottleRatesMixin, UserRateThrottle):
+    """GET /orders/{id}/payment/ для авторизованных."""
+
+    scope = "payment_status_user"
+

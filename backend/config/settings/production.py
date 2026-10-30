@@ -155,6 +155,16 @@ if ON_VERCEL:
     if _public_host:
         PUBLIC_API_ORIGIN = f'https://{_public_host}'.rstrip('/')
 
+# Sber: при включённом эквайринге callback-токен обязателен (не полагаться только на security-by-obscurity URL).
+if SBER_ECOM_ENABLED and not str(SBER_ECOM_CALLBACK_TOKEN or '').strip():
+    raise ImproperlyConfigured(
+        'SBER_ECOM_CALLBACK_TOKEN is required when SBER_ECOM_ENABLED=true in production. '
+        'Set a long random secret and put the same value in SBER_ECOM_CALLBACK_URL (?token=...).'
+    )
+# Явно fail-closed для callback, даже если DEBUG случайно True в staging.
+if SBER_ECOM_CALLBACK_TOKEN_REQUIRED is None:
+    SBER_ECOM_CALLBACK_TOKEN_REQUIRED = True
+
 # Security Settings
 # На Vercel TLS обрывается на платформе. Редирект внутри функции даёт лишний цикл.
 SECURE_SSL_REDIRECT = os.getenv(

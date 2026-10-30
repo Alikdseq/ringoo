@@ -263,6 +263,8 @@ REST_FRAMEWORK = {
         'payment_pay_anon': '20/hour',   # инициация оплаты (гость)
         'payment_pay_user': '60/hour',   # инициация оплаты (user)
         'payment_callback': '120/minute',  # callback Сбера (по IP шлюза)
+        'payment_status_anon': '30/minute',  # polling статуса (гость)
+        'payment_status_user': '60/minute',  # polling статуса (user)
     },
 }
 
@@ -360,12 +362,16 @@ YANDEX_GEOCODER_API_KEY = os.getenv('YANDEX_GEOCODER_API_KEY', '')
 EXTERNAL_API_TIMEOUT = int(os.getenv('EXTERNAL_API_TIMEOUT', '10'))
 
 # 1С:УТ 11 HTTP-сервисы (integrations/onec). По умолчанию выключены.
-# Подтверждённые пути: CatalogFolders/folders, CatalogProducts/products,
-# SiteRegistration/registrate. Заказы — не реализованы (нет метода в инструкции).
+# Единая публикация: /razrab/hs/ (не смешивать с /ut11_test/ и UUID других баз).
+# Методы: CatalogFolders/folders, CatalogProducts/products,
+# SiteRegistration/registrate, SiteOrders/orders, SiteOrders/orders/cancel.
 # localhost в ONE_C_API_BASE_URL — только если сервис доступен из окружения сайта.
 # Секреты: предпочтительно ONE_C_LOGIN / ONE_C_PASSWORD (инструкция 1С);
 # ONE_C_API_USER / ONE_C_API_PASSWORD — совместимость с этапом 1.
-ONE_C_API_BASE_URL = os.getenv('ONE_C_API_BASE_URL', 'http://localhost/ut11_test/hs').rstrip('/')
+# Хост сервера не выдумывать: подтвердить у администратора 1С перед реальными POST.
+ONE_C_API_BASE_URL = os.getenv(
+    'ONE_C_API_BASE_URL', 'http://localhost/razrab/hs'
+).rstrip('/')
 ONE_C_LOGIN = os.getenv('ONE_C_LOGIN', '') or os.getenv('ONE_C_API_USER', '')
 ONE_C_PASSWORD = os.getenv('ONE_C_PASSWORD', '') or os.getenv('ONE_C_API_PASSWORD', '')
 ONE_C_API_USER = ONE_C_LOGIN  # alias
@@ -381,6 +387,16 @@ ONE_C_API_ENABLED = os.getenv('ONE_C_API_ENABLED', '').strip().lower() in (
 ONE_C_SYNC_PARTNER_ON_REGISTER = os.getenv(
     'ONE_C_SYNC_PARTNER_ON_REGISTER', ''
 ).strip().lower() in ('1', 'true', 'yes', 'on')
+# Асинхронная отправка заказов в 1С (Celery). Без флага задачи no-op.
+ONE_C_ORDER_SYNC_ENABLED = os.getenv(
+    'ONE_C_ORDER_SYNC_ENABLED', ''
+).strip().lower() in ('1', 'true', 'yes', 'on')
+# Устарело как обязательный склад доставки: warehouseId берётся из
+# Store.onec_warehouse_id выбранного магазина заказа. Переменная сохранена
+# только для совместимости env и не используется в sync.
+ONE_C_DEFAULT_WAREHOUSE_ID = os.getenv('ONE_C_DEFAULT_WAREHOUSE_ID', '').strip()
+# Ограниченные повторы при сети/500 (не для 400/409/422).
+ONE_C_ORDER_SYNC_MAX_ATTEMPTS = int(os.getenv('ONE_C_ORDER_SYNC_MAX_ATTEMPTS', '5'))
 
 # --- Сбербанк ecom (интернет-эквайринг). По умолчанию тест, выключен. ---
 # Бой: https://epay.sberbank.ru — только после явного подтверждения, не переключать автоматически.
@@ -405,6 +421,17 @@ SBER_ECOM_RETURN_URL = os.getenv('SBER_ECOM_RETURN_URL', '')
 SBER_ECOM_FAIL_URL = os.getenv('SBER_ECOM_FAIL_URL', '')
 # Публичный HTTPS callback для ЛК Сбера / dynamicCallbackUrl (опционально)
 SBER_ECOM_CALLBACK_URL = os.getenv('SBER_ECOM_CALLBACK_URL', '')
+# Shared secret для callback (?token= / X-Sber-Callback-Token).
+# Не заменяет getOrderStatusExtended. Значение — только env, не логировать.
+SBER_ECOM_CALLBACK_TOKEN = os.getenv('SBER_ECOM_CALLBACK_TOKEN', '')
+# Требовать токен: True/False явно; пусто → True при DEBUG=False (fail-closed вне разработки).
+_sber_cb_req = os.getenv('SBER_ECOM_CALLBACK_TOKEN_REQUIRED', '').strip().lower()
+if _sber_cb_req in ('1', 'true', 'yes', 'on'):
+    SBER_ECOM_CALLBACK_TOKEN_REQUIRED = True
+elif _sber_cb_req in ('0', 'false', 'no', 'off'):
+    SBER_ECOM_CALLBACK_TOKEN_REQUIRED = False
+else:
+    SBER_ECOM_CALLBACK_TOKEN_REQUIRED = None  # derive: not DEBUG
 # Неоплаченные online-заказы: отмена + снятие резерва (минуты)
 ONLINE_PAYMENT_TIMEOUT_MINUTES = int(
     os.getenv('ONLINE_PAYMENT_TIMEOUT_MINUTES', '20')

@@ -15,12 +15,11 @@ from decimal import Decimal
 from typing import Any
 
 from django.conf import settings
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from apps.orders.models import Order
 from apps.orders.services import cancel_order_and_release_stock
-from apps.stores.models import Stock
 from integrations.sber.client import SberEcomClient, SberEcomError
 from integrations.sber.statuses import is_paid_one_stage, is_terminal_failure
 
@@ -83,6 +82,39 @@ def _late_payment_policy() -> str:
 def _sanitize_bank_payload(data: dict[str, Any]) -> dict[str, Any]:
     blocked = {"password", "userName", "$PAN", "$CVC", "cvc", "pan"}
     return {k: v for k, v in data.items() if k not in blocked}
+
+
+def _reject_untrusted_paid_payload(
+    locked: Payment,
+    data: dict[str, Any],
+    amount_kopecks: int,
+) -> str | None:
+    """
+    Fail-closed проверки перед переходом в paid / late-payment review.
+    Клиентский callback и поля status/amount из браузера сюда не попадают —
+    источник истины только ответ getOrderStatusExtended, сверяемый с локальным Payment.
+    Возвращает текст ошибки или None, если доверие достаточное.
+    """
+    bank_amount = data.get("amount")
+    if bank_amount is None:
+        return "Ответ банка без суммы — оплата не подтверждена"
+    try:
+        if int(bank_amount) != int(amount_kopecks):
+            return "Сумма в банке не совпадает с заказом"
+    except (TypeError, ValueError):
+        return "Некорректная сумма в ответе банка"
+
+    bank_order_number = str(data.get("orderNumber") or "").strip()
+    if not bank_order_number:
+        return "Ответ банка без orderNumber — оплата не подтверждена"
+    if bank_order_number != locked.merchant_order_number:
+        return "orderNumber банка не принадлежит этому платежу"
+
+    bank_currency = data.get("currency")
+    if bank_currency is not None and str(bank_currency).strip():
+        if str(bank_currency).strip() != str(locked.currency).strip():
+            return "Валюта банка не совпадает с платежом"
+    return None
 
 
 def _phone_for_sber(phone: str) -> str | None:
@@ -265,13 +297,9 @@ def apply_late_payment_policy(payment_id, *, client: SberEcomClient | None = Non
         if policy == "revive":
             order.status = Order.STATUS_CONFIRMED
             order.save(update_fields=["status", "updated_at"])
-            stock_ok = True
-            for item in order.items.all():
-                if not item.product_id:
-                    continue
-                if not Stock.reserve_for_delivery(item.product_id, item.quantity):
-                    stock_ok = False
-                    break
+            from integrations.onec.orders import reserve_order_item_reservations
+
+            stock_ok = reserve_order_item_reservations(order)
             payment.paid_at = timezone.now()
             payment.error_code = "0"
             if stock_ok:
@@ -291,6 +319,15 @@ def apply_late_payment_policy(payment_id, *, client: SberEcomClient | None = Non
                     "updated_at",
                 ]
             )
+            if payment.status == Payment.STATUS_PAID:
+                order_pk = order.pk
+
+                def _enqueue_onec_paid_revive():
+                    from apps.orders.tasks import enqueue_order_sync
+
+                    enqueue_order_sync(order_pk, paid=True)
+
+                transaction.on_commit(_enqueue_onec_paid_revive)
             return payment
 
         if policy == "manual":
@@ -417,6 +454,7 @@ def sync_payment_from_bank(
         except (TypeError, ValueError):
             locked.action_code = None
 
+        # Ранний отказ при явной рассинхронизации суммы (любой статус ответа банка).
         bank_amount = data.get("amount")
         if bank_amount is not None:
             try:
@@ -432,7 +470,10 @@ def sync_payment_from_bank(
                     locked.save()
                     return locked
             except (TypeError, ValueError):
-                pass
+                locked.error_message = "Некорректная сумма в ответе банка"
+                locked.status = Payment.STATUS_FAILED
+                locked.save()
+                return locked
 
         order = Order.objects.select_for_update().get(pk=locked.order_id)
 
@@ -440,6 +481,20 @@ def sync_payment_from_bank(
             order_status=locked.sber_order_status,
             action_code=locked.action_code,
         ):
+            binding_error = _reject_untrusted_paid_payload(
+                locked, data, amount_kopecks
+            )
+            if binding_error:
+                logger.warning(
+                    "Sber paid rejected payment=%s reason=%s",
+                    locked.pk,
+                    binding_error,
+                )
+                locked.error_message = binding_error
+                locked.status = Payment.STATUS_FAILED
+                locked.save()
+                return locked
+
             if order.status == Order.STATUS_CANCELLED:
                 locked.status = Payment.STATUS_NEEDS_REVIEW
                 locked.error_message = "Оплата после отмены — обработка политики…"
@@ -468,11 +523,33 @@ def sync_payment_from_bank(
             locked.paid_at = timezone.now()
             locked.error_code = "0"
             locked.error_message = ""
-            locked.save()
+            try:
+                # Savepoint: IntegrityError иначе ломает внешний atomic.
+                with transaction.atomic():
+                    locked.save()
+            except IntegrityError:
+                # Гонка: другой платёж уже paid на этом заказе (unique constraint).
+                Payment.objects.filter(pk=locked.pk).update(
+                    status=Payment.STATUS_FAILED,
+                    error_message="Дубликат оплаты отклонён (constraint)",
+                    paid_at=None,
+                    error_code="",
+                )
+                return Payment.objects.select_related("order").get(pk=locked.pk)
 
             if order.status == Order.STATUS_NEW:
                 order.status = Order.STATUS_CONFIRMED
                 order.save(update_fields=["status", "updated_at"])
+
+            order_pk = order.pk
+
+            def _enqueue_onec_paid():
+                from apps.orders.tasks import enqueue_order_sync
+
+                # Переход paid=false → paid=true тем же orderId и составом
+                enqueue_order_sync(order_pk, paid=True)
+
+            transaction.on_commit(_enqueue_onec_paid)
             return locked
 
         if locked.sber_order_status == 3:

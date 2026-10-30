@@ -54,6 +54,9 @@ CELERY_TASK_EAGER_PROPAGATES = True
 SECURE_SSL_REDIRECT = False
 SESSION_COOKIE_SECURE = False
 CSRF_COOKIE_SECURE = False
+# Callback без секрета в unit-тестах; prod fail-closed проверяется отдельно override_settings.
+SBER_ECOM_CALLBACK_TOKEN_REQUIRED = False
+SBER_ECOM_CALLBACK_TOKEN = ''
 
 # CORS (allow all for tests)
 CORS_ALLOW_ALL_ORIGINS = True
@@ -67,6 +70,8 @@ _rates['legal_analytics'] = '10000/minute'
 _rates['payment_pay_anon'] = '10000/minute'
 _rates['payment_pay_user'] = '10000/minute'
 _rates['payment_callback'] = '10000/minute'
+_rates['payment_status_anon'] = '10000/minute'
+_rates['payment_status_user'] = '10000/minute'
 _REST_FW['DEFAULT_THROTTLE_RATES'] = _rates
 REST_FRAMEWORK = _REST_FW
 

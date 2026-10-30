@@ -23,9 +23,18 @@ class PaymentAdmin(admin.ModelAdmin):
     )
     readonly_fields = (
         "id",
+        "order",
+        "provider",
+        "status",
+        "amount",
+        "amount_kopecks",
+        "currency",
         "merchant_order_number",
         "sber_order_id",
         "form_url",
+        "sber_order_status",
+        "action_code",
+        "error_code",
         "register_response",
         "last_status_response",
         "paid_at",
@@ -34,7 +43,7 @@ class PaymentAdmin(admin.ModelAdmin):
         "created_at",
         "updated_at",
     )
-    raw_id_fields = ("order",)
+    # order не через raw_id: статус/сумма/заказ только через банк или ops-action
     actions = ("mark_needs_review_ack",)
 
     @admin.action(description="Пометить needs_review как обработанный (failed)")

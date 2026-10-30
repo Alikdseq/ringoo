@@ -53,3 +53,5 @@ django-axes>=6.4,<7
 # Опционально: TOTP для Django admin (ADMIN_OTP_ENABLED=1)
 django-otp>=1.5,<2
 qrcode[pil]>=7.4
+# Безопасный разбор XML ответов 1С (XXE)
+defusedxml>=0.7.1
