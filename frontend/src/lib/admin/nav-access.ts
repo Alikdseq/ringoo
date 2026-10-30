@@ -1,0 +1,69 @@
+/** Сопоставление пунктов меню админки с группами ringoo_*. */
+export const ADMIN_GROUP = {
+  orders: 'ringoo_orders',
+  catalog: 'ringoo_catalog',
+  content: 'ringoo_content',
+  crm: 'ringoo_crm',
+  reports: 'ringoo_reports',
+  users: 'ringoo_users',
+  stores: 'ringoo_stores',
+} as const;
+
+export type AdminGroupName = (typeof ADMIN_GROUP)[keyof typeof ADMIN_GROUP];
+
+export interface StaffAccessInfo {
+  staff: boolean;
+  is_superuser: boolean;
+  groups: string[];
+}
+
+/** Какие группы нужны для href (достаточно одной). Superuser видит всё. */
+export const ADMIN_NAV_REQUIRED_GROUPS: Record<string, AdminGroupName[]> = {
+  '/admin/orders': [ADMIN_GROUP.orders],
+  '/admin/products': [ADMIN_GROUP.catalog],
+  '/admin/products/import': [ADMIN_GROUP.catalog],
+  '/admin/categories': [ADMIN_GROUP.catalog],
+  '/admin/stock': [ADMIN_GROUP.stores],
+  '/admin/users': [ADMIN_GROUP.users],
+  '/admin/content': [ADMIN_GROUP.content],
+  '/admin/stores': [ADMIN_GROUP.stores],
+  '/admin/managers': [ADMIN_GROUP.stores],
+  '/admin/promotions': [ADMIN_GROUP.catalog],
+  '/admin/crm': [ADMIN_GROUP.crm],
+  '/admin/analytics': [ADMIN_GROUP.reports],
+};
+
+export function canAccessAdminNav(
+  href: string,
+  access: StaffAccessInfo | null | undefined
+): boolean {
+  if (!access?.staff) return false;
+  if (access.is_superuser) return true;
+  const required = ADMIN_NAV_REQUIRED_GROUPS[href];
+  if (!required || required.length === 0) return true;
+  const set = new Set(access.groups ?? []);
+  // Staff без групп — не показываем разделы (избегаем ложных 403 в меню).
+  if (set.size === 0) return false;
+  return required.some(g => set.has(g));
+}
+
+/** Допустимые переходы статуса заказа (зеркало BE OrderAdminUpdateSerializer). */
+export const ORDER_STATUS_TRANSITIONS: Record<string, string[]> = {
+  new: ['confirmed', 'cancelled'],
+  confirmed: ['in_progress', 'cancelled'],
+  in_progress: ['completed', 'cancelled'],
+  completed: [],
+  cancelled: [],
+};
+
+export function allowedOrderStatusOptions(
+  current: string,
+  labels: Record<string, string>
+): { value: string; label: string }[] {
+  const next = ORDER_STATUS_TRANSITIONS[current] ?? [];
+  const values = [current, ...next.filter(s => s !== current)];
+  return values.map(value => ({
+    value,
+    label: labels[value] ?? value,
+  }));
+}

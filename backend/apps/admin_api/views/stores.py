@@ -29,6 +29,9 @@ class StoreAdminSerializer(serializers.ModelSerializer):
             "meta_title",
             "meta_description",
             "is_active",
+            "onec_warehouse_id",
+            "onec_warehouse_name",
+            "is_warehouse",
             "created_at",
             "updated_at",
         )

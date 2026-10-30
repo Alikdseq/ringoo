@@ -1,7 +1,7 @@
 """Admin API: Tag, Article, News — список и CRUD; Review moderation."""
 
 from rest_framework import serializers
-from rest_framework.generics import CreateAPIView, ListAPIView, UpdateAPIView
+from rest_framework.generics import CreateAPIView, ListAPIView, RetrieveAPIView, UpdateAPIView
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework import status
@@ -118,11 +118,13 @@ class ArticleAdminCreateView(CreateAPIView):
         serializer.save(author=user)
 
 
-class ArticleAdminUpdateDeleteView(UpdateAPIView):
+class ArticleAdminUpdateDeleteView(RetrieveAPIView, UpdateAPIView):
+    """GET (полный объект для edit) / PATCH / DELETE."""
+
     permission_classes = admin_permissions(RINGOO_GROUP_CONTENT)
-    queryset = Article.objects.all()
+    queryset = Article.objects.prefetch_related("tags").all()
     serializer_class = ArticleAdminSerializer
-    http_method_names = ["patch", "delete"]
+    http_method_names = ["get", "patch", "delete"]
     lookup_url_kwarg = "pk"
     lookup_field = "pk"
 
@@ -149,11 +151,13 @@ class NewsAdminCreateView(CreateAPIView):
         serializer.save(author=user)
 
 
-class NewsAdminUpdateDeleteView(UpdateAPIView):
+class NewsAdminUpdateDeleteView(RetrieveAPIView, UpdateAPIView):
+    """GET (полный объект для edit) / PATCH / DELETE."""
+
     permission_classes = admin_permissions(RINGOO_GROUP_CONTENT)
-    queryset = News.objects.all()
+    queryset = News.objects.prefetch_related("tags").all()
     serializer_class = NewsAdminSerializer
-    http_method_names = ["patch", "delete"]
+    http_method_names = ["get", "patch", "delete"]
     lookup_url_kwarg = "pk"
     lookup_field = "pk"
 

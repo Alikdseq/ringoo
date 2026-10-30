@@ -9,8 +9,9 @@ import { Loading } from '@/components/ui/Loading';
 import {
   getAdminUser,
   updateAdminUser,
-  type AdminUserDetail,
+  RINGOO_ADMIN_GROUPS,
 } from '@/lib/api/services/adminUsers.service';
+import { useState } from 'react';
 
 interface RouteParams {
   id: string;
@@ -31,12 +32,17 @@ export default function AdminUserDetailPage() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: (payload: { is_active?: boolean; is_staff?: boolean }) =>
-      updateAdminUser(userId, payload),
+    mutationFn: (payload: {
+      is_active?: boolean;
+      is_staff?: boolean;
+      groups?: string[];
+    }) => updateAdminUser(userId, payload),
     onSuccess: () => {
       void refetch();
     },
   });
+
+  const [draftGroups, setDraftGroups] = useState<string[] | null>(null);
 
   if (isLoading || !user) {
     return (
@@ -60,6 +66,16 @@ export default function AdminUserDetailPage() {
 
   const createdAt = new Date(user.created_at);
   const created = Number.isNaN(createdAt.getTime()) === false ? createdAt.toLocaleString() : '';
+  const groups = draftGroups ?? user.groups ?? [];
+  const groupsDirty =
+    [...(user.groups ?? [])].sort().join(',') !== [...groups].sort().join(',');
+
+  const toggleGroup = (name: string) => {
+    setDraftGroups(prev => {
+      const base = prev ?? user.groups ?? [];
+      return base.includes(name) ? base.filter(g => g !== name) : [...base, name];
+    });
+  };
 
   return (
     <div className="space-y-6">
@@ -142,6 +158,48 @@ export default function AdminUserDetailPage() {
               </ul>
             )}
           </div>
+        </Card>
+
+        <Card className="space-y-4 p-4">
+          <h2 className="text-sm font-semibold text-zinc-900">Группы доступа ringoo_*</h2>
+          <p className="text-xs text-zinc-500">
+            Назначать группы может только суперпользователь. Без групп пункты меню админки
+            скрыты.
+          </p>
+          <ul className="space-y-2">
+            {RINGOO_ADMIN_GROUPS.map(name => (
+              <li key={name}>
+                <label className="inline-flex items-center gap-2 text-sm text-zinc-700">
+                  <input
+                    type="checkbox"
+                    checked={groups.includes(name)}
+                    onChange={() => toggleGroup(name)}
+                  />
+                  <span className="font-mono text-xs">{name}</span>
+                </label>
+              </li>
+            ))}
+          </ul>
+          <Button
+            type="button"
+            size="sm"
+            disabled={!groupsDirty || updateMutation.isPending}
+            onClick={() => {
+              updateMutation.mutate(
+                { groups },
+                {
+                  onSuccess: () => setDraftGroups(null),
+                }
+              );
+            }}
+          >
+            Сохранить группы
+          </Button>
+          {updateMutation.isError ? (
+            <p className="text-xs text-red-600">
+              Не удалось сохранить группы (нужны права суперпользователя).
+            </p>
+          ) : null}
         </Card>
 
         <Card className="space-y-4 p-4">

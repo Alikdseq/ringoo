@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { RefreshCw } from 'lucide-react';
+import { Download, RefreshCw } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Loading } from '@/components/ui/Loading';
@@ -16,6 +16,28 @@ import {
   type OrdersReportBucket,
 } from '@/lib/api/services/adminReports.service';
 import { CURRENCY_SYMBOL } from '@/lib/constants';
+
+function downloadCsv(filename: string, rows: string[][]) {
+  const body = rows
+    .map(cols =>
+      cols
+        .map(c => {
+          const v = String(c ?? '');
+          return /[",\n;]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
+        })
+        .join(';')
+    )
+    .join('\n');
+  const blob = new Blob(['\uFEFF' + body], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
 
 type TabKey = 'revenue' | 'orders' | 'top';
 
@@ -125,6 +147,26 @@ function RevenueTab() {
             }}
           >
             Сбросить
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={!data?.rows?.length}
+            onClick={() => {
+              if (!data?.rows?.length) return;
+              downloadCsv('revenue_report.csv', [
+                ['date', 'orders_count', 'total_revenue'],
+                ...data.rows.map(r => [
+                  String(r.date ?? ''),
+                  String(r.orders_count ?? 0),
+                  String(r.total_revenue ?? ''),
+                ]),
+              ]);
+            }}
+          >
+            <Download className="mr-2 h-4 w-4" />
+            CSV
           </Button>
           <Button type="button" variant="outline" size="sm" onClick={() => refetch()}>
             <RefreshCw className="mr-2 h-4 w-4" />
@@ -244,6 +286,29 @@ function OrdersReportTab() {
             }}
           >
             Сбросить
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={!data}
+            onClick={() => {
+              if (!data) return;
+              const rows: string[][] = [['bucket', 'key', 'count']];
+              for (const r of data.by_status ?? []) {
+                rows.push(['status', String(r.status ?? ''), String(r.count ?? 0)]);
+              }
+              for (const r of data.by_payment_type ?? []) {
+                rows.push(['payment', String(r.payment_type ?? ''), String(r.count ?? 0)]);
+              }
+              for (const r of data.by_delivery_type ?? []) {
+                rows.push(['delivery', String(r.delivery_type ?? ''), String(r.count ?? 0)]);
+              }
+              downloadCsv('orders_report.csv', rows);
+            }}
+          >
+            <Download className="mr-2 h-4 w-4" />
+            CSV
           </Button>
           <Button type="button" variant="outline" size="sm" onClick={() => refetch()}>
             <RefreshCw className="mr-2 h-4 w-4" />
@@ -382,6 +447,27 @@ function TopProductsTab() {
             }}
           >
             Сбросить
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={!data?.rows?.length}
+            onClick={() => {
+              if (!data?.rows?.length) return;
+              downloadCsv('top_products.csv', [
+                ['product_title', 'product_sku', 'quantity_sold', 'revenue'],
+                ...data.rows.map(r => [
+                  r.product_title,
+                  r.product_sku,
+                  String(r.quantity_sold),
+                  String(r.revenue),
+                ]),
+              ]);
+            }}
+          >
+            <Download className="mr-2 h-4 w-4" />
+            CSV
           </Button>
           <Button type="button" variant="outline" size="sm" onClick={() => refetch()}>
             <RefreshCw className="mr-2 h-4 w-4" />

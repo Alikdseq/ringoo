@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/Button';
 import { Loading } from '@/components/ui/Loading';
 import { CURRENCY_SYMBOL } from '@/lib/constants';
 import { getOrder } from '@/lib/api/services/orders.service';
+import { allowedOrderStatusOptions } from '@/lib/admin/nav-access';
 
 const STATUS_LABELS: Record<string, string> = {
   new: 'Новый',
@@ -292,6 +293,10 @@ export default function AdminOrdersPage() {
                     >
                       <select
                         value={order.status}
+                        disabled={
+                          statusMutation.isPending ||
+                          allowedOrderStatusOptions(order.status, STATUS_LABELS).length <= 1
+                        }
                         onChange={e =>
                           statusMutation.mutate({
                             id: order.id,
@@ -300,11 +305,13 @@ export default function AdminOrdersPage() {
                         }
                         className="rounded-full border border-zinc-200 bg-white px-2 py-1 text-xs"
                       >
-                        {Object.entries(STATUS_LABELS).map(([value, label]) => (
-                          <option key={value} value={value}>
-                            {label}
-                          </option>
-                        ))}
+                        {allowedOrderStatusOptions(order.status, STATUS_LABELS).map(
+                          ({ value, label }) => (
+                            <option key={value} value={value}>
+                              {label}
+                            </option>
+                          )
+                        )}
                       </select>
                     </td>
                     <td className="px-3 py-2 text-zinc-700">
@@ -460,6 +467,11 @@ export default function AdminOrdersPage() {
                     Статус:{' '}
                     <select
                       value={selectedOrder.status}
+                      disabled={
+                        statusMutation.isPending ||
+                        allowedOrderStatusOptions(selectedOrder.status, STATUS_LABELS).length <=
+                          1
+                      }
                       onChange={e =>
                         statusMutation.mutate({
                           id: selectedOrder.id,
@@ -468,11 +480,13 @@ export default function AdminOrdersPage() {
                       }
                       className="ml-2 rounded-full border border-zinc-200 bg-white px-2 py-1 text-xs"
                     >
-                      {Object.entries(STATUS_LABELS).map(([value, label]) => (
-                        <option key={value} value={value}>
-                          {label}
-                        </option>
-                      ))}
+                      {allowedOrderStatusOptions(selectedOrder.status, STATUS_LABELS).map(
+                        ({ value, label }) => (
+                          <option key={value} value={value}>
+                            {label}
+                          </option>
+                        )
+                      )}
                     </select>
                   </div>
                   <Button

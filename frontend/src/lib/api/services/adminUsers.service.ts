@@ -21,6 +21,8 @@ export interface AdminUserDetail {
   email: string | null;
   is_active: boolean;
   is_staff: boolean;
+  is_superuser?: boolean;
+  groups: string[];
   profile: UserProfile | null;
   delivery_addresses: DeliveryAddress[];
   created_at: string;
@@ -29,7 +31,18 @@ export interface AdminUserDetail {
 export interface AdminUserUpdatePayload {
   is_active?: boolean;
   is_staff?: boolean;
+  groups?: string[];
 }
+
+export const RINGOO_ADMIN_GROUPS = [
+  'ringoo_orders',
+  'ringoo_catalog',
+  'ringoo_content',
+  'ringoo_crm',
+  'ringoo_reports',
+  'ringoo_users',
+  'ringoo_stores',
+] as const;
 
 export async function getAdminUsers(
   params: AdminUserListParams = {}

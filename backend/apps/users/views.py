@@ -145,7 +145,24 @@ class StaffAccessView(APIView):
     def get(self, request):
         if not request.user.is_staff:
             return Response(status=status.HTTP_403_FORBIDDEN)
-        return Response({"staff": True})
+        from apps.admin_api.permissions import ALL_ADMIN_GROUPS
+
+        user = request.user
+        if user.is_superuser:
+            groups = list(ALL_ADMIN_GROUPS)
+        else:
+            groups = list(
+                user.groups.filter(name__in=ALL_ADMIN_GROUPS)
+                .order_by("name")
+                .values_list("name", flat=True)
+            )
+        return Response(
+            {
+                "staff": True,
+                "is_superuser": bool(user.is_superuser),
+                "groups": groups,
+            }
+        )
 
 
 class UserMeView(APIView):

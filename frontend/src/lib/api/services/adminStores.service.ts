@@ -12,6 +12,9 @@ export interface AdminStoreListItem {
   longitude: string | null;
   working_hours: Record<string, string> | null;
   is_active: boolean;
+  onec_warehouse_id: string | null;
+  onec_warehouse_name: string | null;
+  is_warehouse: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -27,6 +30,9 @@ export interface AdminStorePayload {
   longitude?: string | null;
   working_hours?: Record<string, string> | null;
   is_active?: boolean;
+  onec_warehouse_id?: string | null;
+  onec_warehouse_name?: string | null;
+  is_warehouse?: boolean;
 }
 
 export async function getAdminStores(): Promise<PaginatedResponse<AdminStoreListItem>> {

@@ -169,6 +169,28 @@ export async function createAdminArticle(
   return data;
 }
 
+export interface AdminArticleDetail extends AdminArticlePayload {
+  id: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface AdminNewsDetail extends AdminNewsPayload {
+  id: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export async function getAdminArticle(id: string): Promise<AdminArticleDetail> {
+  const { data } = await apiClient.get<AdminArticleDetail>(`/admin/content/articles/${id}/`);
+  return data;
+}
+
+export async function getAdminNewsItem(id: string): Promise<AdminNewsDetail> {
+  const { data } = await apiClient.get<AdminNewsDetail>(`/admin/content/news/${id}/`);
+  return data;
+}
+
 export async function updateAdminArticle(
   id: string,
   payload: AdminArticlePayload,

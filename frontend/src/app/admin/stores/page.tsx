@@ -21,7 +21,7 @@ import { Button } from '@/components/ui/Button';
 import { Loading } from '@/components/ui/Loading';
 
 export default function AdminStoresPage() {
-  const [form, setForm] = useState<AdminStorePayload>({
+  const emptyForm = (): AdminStorePayload => ({
     name: '',
     slug: '',
     address: '',
@@ -32,7 +32,11 @@ export default function AdminStoresPage() {
     longitude: '',
     working_hours: {},
     is_active: true,
+    onec_warehouse_id: '',
+    onec_warehouse_name: '',
+    is_warehouse: false,
   });
+  const [form, setForm] = useState<AdminStorePayload>(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
 
   const { data, isLoading, isError, refetch } = useQuery({
@@ -44,18 +48,7 @@ export default function AdminStoresPage() {
     mutationFn: (payload: AdminStorePayload) => createAdminStore(payload),
     onSuccess: () => {
       void refetch();
-      setForm({
-        name: '',
-        slug: '',
-        address: '',
-        city: '',
-        phone: '',
-        email: '',
-        latitude: '',
-        longitude: '',
-        working_hours: {},
-        is_active: true,
-      });
+      setForm(emptyForm());
       setEditingId(null);
     },
   });
@@ -77,10 +70,7 @@ export default function AdminStoresPage() {
     },
   });
 
-  const {
-    data: storeImages = [],
-    refetch: refetchStoreImages,
-  } = useQuery({
+  const { data: storeImages = [], refetch: refetchStoreImages } = useQuery({
     queryKey: ['admin', 'store-images', editingId],
     queryFn: () => getAdminStoreImages(editingId!),
     enabled: !!editingId,
@@ -112,6 +102,11 @@ export default function AdminStoresPage() {
       working_hours:
         form.working_hours && Object.keys(form.working_hours).length > 0 ? form.working_hours : {},
       is_active: form.is_active ?? true,
+      onec_warehouse_id: form.onec_warehouse_id?.trim() ? form.onec_warehouse_id.trim() : null,
+      onec_warehouse_name: form.onec_warehouse_name?.trim()
+        ? form.onec_warehouse_name.trim()
+        : null,
+      is_warehouse: form.is_warehouse ?? false,
     };
     if (editingId) {
       updateMutation.mutate({ id: editingId, payload });
@@ -133,6 +128,9 @@ export default function AdminStoresPage() {
       longitude: store.longitude ?? '',
       working_hours: store.working_hours ?? {},
       is_active: store.is_active,
+      onec_warehouse_id: store.onec_warehouse_id ?? '',
+      onec_warehouse_name: store.onec_warehouse_name ?? '',
+      is_warehouse: store.is_warehouse ?? false,
     });
   };
 
@@ -175,6 +173,8 @@ export default function AdminStoresPage() {
                   <th className="px-3 py-2 text-left">Телефон</th>
                   <th className="px-3 py-2 text-left">Email</th>
                   <th className="px-3 py-2 text-left">Активен</th>
+                  <th className="px-3 py-2 text-left">1С склад</th>
+                  <th className="px-3 py-2 text-left">Тип</th>
                   <th className="px-3 py-2 text-right">Действия</th>
                 </tr>
               </thead>
@@ -200,6 +200,18 @@ export default function AdminStoresPage() {
                           <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-zinc-500">
                             Выключен
                           </span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 font-mono text-xs text-zinc-600">
+                        {store.onec_warehouse_id || '—'}
+                      </td>
+                      <td className="px-3 py-2 text-xs">
+                        {store.is_warehouse ? (
+                          <span className="rounded-full bg-amber-50 px-2 py-0.5 text-amber-800">
+                            Склад
+                          </span>
+                        ) : (
+                          <span className="text-zinc-500">Магазин</span>
                         )}
                       </td>
                       <td className="px-3 py-2 text-right text-xs">
@@ -391,15 +403,47 @@ export default function AdminStoresPage() {
             </div>
           ) : null}
 
-          <div className="flex items-center justify-between">
-            <label className="inline-flex items-center gap-2 text-xs font-medium text-zinc-600">
+          <div className="grid gap-3 md:grid-cols-2">
+            <div className="space-y-1">
+              <label className="block text-xs font-medium text-zinc-500">ID склада в 1С</label>
               <input
-                type="checkbox"
-                checked={form.is_active ?? false}
-                onChange={e => setForm({ ...form, is_active: e.target.checked })}
+                type="text"
+                value={form.onec_warehouse_id ?? ''}
+                onChange={e => setForm({ ...form, onec_warehouse_id: e.target.value })}
+                className="w-full rounded-lg border border-zinc-200 px-3 py-2 font-mono text-sm"
+                placeholder="Товар.skladID"
               />
-              Магазин активен
-            </label>
+            </div>
+            <div className="space-y-1">
+              <label className="block text-xs font-medium text-zinc-500">Название склада в 1С</label>
+              <input
+                type="text"
+                value={form.onec_warehouse_name ?? ''}
+                onChange={e => setForm({ ...form, onec_warehouse_name: e.target.value })}
+                className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm"
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap gap-4">
+              <label className="inline-flex items-center gap-2 text-xs font-medium text-zinc-600">
+                <input
+                  type="checkbox"
+                  checked={form.is_active ?? false}
+                  onChange={e => setForm({ ...form, is_active: e.target.checked })}
+                />
+                Магазин активен
+              </label>
+              <label className="inline-flex items-center gap-2 text-xs font-medium text-zinc-600">
+                <input
+                  type="checkbox"
+                  checked={form.is_warehouse ?? false}
+                  onChange={e => setForm({ ...form, is_warehouse: e.target.checked })}
+                />
+                Склад (не точка самовывоза)
+              </label>
+            </div>
             <div className="flex gap-2">
               {editingId && (
                 <Button
@@ -408,18 +452,7 @@ export default function AdminStoresPage() {
                   size="sm"
                   onClick={() => {
                     setEditingId(null);
-                    setForm({
-                      name: '',
-                      slug: '',
-                      address: '',
-                      city: '',
-                      phone: '',
-                      email: '',
-                      latitude: '',
-                      longitude: '',
-                      working_hours: {},
-                      is_active: true,
-                    });
+                    setForm(emptyForm());
                   }}
                 >
                   Отмена

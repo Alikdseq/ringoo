@@ -9,8 +9,12 @@ import {
   getAdminReviews,
   updateAdminReviewApproval,
   createAdminArticle,
+  updateAdminArticle,
+  getAdminArticle,
   deleteAdminArticle,
   createAdminNews,
+  updateAdminNews,
+  getAdminNewsItem,
   deleteAdminNews,
   type AdminArticleListItem,
   type AdminNewsListItem,
@@ -44,7 +48,11 @@ export default function AdminContentPage() {
         <TabButton active={tab === 'articles'} onClick={() => setTab('articles')} label="Статьи" />
         <TabButton active={tab === 'news'} onClick={() => setTab('news')} label="Новости" />
         <TabButton active={tab === 'reviews'} onClick={() => setTab('reviews')} label="Отзывы" />
-        <TabButton active={tab === 'gallery'} onClick={() => setTab('gallery')} label="Галереи страниц" />
+        <TabButton
+          active={tab === 'gallery'}
+          onClick={() => setTab('gallery')}
+          label="Галереи страниц"
+        />
       </div>
 
       {tab === 'articles' && <ArticlesTab />}
@@ -80,7 +88,8 @@ function TabButton({ active, label, onClick }: TabButtonProps) {
 function ArticlesTab() {
   const [page, setPage] = useState(1);
   const [imageFile, setImageFile] = useState<File | null>(null);
-  const [form, setForm] = useState<AdminArticlePayload>({
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const emptyArticle = (): AdminArticlePayload => ({
     title: '',
     slug: '',
     content: '',
@@ -90,6 +99,7 @@ function ArticlesTab() {
     published_at: '',
     tags: [],
   });
+  const [form, setForm] = useState<AdminArticlePayload>(emptyArticle);
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['admin', 'content', 'articles', { page }],
@@ -101,17 +111,23 @@ function ArticlesTab() {
       createAdminArticle(variables.payload, variables.image),
     onSuccess: () => {
       void refetch();
-      setForm({
-        title: '',
-        slug: '',
-        content: '',
-        excerpt: '',
-        category: '',
-        is_published: false,
-        published_at: '',
-        tags: [],
-      });
+      setForm(emptyArticle());
       setImageFile(null);
+      setEditingId(null);
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: (variables: {
+      id: string;
+      payload: AdminArticlePayload;
+      image: File | null;
+    }) => updateAdminArticle(variables.id, variables.payload, variables.image),
+    onSuccess: () => {
+      void refetch();
+      setForm(emptyArticle());
+      setImageFile(null);
+      setEditingId(null);
     },
   });
 
@@ -127,10 +143,30 @@ function ArticlesTab() {
   const pageSize = articles.length > 0 ? articles.length : 20;
   const totalPages = pageSize > 0 ? Math.ceil(total / pageSize) : 1;
 
+  const handleEdit = async (id: string) => {
+    const detail = await getAdminArticle(id);
+    setEditingId(id);
+    setForm({
+      title: detail.title,
+      slug: detail.slug,
+      content: detail.content,
+      excerpt: detail.excerpt ?? '',
+      category: detail.category ?? '',
+      is_published: detail.is_published ?? false,
+      published_at: detail.published_at ?? '',
+      tags: detail.tags ?? [],
+    });
+    setImageFile(null);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.title.trim() || !form.slug.trim() || !form.content.trim()) return;
-    createMutation.mutate({ payload: form, image: imageFile });
+    if (editingId) {
+      updateMutation.mutate({ id: editingId, payload: form, image: imageFile });
+    } else {
+      createMutation.mutate({ payload: form, image: imageFile });
+    }
   };
 
   return (
@@ -197,6 +233,13 @@ function ArticlesTab() {
                       <td className="px-3 py-2 text-right text-xs">
                         <button
                           type="button"
+                          className="mr-2 text-[var(--color-brand)] hover:underline"
+                          onClick={() => void handleEdit(article.id)}
+                        >
+                          Редактировать
+                        </button>
+                        <button
+                          type="button"
                           className="text-red-600 hover:underline"
                           onClick={() => deleteMutation.mutate(article.id)}
                           disabled={deleteMutation.isPending}
@@ -242,7 +285,9 @@ function ArticlesTab() {
       )}
 
       <Card className="space-y-3 p-4">
-        <h3 className="text-sm font-semibold text-zinc-900">Новая статья</h3>
+        <h3 className="text-sm font-semibold text-zinc-900">
+          {editingId ? 'Редактирование статьи' : 'Новая статья'}
+        </h3>
         <form className="space-y-3" onSubmit={handleSubmit}>
           <div className="grid gap-3 md:grid-cols-2">
             <div className="space-y-1">
@@ -326,9 +371,27 @@ function ArticlesTab() {
               className="block text-sm"
             />
           </div>
-          <div className="flex justify-end">
-            <Button type="submit" size="sm" disabled={createMutation.isPending}>
-              Создать статью
+          <div className="flex justify-end gap-2">
+            {editingId ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setEditingId(null);
+                  setForm(emptyArticle());
+                  setImageFile(null);
+                }}
+              >
+                Отмена
+              </Button>
+            ) : null}
+            <Button
+              type="submit"
+              size="sm"
+              disabled={createMutation.isPending || updateMutation.isPending}
+            >
+              {editingId ? 'Сохранить' : 'Создать статью'}
             </Button>
           </div>
         </form>
@@ -340,7 +403,8 @@ function ArticlesTab() {
 function NewsTab() {
   const [page, setPage] = useState(1);
   const [imageFile, setImageFile] = useState<File | null>(null);
-  const [form, setForm] = useState<AdminNewsPayload>({
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const emptyNews = (): AdminNewsPayload => ({
     title: '',
     slug: '',
     content: '',
@@ -351,6 +415,7 @@ function NewsTab() {
     published_at: '',
     tags: [],
   });
+  const [form, setForm] = useState<AdminNewsPayload>(emptyNews);
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['admin', 'content', 'news', { page }],
@@ -362,18 +427,23 @@ function NewsTab() {
       createAdminNews(variables.payload, variables.image),
     onSuccess: () => {
       void refetch();
-      setForm({
-        title: '',
-        slug: '',
-        content: '',
-        excerpt: '',
-        category: '',
-        is_published: false,
-        is_featured: false,
-        published_at: '',
-        tags: [],
-      });
+      setForm(emptyNews());
       setImageFile(null);
+      setEditingId(null);
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: (variables: {
+      id: string;
+      payload: AdminNewsPayload;
+      image: File | null;
+    }) => updateAdminNews(variables.id, variables.payload, variables.image),
+    onSuccess: () => {
+      void refetch();
+      setForm(emptyNews());
+      setImageFile(null);
+      setEditingId(null);
     },
   });
 
@@ -389,10 +459,31 @@ function NewsTab() {
   const pageSize = items.length > 0 ? items.length : 20;
   const totalPages = pageSize > 0 ? Math.ceil(total / pageSize) : 1;
 
+  const handleEdit = async (id: string) => {
+    const detail = await getAdminNewsItem(id);
+    setEditingId(id);
+    setForm({
+      title: detail.title,
+      slug: detail.slug,
+      content: detail.content,
+      excerpt: detail.excerpt ?? '',
+      category: detail.category ?? '',
+      is_published: detail.is_published ?? false,
+      is_featured: detail.is_featured ?? false,
+      published_at: detail.published_at ?? '',
+      tags: detail.tags ?? [],
+    });
+    setImageFile(null);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.title.trim() || !form.slug.trim() || !form.content.trim()) return;
-    createMutation.mutate({ payload: form, image: imageFile });
+    if (editingId) {
+      updateMutation.mutate({ id: editingId, payload: form, image: imageFile });
+    } else {
+      createMutation.mutate({ payload: form, image: imageFile });
+    }
   };
 
   return (
@@ -471,6 +562,13 @@ function NewsTab() {
                       <td className="px-3 py-2 text-right text-xs">
                         <button
                           type="button"
+                          className="mr-2 text-[var(--color-brand)] hover:underline"
+                          onClick={() => void handleEdit(item.id)}
+                        >
+                          Редактировать
+                        </button>
+                        <button
+                          type="button"
                           className="text-red-600 hover:underline"
                           onClick={() => deleteMutation.mutate(item.id)}
                           disabled={deleteMutation.isPending}
@@ -516,7 +614,9 @@ function NewsTab() {
       )}
 
       <Card className="space-y-3 p-4">
-        <h3 className="text-sm font-semibold text-zinc-900">Новая новость</h3>
+        <h3 className="text-sm font-semibold text-zinc-900">
+          {editingId ? 'Редактирование новости' : 'Новая новость'}
+        </h3>
         <form className="space-y-3" onSubmit={handleSubmit}>
           <div className="grid gap-3 md:grid-cols-2">
             <div className="space-y-1">
@@ -608,9 +708,27 @@ function NewsTab() {
               className="block text-sm"
             />
           </div>
-          <div className="flex justify-end">
-            <Button type="submit" size="sm" disabled={createMutation.isPending}>
-              Создать новость
+          <div className="flex justify-end gap-2">
+            {editingId ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setEditingId(null);
+                  setForm(emptyNews());
+                  setImageFile(null);
+                }}
+              >
+                Отмена
+              </Button>
+            ) : null}
+            <Button
+              type="submit"
+              size="sm"
+              disabled={createMutation.isPending || updateMutation.isPending}
+            >
+              {editingId ? 'Сохранить' : 'Создать новость'}
             </Button>
           </div>
         </form>
@@ -834,7 +952,11 @@ function GalleryTab() {
           </div>
           <div className="sm:col-span-2">
             <label className="mb-1 block text-sm text-zinc-600">Изображение *</label>
-            <input type="file" accept="image/*" onChange={e => setFile(e.target.files?.[0] ?? null)} />
+            <input
+              type="file"
+              accept="image/*"
+              onChange={e => setFile(e.target.files?.[0] ?? null)}
+            />
           </div>
           <Button
             type="button"

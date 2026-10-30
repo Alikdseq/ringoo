@@ -13,7 +13,6 @@ import {
   Store,
   Tag,
   MessageSquare,
-  LogOut,
   LayoutGrid,
   BarChart3,
   Upload,
@@ -23,8 +22,10 @@ import {
 import { useAuth } from '@/lib/hooks/useAuth';
 import { BrandLogo } from '@/components/layout/BrandLogo';
 import { cn } from '@/lib/theme/utils';
-
-const ADMIN_NAV_HIDDEN_HREFS = new Set(['/admin', '/admin/content', '/admin/analytics']);
+import {
+  canAccessAdminNav,
+  type StaffAccessInfo,
+} from '@/lib/admin/nav-access';
 
 const navItems = [
   { href: '/admin/orders', label: 'Заказы', icon: ShoppingCart },
@@ -44,16 +45,22 @@ const navItems = [
 function AdminSidebar({
   pathname,
   onNavigate,
+  staffAccess,
 }: {
   pathname: string | null;
   onNavigate?: () => void;
+  staffAccess: StaffAccessInfo | null | undefined;
 }) {
-  const visibleNavItems = navItems.filter(item => !ADMIN_NAV_HIDDEN_HREFS.has(item.href));
+  const visibleNavItems = navItems.filter(item => canAccessAdminNav(item.href, staffAccess));
 
   return (
     <>
       <div className="flex h-[4.5rem] items-center border-b border-zinc-200 px-4">
-        <Link href="/admin/orders" className="flex items-center gap-2" onClick={onNavigate}>
+        <Link
+          href={visibleNavItems[0]?.href ?? '/admin/orders'}
+          className="flex items-center gap-2"
+          onClick={onNavigate}
+        >
           <BrandLogo link={false} height={48} width={100} />
           <span className="text-sm font-semibold text-zinc-600">Admin</span>
         </Link>
@@ -89,6 +96,11 @@ function AdminSidebar({
             );
           })}
         </ul>
+        {staffAccess && !staffAccess.is_superuser && (staffAccess.groups?.length ?? 0) === 0 ? (
+          <p className="mt-3 px-3 text-xs text-amber-700">
+            Нет групп ringoo_*. Обратитесь к суперпользователю за правами.
+          </p>
+        ) : null}
       </nav>
       <div className="border-t border-zinc-200 p-3">
         <Link
@@ -103,7 +115,13 @@ function AdminSidebar({
   );
 }
 
-export function AdminLayout({ children }: { children: React.ReactNode }) {
+export function AdminLayout({
+  children,
+  staffAccess,
+}: {
+  children: React.ReactNode;
+  staffAccess?: StaffAccessInfo | null;
+}) {
   const pathname = usePathname();
   const router = useRouter();
   const { user, logout } = useAuth();
@@ -130,7 +148,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen bg-zinc-100">
       <aside className="fixed left-0 top-0 z-30 hidden h-full w-64 flex-col border-r border-zinc-200 bg-white lg:flex">
-        <AdminSidebar pathname={pathname} />
+        <AdminSidebar pathname={pathname} staffAccess={staffAccess} />
       </aside>
 
       {sidebarOpen ? (
@@ -141,46 +159,47 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
             aria-label="Закрыть меню"
             onClick={() => setSidebarOpen(false)}
           />
-          <aside className="relative flex h-full w-[min(100vw,280px)] flex-col border-r border-zinc-200 bg-white shadow-xl">
-            <button
-              type="button"
-              className="absolute right-3 top-3 inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg hover:bg-zinc-100"
-              aria-label="Закрыть"
-              onClick={() => setSidebarOpen(false)}
-            >
-              <X className="h-5 w-5" />
-            </button>
-            <AdminSidebar pathname={pathname} onNavigate={() => setSidebarOpen(false)} />
+          <aside className="absolute left-0 top-0 flex h-full w-64 flex-col border-r border-zinc-200 bg-white shadow-xl">
+            <div className="flex items-center justify-end border-b border-zinc-200 p-2">
+              <button
+                type="button"
+                className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg"
+                onClick={() => setSidebarOpen(false)}
+                aria-label="Закрыть"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <AdminSidebar
+              pathname={pathname}
+              staffAccess={staffAccess}
+              onNavigate={() => setSidebarOpen(false)}
+            />
           </aside>
         </div>
       ) : null}
 
-      <div className="flex min-h-screen w-full flex-1 flex-col lg:ml-64">
-        <header className="sticky top-0 z-20 flex h-14 items-center justify-between gap-2 border-b border-zinc-200 bg-white px-4 sm:px-6">
-          <div className="flex min-w-0 items-center gap-2">
-            <button
-              type="button"
-              className="inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg border border-zinc-200 lg:hidden"
-              aria-label="Открыть меню"
-              onClick={() => setSidebarOpen(true)}
-            >
-              <Menu className="h-5 w-5" />
-            </button>
-            <div className="truncate text-sm text-zinc-500">
-              {user?.phone || user?.email || 'Администратор'}
-            </div>
+      <div className="flex min-h-screen flex-1 flex-col lg:pl-64">
+        <header className="sticky top-0 z-20 flex h-14 items-center justify-between gap-3 border-b border-zinc-200 bg-white px-4">
+          <button
+            type="button"
+            className="inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg border border-zinc-200 lg:hidden"
+            onClick={() => setSidebarOpen(true)}
+            aria-label="Открыть меню"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+          <div className="min-w-0 flex-1 truncate text-sm text-zinc-600">
+            {user?.phone ?? user?.email ?? 'Админ'}
           </div>
           <button
             type="button"
-            onClick={handleLogout}
-            className="inline-flex min-h-[44px] shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-sm text-zinc-600 transition-colors hover:bg-zinc-100 hover:text-zinc-900 touch-manipulation sm:min-h-0"
-            aria-label="Выйти"
+            onClick={() => void handleLogout()}
+            className="inline-flex min-h-[44px] items-center gap-2 rounded-lg border border-zinc-200 px-3 text-sm text-zinc-700 hover:bg-zinc-50"
           >
-            <LogOut className="h-4 w-4" />
-            <span className="hidden sm:inline">Выйти</span>
+            Выйти
           </button>
         </header>
-
         <main className="flex-1 p-4 sm:p-6">{children}</main>
       </div>
     </div>

@@ -154,7 +154,12 @@ class TestUserMeAndStaffAccess(TestCase):
         self.client.force_authenticate(user=user)
         r = self.client.get("/api/v1/auth/staff-access/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
-        self.assertEqual(r.json().get("staff"), True)
+        body = r.json()
+        self.assertEqual(body.get("staff"), True)
+        self.assertIn("groups", body)
+        self.assertIn("is_superuser", body)
+        self.assertEqual(body["groups"], [])
+        self.assertFalse(body["is_superuser"])
 
 
 @override_settings(
@@ -452,7 +457,7 @@ class TestLenientJWTOnPublicCatalog(TestCase):
 
     def setUp(self):
         self.client = APIClient()
-        cat = Category.objects.create(name="Phones", slug="phones", is_active=True)
+        cat = Category.objects.create(title="Phones", slug="phones", is_active=True)
         Product.objects.create(
             title="Test Phone",
             slug="test-phone",
