@@ -2753,69 +2753,79 @@ pytest tests/test_concurrency_postgres.py -q --no-cov
 
 ---
 
-# ��������� ����������. �������� �������� ����� �4
+# ФИНАЛЬНОЕ ДОПОЛНЕНИЕ. ЗАКРЫТИЕ ОСТАТКОВ БЛОКА №4
 
-**����:** 2026-11-06  
-**�����:** ���������� admin backup + ������������ + ��������� commit; ��� push/deploy/production migrate/�������� �������� � 1� write.
+**Дата:** 2026-11-06  
+**Режим:** реализация admin backup + спецификации + локальный commit; без push/deploy/production migrate/реальных платежей и 1С write.
 
-## ������ ��������
+## Сводка статусов
 
-| ���� | ������ | ����������� |
+| Тема | Статус | Комментарий |
 |---|---|---|
-| ��������� ����������� (����� UI) | **FIXED** | ������ `/admin/backup` ���������� �����������, ������ �������� |
-| ���������� ������ �� ��������� | **FIXED** | Auth + ����������� download_token, TTL |
-| ������ ������ (DB+media+manifest+checksums+guide) | **FIXED** | `apps.backups`; ��� `.env`/�������� |
-| ���������� ������� (AES-256-GCM / Scrypt) | **FIXED** | ������ �� ����������� �� ������� |
-| ���� �������������� | **VERIFIED** (�������������) | `test_restore_drill_extract_media_and_db` + service tests |
-| Offsite / ������ | **NOT IMPLEMENTED** | ������ ������ �������� �� SSD; ��� S3 |
-| ���������� ops + backup stale/failed | **FIXED** | `report_ops_alerts`, `/health` ops |
-| ������� ����� ����������� | **PARTIAL** | �������� EXTERNAL_MONITORING_SETUP; ������� �� ���������� |
-| ��������� �������� (����� ������) | **NEEDS BUSINESS DECISION** | Spec � REFUND_�; ����-restock �� ������ |
-| �������� �������� (������ YK webhook) | **FIXED** (INT-004 �����) | ��������� refund ������� � �� ������� |
-| �������� ��������� / admin initiate | **NEEDS BUSINESS DECISION** | ��. spec |
-| ����� �� ����� (OrderItem/reorder) | **FIXED** (�����) | |
-| ���� - 1� mapping | **NEEDS BUSINESS DECISION** | ONEC_COLOR_MAPPING_SPEC.md |
-| Git ��������� commit | *(����������� ����� Stage G)* | |
-| ��������� | **NOT IMPLEMENTED** | ��������� �� ������ |
+| Резервное копирование (админ UI) | **FIXED** | Раздел /admin/backup, кнопка создания и скачивания |
+| Скачивание архива на компьютер | **FIXED** | Auth + временный download_token, TTL |
+| Состав архива (DB+media+manifest+checksums+guide) | **FIXED** | pps.backups; без .env/секретов |
+| Шифрование паролем (AES-256-GCM / Scrypt) | **FIXED** | Пароль не сохраняется на сервере |
+| Тест восстановления | **VERIFIED** (изолированный) | 	est_restore_drill_extract_media_and_db |
+| Offsite / облако | **NOT IMPLEMENTED** | Только ручное хранение на SSD; без S3 |
+| Мониторинг ops + backup stale/failed | **FIXED** | 
+eport_ops_alerts, /health ops |
+| Внешний канал уведомлений | **PARTIAL** | EXTERNAL_MONITORING_SETUP.md; секреты не подключены |
+| Складские возвраты (после выдачи) | **NEEDS BUSINESS DECISION** | Spec в REFUND doc; авто-restock не внедрён |
+| Денежные возвраты (полный YK webhook) | **FIXED** (INT-004 ранее) | Инициация refund админом не сделана |
+| Денежные частичные / admin initiate | **NEEDS BUSINESS DECISION** | См. spec |
+| Цвета на сайте (OrderItem/reorder) | **FIXED** (ранее) | |
+| Цвет ↔ 1С mapping | **NEEDS BUSINESS DECISION** | ONEC_COLOR_MAPPING_SPEC.md |
+| Git локальный commit | **VERIFIED** | 651994bd9ce7b89ced3fcaa78cf120216c5f8e78 (267 files), без push |
+| Промокоды | **NOT IMPLEMENTED** | Исключены из задачи |
 
-## ��������� �����������
+## Резервное копирование
 
-- Backend: `apps/backups` (model BackupArchive, services, views), URLs `/api/v1/admin/backups/*`, ������ **superuser + MFA claim** (����� OTP �������).
-- Frontend: `frontend/src/app/admin/backup/page.tsx`, ����� ���� ������ ��� �����������������.
-- ���������: `docs/ops/BACKUP_RESTORE_GUIDE.md`, embed `RESTORE_GUIDE.md` � ������.
-- ������: lock ������������� create, path traversal block, token hash, expire, audit log ��� PII/������.
-- �����: `apps/backups/tests.py` � **8 passed**.
+- Backend: pps/backups, URLs /api/v1/admin/backups/*, только **superuser + Admin MFA** (если OTP включён).
+- Frontend: отдельный раздел меню «Резервное копирование».
+- Документы: docs/ops/BACKUP_RESTORE_GUIDE.md.
+- Защита: create-lock, path traversal block, token hash, expire, audit без PII/пароля.
+- Тесты: pps/backups/tests.py — **8 passed**.
 
-## ����������
+## Мониторинг
 
-- ��������� `backup_failed_24h`, `backup_stale` � `report_ops_alerts`.
-- `OPS_HEALTH_DETAILS`: `backup_latest_ready_at`, `backup_failed_24h`.
-- `docs/ops/EXTERNAL_MONITORING_SETUP.md` � Telegram-��������� ��� �������� ������.
-- ������� `docs/ops/MONITORING_OPS_ALERTS.md`.
+- ackup_failed_24h, ackup_stale в 
+eport_ops_alerts.
+- Health ops: ackup_latest_ready_at, ackup_failed_24h.
+- docs/ops/EXTERNAL_MONITORING_SETUP.md.
 
-## �������� � 1�
+## Возвраты и 1С
 
-- `docs/audit/REFUND_BUSINESS_AND_TECHNICAL_SPEC.md`
-- `docs/audit/ONEC_COLOR_MAPPING_SPEC.md`
+- docs/audit/REFUND_BUSINESS_AND_TECHNICAL_SPEC.md
+- docs/audit/ONEC_COLOR_MAPPING_SPEC.md
 
-## ������������ (���� ����)
+## Тестирование (этот этап)
 
-| ����� | ��������� |
+| Набор | Результат |
 |---|---|
-| `apps.backups.tests` | **8 passed** |
-| SEC-001�009 | **80 passed** |
-| FUNC/INT004 ����� | **40 passed** |
-| YK/Sber/payment security/repay/cart | **101 passed** |
-| PG concurrency (`ringoo_concurrency_test` :5436) | **7 passed** |
-| Frontend Vitest | **34 files / 90 tests passed** |
-| `tsc --noEmit` | **exit 0** |
-| Full `manage.py test` (����� SkipTest fix) | *(��. ����)* |
-| `next build` | *(��. ����)* |
+| pps.backups.tests | **8 passed** |
+| SEC-001…009 | **80 passed** |
+| FUNC/INT004 набор | **40 passed** |
+| YK/Sber/payment/repay/cart | **101 passed** |
+| pps tests integrations | **522 passed, 9 skipped** |
+| PG concurrency (
+ingoo_concurrency_test) | **7 passed** |
+| Frontend Vitest | **90 passed** (34 files) |
+| 	sc --noEmit | **exit 0** |
+| 
+ext build | **exit 0** |
 
-## �����������
+## Git
 
-- ����-offsite � Telegram notify ������� �������� ���������.
-- ������ PG dump �� Windows ��� `pg_dump`/docker fallback > `dumpdata` (�������� � manifest.warning).
-- �������� ������/��������� ������ � ������� ����� 1� � ���� ������-�������.
-- Production VPS / live API � �� ���������.
+- Старый HEAD: 8a0bd5f814fa86e1f09404efb2a886ea1fe879da
+- Новый HEAD: 651994bd9ce7b89ced3fcaa78cf120216c5f8e78
+- Сообщение: ix: complete security, functional and integration audit remediations
+- Исключено из commit: copy-site/, integration1CandKassa/, бинарные .docx, Описание работ.txt, локальные .env
+- Working tree: остались только исключённые/локальные файлы
 
+## Ограничения
+
+- Авто-offsite и Telegram notify требуют секретов владельца.
+- Без pg_dump возможен fallback на dumpdata (поле warning в manifest).
+- Возвраты товара/частичные деньги и маппинг цвета 1С — ждут бизнес-решений.
+- Production VPS / live API не трогались.
