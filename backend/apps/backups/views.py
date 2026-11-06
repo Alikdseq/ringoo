@@ -185,5 +185,74 @@ class BackupLatestView(APIView):
                 "expires_at": archive.expires_at,
                 "created_at": archive.created_at,
                 "downloadable": archive.is_downloadable,
+                "offsite_status": archive.offsite_status,
             }
         )
+
+
+class BackupOffsiteStatusView(APIView):
+    permission_classes = BACKUP_PERMISSIONS
+
+    def get(self, request):
+        from apps.backups.crypto_keys import key_inventory_public
+        from apps.backups.offsite import offsite_status_snapshot
+
+        snap = offsite_status_snapshot()
+        snap["encryption"] = key_inventory_public()
+        return Response(snap)
+
+
+class BackupOffsiteProbeView(APIView):
+    permission_classes = BACKUP_PERMISSIONS
+
+    def post(self, request):
+        from apps.backups.s3 import probe_connection
+
+        _audit(request, "offsite_probe")
+        return Response(probe_connection())
+
+
+class BackupOffsiteUploadView(APIView):
+    """Поставить загрузку архива во внешнее хранилище в очередь Celery."""
+
+    permission_classes = BACKUP_PERMISSIONS
+
+    def post(self, request, backup_id=None):
+        from apps.backups.tasks import create_and_upload_offsite_backup_task
+
+        archive_id = backup_id or request.data.get("archive_id")
+        if archive_id:
+            try:
+                BackupArchive.objects.get(pk=archive_id)
+            except BackupArchive.DoesNotExist:
+                return Response({"detail": "Не найдено."}, status=status.HTTP_404_NOT_FOUND)
+        _audit(request, "offsite_upload_enqueue", archive_id=str(archive_id or ""))
+        async_result = create_and_upload_offsite_backup_task.delay(
+            str(archive_id) if archive_id else None
+        )
+        return Response(
+            {"status": "RUNNING", "task_id": getattr(async_result, "id", None)},
+            status=status.HTTP_202_ACCEPTED,
+        )
+
+
+class BackupOffsiteVerifyView(APIView):
+    permission_classes = BACKUP_PERMISSIONS
+
+    def post(self, request):
+        from apps.backups.offsite import verify_latest_offsite
+
+        _audit(request, "offsite_verify")
+        try:
+            result = verify_latest_offsite()
+        except Exception as exc:
+            return Response(
+                {"status": "FAILED", "detail": str(exc)[:200]},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        code = (
+            status.HTTP_200_OK
+            if result.get("status") == "SUCCESS"
+            else status.HTTP_400_BAD_REQUEST
+        )
+        return Response(result, status=code)

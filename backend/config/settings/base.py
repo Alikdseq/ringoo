@@ -112,6 +112,7 @@ INSTALLED_APPS = [
     'apps.admin_api',
     'apps.audit',
     'apps.backups',
+    'apps.returns',
 ]
 
 if ADMIN_OTP_ENABLED:
@@ -238,6 +239,34 @@ BACKUP_CREATE_LOCK_TTL_SECONDS = int(
     os.getenv('BACKUP_CREATE_LOCK_TTL_SECONDS', '900') or '900'
 )
 BACKUP_STALE_ALERT_HOURS = int(os.getenv('BACKUP_STALE_ALERT_HOURS', '48') or '48')
+
+# Offsite S3-compatible storage (Yandex / Selectel / AWS / MinIO). Secrets only via env.
+BACKUP_OFFSITE_ENABLED = os.getenv('BACKUP_OFFSITE_ENABLED', '').strip().lower() in (
+    '1',
+    'true',
+    'yes',
+)
+BACKUP_S3_ENDPOINT_URL = os.getenv('BACKUP_S3_ENDPOINT_URL', '').strip()
+BACKUP_S3_REGION = os.getenv('BACKUP_S3_REGION', 'ru-central1').strip()
+BACKUP_S3_BUCKET = os.getenv('BACKUP_S3_BUCKET', '').strip()
+BACKUP_S3_ACCESS_KEY = os.getenv('BACKUP_S3_ACCESS_KEY', '').strip()
+BACKUP_S3_SECRET_KEY = os.getenv('BACKUP_S3_SECRET_KEY', '').strip()
+BACKUP_S3_PREFIX = os.getenv('BACKUP_S3_PREFIX', 'ringoo/backups').strip()
+BACKUP_S3_PROVIDER_LABEL = os.getenv('BACKUP_S3_PROVIDER_LABEL', 's3-compatible').strip()
+# AES-256 key material (base64 or hex of 32 bytes). NEVER commit real values.
+BACKUP_ENCRYPTION_KEY_ID = os.getenv('BACKUP_ENCRYPTION_KEY_ID', '').strip()
+BACKUP_ENCRYPTION_KEY = os.getenv('BACKUP_ENCRYPTION_KEY', '').strip()
+BACKUP_ENCRYPTION_KEYS_PREVIOUS = os.getenv('BACKUP_ENCRYPTION_KEYS_PREVIOUS', '').strip()
+BACKUP_RETENTION_DAILY_DAYS = int(os.getenv('BACKUP_RETENTION_DAILY_DAYS', '14') or '14')
+BACKUP_RETENTION_WEEKLY_WEEKS = int(os.getenv('BACKUP_RETENTION_WEEKLY_WEEKS', '8') or '8')
+BACKUP_RETENTION_MONTHLY_MONTHS = int(
+    os.getenv('BACKUP_RETENTION_MONTHLY_MONTHS', '12') or '12'
+)
+BACKUP_SCHEDULED_ENABLED = os.getenv('BACKUP_SCHEDULED_ENABLED', '').strip().lower() in (
+    '1',
+    'true',
+    'yes',
+)
 
 # Абсолютные URL в API для браузера (не docker-host web:8000)
 PUBLIC_API_ORIGIN = os.getenv('PUBLIC_API_ORIGIN', 'http://localhost:8000').rstrip('/')
@@ -395,6 +424,15 @@ CELERY_BEAT_SCHEDULE = {
         'schedule': 60.0 * 3,  # каждые 3 минуты — пропущенный callback
     },
 }
+if BACKUP_SCHEDULED_ENABLED:
+    CELERY_BEAT_SCHEDULE['scheduled-offsite-backup'] = {
+        'task': 'apps.backups.tasks.create_and_upload_offsite_backup_task',
+        'schedule': 60.0 * 60 * 24,  # раз в сутки
+    }
+    CELERY_BEAT_SCHEDULE['backup-retention'] = {
+        'task': 'apps.backups.tasks.apply_backup_retention_task',
+        'schedule': 60.0 * 60 * 24,
+    }
 
 # Email (integrations 2.4.2): используется в dev (console) и prod (SMTP)
 DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@ringoo.local')

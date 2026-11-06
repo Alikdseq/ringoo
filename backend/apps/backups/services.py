@@ -278,12 +278,15 @@ def _write_payload_tree(work: Path) -> tuple[dict[str, Any], dict[str, Any]]:
 
 def create_backup_archive(
     *,
-    user,
+    user=None,
     password: str | None = None,
+    source: str = BackupArchive.SOURCE_MANUAL,
+    encrypt_with_env_key: bool = False,
 ) -> tuple[BackupArchive, str]:
     """
     Создаёт архив синхронно. Возвращает (archive, plaintext_download_token).
     Пароль не сохраняется. Один активный create — через cache lock.
+    encrypt_with_env_key — для scheduled/offsite (RINGOO2), без пароля админа.
     """
     ttl_hours = int(getattr(settings, "BACKUP_DOWNLOAD_TTL_HOURS", 24) or 24)
     lock_ttl = int(getattr(settings, "BACKUP_CREATE_LOCK_TTL_SECONDS", 900) or 900)
@@ -293,6 +296,7 @@ def create_backup_archive(
     archive = BackupArchive.objects.create(
         created_by=user if getattr(user, "is_authenticated", False) else None,
         status=BackupArchive.STATUS_RUNNING,
+        source=source,
         expires_at=timezone.now() + timedelta(hours=ttl_hours),
     )
     download_token = secrets.token_urlsafe(32)
@@ -351,12 +355,23 @@ def create_backup_archive(
                 raise RuntimeError(f"Архив повреждён: {bad}")
 
         encrypted = False
+        key_id = ""
         final_name = f"{base_name}.zip"
         out_path = storage_root() / f"{archive.pk}_{final_name}"
         if password:
             enc_name = f"{base_name}.zip.enc"
             enc_path = storage_root() / f"{archive.pk}_{enc_name}"
             _encrypt_file(plain_zip, enc_path, password)
+            out_path = enc_path
+            final_name = enc_name
+            encrypted = True
+        elif encrypt_with_env_key:
+            from apps.backups.crypto_keys import encrypt_with_configured_key
+
+            enc_name = f"{base_name}.zip.enc"
+            enc_path = storage_root() / f"{archive.pk}_{enc_name}"
+            blob, key_id = encrypt_with_configured_key(plain_zip.read_bytes())
+            enc_path.write_bytes(blob)
             out_path = enc_path
             final_name = enc_name
             encrypted = True
@@ -369,6 +384,7 @@ def create_backup_archive(
         archive.size_bytes = out_path.stat().st_size
         archive.sha256 = sha
         archive.encrypted = encrypted
+        archive.encryption_key_id = key_id
         archive.manifest = {
             "created_at": timezone.now().isoformat(),
             "app_git_commit": _git_commit(),
@@ -377,6 +393,7 @@ def create_backup_archive(
             "size_bytes": archive.size_bytes,
             "sha256": sha,
             "encrypted": encrypted,
+            "encryption_key_id": key_id,
             "zip_test": "ok",
         }
         archive.status = BackupArchive.STATUS_READY

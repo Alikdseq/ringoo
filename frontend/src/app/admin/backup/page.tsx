@@ -10,6 +10,10 @@ import { fetchStaffAccess } from '@/lib/api/services/auth.service';
 import {
   createAdminBackup,
   downloadAdminBackup,
+  getOffsiteStatus,
+  probeOffsite,
+  uploadOffsite,
+  verifyOffsite,
   type BackupCreateResponse,
 } from '@/lib/api/services/backup.service';
 import { getFriendlyErrorMessage } from '@/lib/errors';
@@ -27,6 +31,11 @@ export default function AdminBackupPage() {
     queryFn: () => fetchStaffAccess(),
   });
   const isSuperuser = Boolean(staffAccess?.is_superuser);
+  const offsiteQuery = useQuery({
+    queryKey: ['admin', 'backup', 'offsite'],
+    queryFn: () => getOffsiteStatus(),
+    enabled: isSuperuser,
+  });
   const [password, setPassword] = useState('');
   const [useEncryption, setUseEncryption] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -182,6 +191,107 @@ export default function AdminBackupPage() {
             </Button>
           </div>
         ) : null}
+      </Card>
+
+      <Card className="space-y-4 p-6">
+        <h2 className="text-lg font-semibold text-zinc-900">Внешнее хранилище</h2>
+        {offsiteQuery.data ? (
+          <div className="space-y-1 text-sm text-zinc-700">
+            <p>
+              Статус:{' '}
+              {offsiteQuery.data.configured
+                ? offsiteQuery.data.connection_status || 'SUCCESS'
+                : 'NOT_CONFIGURED'}
+            </p>
+            <p>Провайдер: {offsiteQuery.data.provider}</p>
+            <p>
+              Последняя успешная загрузка:{' '}
+              {offsiteQuery.data.last_success_at
+                ? String(offsiteQuery.data.last_success_at)
+                : '—'}
+            </p>
+            <p>
+              Размер последней копии:{' '}
+              {formatBytes(Number(offsiteQuery.data.last_success_size || 0))}
+            </p>
+            <p>
+              Проверка целостности:{' '}
+              {offsiteQuery.data.last_verified_at
+                ? String(offsiteQuery.data.last_verified_at)
+                : '—'}
+            </p>
+            <p>Сохранённых копий: {offsiteQuery.data.stored_count ?? 0}</p>
+            {offsiteQuery.data.last_error ? (
+              <p className="text-red-600">Ошибка: {offsiteQuery.data.last_error}</p>
+            ) : null}
+          </div>
+        ) : (
+          <p className="text-sm text-zinc-500">Загрузка статуса…</p>
+        )}
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            disabled={busy}
+            onClick={async () => {
+              setBusy(true);
+              setError(null);
+              try {
+                const r = await probeOffsite();
+                setStatusText(`Проверка подключения: ${r.status}`);
+                await offsiteQuery.refetch();
+              } catch (e) {
+                setError(getFriendlyErrorMessage(e));
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            Проверить подключение
+          </Button>
+          <Button
+            type="button"
+            disabled={busy || !result}
+            onClick={async () => {
+              if (!result) return;
+              setBusy(true);
+              setError(null);
+              try {
+                const r = await uploadOffsite(result.id);
+                setStatusText(`Отправка во внешнее хранилище: ${r.status}`);
+                await offsiteQuery.refetch();
+              } catch (e) {
+                setError(getFriendlyErrorMessage(e));
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            Отправить резервную копию во внешнее хранилище
+          </Button>
+          <Button
+            type="button"
+            disabled={busy}
+            onClick={async () => {
+              setBusy(true);
+              setError(null);
+              try {
+                const r = await verifyOffsite();
+                setStatusText(`Проверка последней копии: ${r.status}`);
+                await offsiteQuery.refetch();
+              } catch (e) {
+                setError(getFriendlyErrorMessage(e));
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            Проверить последнюю копию
+          </Button>
+        </div>
+        <p className="text-xs text-zinc-500">
+          Секреты и ключи шифрования в интерфейсе не отображаются. Инструкция:{' '}
+          docs/ops/OFFSITE_BACKUP_SETUP.md
+        </p>
       </Card>
 
       <Card className="space-y-2 p-6 text-sm text-zinc-600">
