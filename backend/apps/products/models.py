@@ -251,6 +251,54 @@ class ProductColor(models.Model):
         blank=True,
         verbose_name="Старая цена варианта",
     )
+    # Внешняя идентичность варианта (не название цвета)
+    sku = models.CharField(
+        max_length=64,
+        blank=True,
+        default="",
+        db_index=True,
+        verbose_name="Артикул варианта",
+    )
+    barcode = models.CharField(
+        max_length=64,
+        blank=True,
+        default="",
+        db_index=True,
+        verbose_name="Штрихкод варианта",
+    )
+    onec_code = models.CharField(
+        max_length=64,
+        blank=True,
+        default="",
+        db_index=True,
+        verbose_name="Код номенклатуры 1С для варианта",
+        help_text="Если в 1С у цвета отдельный code — указывайте здесь. Не путать с seriesId.",
+    )
+    onec_characteristic_ref = models.CharField(
+        max_length=64,
+        blank=True,
+        default="",
+        verbose_name="GUID/ссылка характеристики 1С",
+    )
+    MAPPING_UNMATCHED = "unmatched"
+    MAPPING_MATCHED = "matched"
+    MAPPING_AMBIGUOUS = "ambiguous"
+    MAPPING_CONFLICT = "conflict"
+    MAPPING_INACTIVE = "inactive"
+    MAPPING_CHOICES = [
+        (MAPPING_UNMATCHED, "Не сопоставлено"),
+        (MAPPING_MATCHED, "Сопоставлено"),
+        (MAPPING_AMBIGUOUS, "Неоднозначно"),
+        (MAPPING_CONFLICT, "Конфликт"),
+        (MAPPING_INACTIVE, "Неактивно"),
+    ]
+    mapping_status = models.CharField(
+        max_length=16,
+        choices=MAPPING_CHOICES,
+        default=MAPPING_UNMATCHED,
+        db_index=True,
+        verbose_name="Статус сопоставления с 1С",
+    )
 
     class Meta:
         db_table = "products_productcolor"

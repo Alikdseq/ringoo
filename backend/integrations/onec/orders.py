@@ -169,8 +169,15 @@ def _amount_number(value: Decimal | float | int | str) -> float:
 
 def build_order_items_payload(order) -> list[dict[str, Any]]:
     items: list[dict[str, Any]] = []
-    for item in order.items.all():
+    for item in order.items.select_related("color", "product").all():
         code = (item.onec_product_code or "").strip()
+        color = getattr(item, "color", None)
+        # Если вариант сопоставлен с отдельным кодом 1С — он приоритетнее product.onec_code
+        if color is not None:
+            color_code = (getattr(color, "onec_code", None) or "").strip()
+            mapping = getattr(color, "mapping_status", "") or ""
+            if color_code and mapping == "matched":
+                code = color_code
         if not code and item.product_id:
             code = (getattr(item.product, "onec_code", None) or "").strip()
         if not code:
@@ -178,14 +185,21 @@ def build_order_items_payload(order) -> list[dict[str, Any]]:
                 f"У позиции «{item.product_title}» нет кода номенклатуры 1С"
             )
         series_raw = (item.onec_series_id or "").strip()
-        items.append(
-            {
-                "productCode": code,
-                "quantity": int(item.quantity),
-                "amount": _amount_number(item.item_total),
-                "seriesId": series_raw if series_raw else None,
-            }
-        )
+        row: dict[str, Any] = {
+            "productCode": code,
+            "quantity": int(item.quantity),
+            "amount": _amount_number(item.item_total),
+            "seriesId": series_raw if series_raw else None,
+        }
+        # Информационные поля витрины (не заменяют productCode/seriesId)
+        if color is not None or getattr(item, "color_label", ""):
+            row["colorLabel"] = (getattr(item, "color_label", None) or getattr(color, "label", "") or "")
+            row["colorSlug"] = (getattr(item, "color_slug", None) or getattr(color, "slug", "") or "")
+            row["colorId"] = str(item.color_id) if item.color_id else None
+            char_ref = (getattr(color, "onec_characteristic_ref", None) or "").strip() if color else ""
+            if char_ref:
+                row["characteristicRef"] = char_ref
+        items.append(row)
     if not items:
         raise OneCOrderSyncBlocked("В заказе нет позиций для 1С")
     return items
