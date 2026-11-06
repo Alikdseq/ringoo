@@ -2829,3 +2829,109 @@ ext build | **exit 0** |
 - Без pg_dump возможен fallback на dumpdata (поле warning в manifest).
 - Возвраты товара/частичные деньги и маппинг цвета 1С — ждут бизнес-решений.
 - Production VPS / live API не трогались.
+
+---
+
+# ЗАВЕРШЕНИЕ ОСТАВШИХСЯ ЗАДАЧ БЛОКА №4
+
+**Дата:** 2026-11-06  
+**Commit:** не создавался (по требованию этапа). HEAD на старте работ: 1f83593.
+
+## Сводка
+
+| Тема | Статус | Комментарий |
+|---|---|---|
+| Offsite S3-compatible upload | **FIXED** (код) / **NOT TESTED** на реальном провайдере | mock-тесты; нужны credentials |
+| Автошифрование ключом env (RINGOO2) | **FIXED** | BACKUP_ENCRYPTION_KEY* |
+| Админка «Внешнее хранилище» | **FIXED** | probe / upload / verify |
+| Политика retention | **FIXED** | daily/weekly/monthly, mock |
+| Инструкция OFFSITE | **FIXED** | docs/ops/OFFSITE_BACKUP_SETUP.md |
+| Юр. матрица возвратов | **FIXED** (draft) | 26.1, КС 7-П, Правила №657 |
+| Модуль заявок на возврат | **FIXED** | pps.returns + API + админ UI |
+| Денежный refund | **PARTIAL** | dry_run по умолчанию; YK create_refund готов; Sber needs decision |
+| Restock после inspection | **FIXED** | только sellable → stock_ops.restock_at_store |
+| ProductColor ↔ 1С | **PARTIAL** | поля + mapping API + payload color*; GUID хар-ки — нет в XML |
+| Реальный внешний S3 | **BLOCKED** | нет credentials владельца |
+| Юр. утверждение политики | **NEEDS BUSINESS DECISION** | |
+| Цвет: отдельные code в 1С | **NEEDS BUSINESS DECISION** | |
+
+## Миграции
+
+- `backups.0002_offsite_fields`
+- `products.0007_returns_and_color_mapping` (только AddField ProductColor)
+- `returns.0001_returns_and_color_mapping` (зависимости: `orders.0010`, `payments.0003`)
+- Применено на чистой test DB (таблицы returns_* созданы). Production migrate **не** выполнялся.
+- `makemigrations --check` по-прежнему ловит чужой rename-index drift (stores/wishlist/users) — **не** генерировать эти RenameIndex без отдельного решения.
+
+## Регрессия (этот этап)
+
+| Набор | Результат |
+|---|---|
+| `apps` + `tests` + `integrations` | **532 passed, 9 skipped** (было 522 / 9) |
+| Новые модули (backups+offsite, returns, color mapping) | **18 passed** |
+| PG concurrency (`ringoo_concurrency_test`) | **7 passed** |
+| Frontend Vitest | **90 passed** (34 files) |
+| `tsc --noEmit` | **exit 0** |
+| `next build` | **exit 0** |
+
+## Ограничения
+
+- Реальные возвраты денег и запись в 1С не выполнялись.
+- Реальный S3-провайдер **не** подключался (нет credentials) — offsite проверен на mock.
+- Юридическая матрица и политика возвратов — **draft**, без утверждения юристом/владельцем.
+- Telegram не подключался.
+- Push / deploy / commit не выполнялись.
+
+---
+
+# BLOCK 4 — FINAL CLOSURE
+
+**Дата:** 2026-11-06  
+**Детальный отчёт:** `docs/audit/BLOCK_4_FINAL_CLOSURE_REPORT.md`  
+**Статус блока:** **COMPLETED WITH EXTERNAL DEPENDENCIES**
+
+## Внешние резервные копии
+
+| Проверка | Статус |
+|---|---|
+| Код S3-compatible + RINGOO2 + Celery + admin | **IMPLEMENTED** |
+| Реальный cloud S3 (Yandex/Selectel/AWS) | **BLOCKED** (нет credentials) |
+| Локальный MinIO upload/download/SHA256/decrypt | **VERIFIED** |
+| Isolated PG restore (`ringoo_restore_drill`) | **VERIFIED** (users=6, orders=23, products=78, payments=13, stock=390) |
+| Инструкция | `docs/ops/OFFSITE_BACKUP_SETUP.md` |
+
+## Возвраты
+
+| Проверка | Статус |
+|---|---|
+| Модуль returns + dry_run MoneyRefund + restock sellable | **IMPLEMENTED** / unit **VERIFIED** |
+| Тестовый ключ ЮKassa (`test_…`, shop 1518584) | **VERIFIED** в `.env` |
+| Live API refunds / webhook | **BLOCKED** (SSL timeout до `api.yookassa.ru` с host и docker) |
+| Sber refund | **NEEDS BUSINESS DECISION** |
+| Юр. документы | **NEEDS BUSINESS DECISION** (draft) |
+
+## 1С цвета
+
+| Проверка | Статус |
+|---|---|
+| Поля mapping + admin API + payload matched code | **IMPLEMENTED** |
+| Characteristic GUID в XML | **BLOCKED** (отсутствует; audit 7679 items / 3849 codes) |
+| Запрос владельцу | `docs/audit/ONEC_COLOR_OWNER_REQUEST.md` |
+
+## Регрессия этого этапа
+
+| Проверка | Результат |
+|---|---|
+| Backend | **532 passed, 9 skipped** |
+| PG concurrency | **7 passed** |
+| Vitest | **90 passed** |
+| `tsc --noEmit` | **exit 0** (в связке с vitest command) |
+| `next build` | см. прогон этапа |
+| Migrations docker DB | **VERIFIED** |
+| Docker services | backend/db/redis/celery уже подняты; MinIO drill container ephemeral |
+
+## Исправления этапа
+
+- `returns.services`: `YooKassaClient()` вместо несуществующего `from_settings()`
+- `requirements.txt`: добавлен `cryptography`
+- `returns.0001` зависимости на существующие `orders.0010` / `payments.0003`
