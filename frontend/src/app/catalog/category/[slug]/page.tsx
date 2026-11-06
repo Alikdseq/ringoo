@@ -7,12 +7,7 @@ import {
   fetchProductsServer,
 } from '@/lib/api/services/products.service';
 import { CatalogContent } from '@/app/catalog/CatalogContent';
-import {
-  JsonLd,
-  buildPageMetadata,
-  categoryPageJsonLd,
-  truncateDescription,
-} from '@/lib/seo';
+import { JsonLd, buildPageMetadata, categoryPageJsonLd, truncateDescription } from '@/lib/seo';
 import { SEO_GEO_CITY } from '@/lib/seo/constants';
 
 interface PageProps {
@@ -31,8 +26,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   }
 
   const title =
-    category.meta_title?.trim() ||
-    `Купить ${category.title} в ${SEO_GEO_CITY} — цены, наличие`;
+    category.meta_title?.trim() || `Купить ${category.title} в ${SEO_GEO_CITY} — цены, наличие`;
   const description =
     category.meta_description?.trim() ||
     `${category.title} в Ringoo: официальная техника, гарантия, рассрочка 0%, самовывоз в ${SEO_GEO_CITY} и доставка по России.`;

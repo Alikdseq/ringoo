@@ -307,7 +307,10 @@ class PaymentForgerySecurityTests(TestCase):
         )
 
     def test_pay_endpoint_ignores_client_amount_and_status(self):
+        from apps.orders.guest_access import issue_guest_access_token
+
         order, _, _ = _catalog_order()
+        guest_token = issue_guest_access_token(order)
         mock_client = MagicMock()
         mock_client.register_order.return_value = {
             "orderId": "33333333-3333-3333-3333-333333333333",
@@ -319,6 +322,8 @@ class PaymentForgerySecurityTests(TestCase):
                 f"/api/v1/orders/{order.id}/pay/",
                 {
                     "phone": "79001112233",
+                    "order_number": order.order_number,
+                    "guest_token": guest_token,
                     "amount": "1.00",
                     "amount_kopecks": 1,
                     "status": "paid",
@@ -336,7 +341,10 @@ class PaymentForgerySecurityTests(TestCase):
         )
 
     def test_payment_status_get_does_not_accept_paid_query(self):
+        from apps.orders.guest_access import issue_guest_access_token
+
         order, _, _ = _catalog_order()
+        guest_token = issue_guest_access_token(order)
         payment = _pending_payment(order, merchant="qpaid")
         mock_client = MagicMock()
         mock_client.get_order_status.return_value = {
@@ -350,7 +358,13 @@ class PaymentForgerySecurityTests(TestCase):
         with patch("apps.payments.services.SberEcomClient", return_value=mock_client):
             resp = self.api.get(
                 f"/api/v1/orders/{order.id}/payment/",
-                {"phone": "79001112233", "status": "paid", "paid": "true"},
+                {
+                    "phone": "79001112233",
+                    "order_number": order.order_number,
+                    "guest_token": guest_token,
+                    "status": "paid",
+                    "paid": "true",
+                },
             )
         self.assertEqual(resp.status_code, 200)
         payment.refresh_from_db()
@@ -519,9 +533,48 @@ class OrderPaymentAccessSecurityTests(TestCase):
         _pending_payment(order, merchant="guestph")
         resp = self.api.get(
             f"/api/v1/orders/{order.id}/payment/",
-            {"phone": "79009999999"},
+            {"phone": "79009999999", "order_number": order.order_number},
         )
         self.assertEqual(resp.status_code, 403)
+
+    def test_guest_phone_alone_cannot_pay(self):
+        """SEC-H5: UUID + phone без order_number — отказ."""
+        order, _, _ = _catalog_order()
+        resp = self.api.post(
+            f"/api/v1/orders/{order.id}/pay/",
+            {"phone": order.phone},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, 403)
+        self.assertEqual(Payment.objects.filter(order=order).count(), 0)
+
+    def test_guest_phone_and_order_number_without_token_denied(self):
+        """SEC-006 final: phone+order_number без guest_token — отказ."""
+        order, _, _ = _catalog_order()
+        resp = self.api.post(
+            f"/api/v1/orders/{order.id}/pay/",
+            {"phone": order.phone, "order_number": order.order_number},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, 403)
+
+    def test_guest_token_passes_access_gate(self):
+        """Гость с guest_token проходит access gate (дальше Sber может быть выкл.)."""
+        from apps.orders.guest_access import issue_guest_access_token
+
+        order, _, _ = _catalog_order()
+        guest_token = issue_guest_access_token(order)
+        resp = self.api.post(
+            f"/api/v1/orders/{order.id}/pay/",
+            {
+                "phone": order.phone,
+                "order_number": order.order_number,
+                "guest_token": guest_token,
+            },
+            format="json",
+        )
+        # 403 = access denied; любой другой код = gate пройден (Sber off → 4xx/502)
+        self.assertNotEqual(resp.status_code, 403)
 
     def test_guest_cannot_access_order_by_uuid_alone(self):
         order, _, _ = _catalog_order()

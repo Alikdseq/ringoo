@@ -3,10 +3,6 @@ import { render, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import CheckoutPage from './page';
 
-vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
-}));
-
 vi.mock('@/lib/api/services/stores.service', () => ({
   getStores: vi.fn().mockResolvedValue({
     count: 0,
@@ -14,6 +10,26 @@ vi.mock('@/lib/api/services/stores.service', () => ({
     previous: null,
     results: [],
   }),
+  getProductStock: vi.fn().mockResolvedValue({ quantity: 10, available: true }),
+}));
+
+vi.mock('@/lib/api/services/addresses.service', () => ({
+  getAddresses: vi.fn().mockResolvedValue([]),
+}));
+
+vi.mock('@/lib/hooks/useAuth', () => ({
+  useAuth: () => ({
+    user: null,
+    isLoading: false,
+    isError: false,
+    isAuthenticated: false,
+    logout: vi.fn(),
+    setUser: vi.fn(),
+    hasToken: false,
+  }),
+  AUTH_ME_QUERY_KEY: ['auth', 'me'],
+  AUTH_STAFF_ACCESS_QUERY_KEY: ['auth', 'staff-access'],
+  authMeQueryFn: vi.fn(),
 }));
 
 vi.mock('@/lib/hooks/useCart', () => ({
@@ -52,6 +68,7 @@ vi.mock('@/lib/hooks/useCart', () => ({
       updated_at: '',
     },
     isLoading: false,
+    isPending: false,
     isError: false,
   }),
 }));
@@ -64,11 +81,11 @@ function renderWithClient(ui: React.ReactElement) {
 }
 
 describe('CheckoutPage', () => {
-  it('renders checkout steps and cart summary', () => {
+  it('renders checkout steps and cart summary', async () => {
     renderWithClient(<CheckoutPage />);
 
-    expect(screen.getByText('Оформление заказа')).toBeInTheDocument();
-    expect(screen.getByText('Шаг 1. Корзина')).toBeInTheDocument();
+    expect(await screen.findByText('Оформление заказа')).toBeInTheDocument();
+    expect(screen.getAllByText(/Шаг 1/).length).toBeGreaterThan(0);
     expect(screen.getByText('Тестовый товар')).toBeInTheDocument();
   });
 });

@@ -29,6 +29,8 @@ export interface StoreSelectorProps {
   listTitle?: string;
   /** Заголовок над картой (по умолчанию "Магазины на карте") */
   mapTitle?: string;
+  /** Магазины без полного наличия корзины — видны, но не выбираются */
+  disabledStoreIds?: string[];
 }
 
 export function StoreSelector({
@@ -38,7 +40,9 @@ export function StoreSelector({
   error,
   listTitle = 'Выберите магазин',
   mapTitle = 'Магазины на карте',
+  disabledStoreIds = [],
 }: StoreSelectorProps) {
+  const disabledSet = useMemo(() => new Set(disabledStoreIds), [disabledStoreIds]);
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState<StoreSort>('default');
 
@@ -117,19 +121,30 @@ export function StoreSelector({
         </div>
         <div className="max-h-64 overflow-y-auto rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
           <ul className="divide-y divide-zinc-200 text-sm dark:divide-zinc-800">
-            {filteredAndSortedStores.map(store => (
+            {filteredAndSortedStores.map(store => {
+              const disabled = disabledSet.has(store.id);
+              return (
               <li
                 key={store.id}
                 role="button"
-                tabIndex={0}
+                tabIndex={disabled ? -1 : 0}
+                aria-disabled={disabled}
                 className={cn(
-                  'cursor-pointer px-4 py-3 transition-colors',
-                  selectedStoreId === store.id
+                  'px-4 py-3 transition-colors',
+                  disabled
+                    ? 'cursor-not-allowed opacity-50'
+                    : 'cursor-pointer',
+                  !disabled && selectedStoreId === store.id
                     ? 'bg-zinc-100 dark:bg-zinc-900'
-                    : 'hover:bg-zinc-50 dark:hover:bg-zinc-900/60'
+                    : !disabled
+                      ? 'hover:bg-zinc-50 dark:hover:bg-zinc-900/60'
+                      : undefined
                 )}
-                onClick={() => onSelectStore(store.id)}
+                onClick={() => {
+                  if (!disabled) onSelectStore(store.id);
+                }}
                 onKeyDown={e => {
+                  if (disabled) return;
                   if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault();
                     onSelectStore(store.id);
@@ -139,9 +154,11 @@ export function StoreSelector({
                 <p className="font-medium text-zinc-900 dark:text-zinc-50">{store.name}</p>
                 <p className="text-xs text-zinc-500 dark:text-zinc-400">
                   {store.city}, {store.address}
+                  {disabled ? ' — нет полного наличия для корзины' : ''}
                 </p>
               </li>
-            ))}
+              );
+            })}
           </ul>
         </div>
         {filteredAndSortedStores.length === 0 && (

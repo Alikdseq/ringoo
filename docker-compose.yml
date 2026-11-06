@@ -1,6 +1,11 @@
-# Локальная разработка: порты БД/Redis на хост — удобно для GUI-клиентов.
-# В публичном/staging окружении не публикуйте 5432/6379 наружу; задайте REDIS_PASSWORD и
-# в корневом .env: REDIS_URL=redis://:ПАРОЛЬ@redis:6379/0 (и то же для CELERY_* при необходимости).
+# Локальная разработка (НЕ production).
+#
+# Production:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+#   (prod overlay закрывает порты DB/Redis, убирает .env.development и bind-mounts)
+#
+# Локально порты БД/Redis на хост — для GUI. На VPS не используйте этот файл без prod overlay.
+# Задайте REDIS_PASSWORD и REDIS_URL=redis://:ПАРОЛЬ@redis:6379/0 при необходимости.
 #
 # Сборка backend: при таймаутах/TLS к pypi.org — в корневом .env:
 #   зеркало: PIP_INDEX_URL=https://<зеркало>/simple и PIP_TRUSTED_HOST=<хост>
@@ -83,7 +88,8 @@ services:
     build:
       <<: *backend-build
     container_name: ringoo_backend
-    command: python manage.py runserver 0.0.0.0:8000 --noreload
+    # Без --noreload: иначе правки в volume не подхватываются до restart (ломало retention корзины).
+    command: python manage.py runserver 0.0.0.0:8000
     volumes:
       - ./backend:/app
       - ./frontend/public:/ringoo_catalog_public:ro
@@ -103,6 +109,15 @@ services:
       - PUBLIC_API_ORIGIN=http://localhost:${BACKEND_PORT:-8000}
       # restart не подхватывает env_file — задаём здесь; .ngrok-free.dev = все free-поддомены ngrok
       - ALLOWED_HOSTS=${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,0.0.0.0,web,backend,demanding-most-caramel.ngrok-free.dev,.ngrok-free.dev}
+      # ЮKassa (корневой .env) — секреты не в образе, только runtime env
+      - YOOKASSA_ENABLED=${YOOKASSA_ENABLED:-0}
+      - YOOKASSA_TEST_MODE=${YOOKASSA_TEST_MODE:-1}
+      - YOOKASSA_SHOP_ID=${YOOKASSA_SHOP_ID:-}
+      - YOOKASSA_SECRET_KEY=${YOOKASSA_SECRET_KEY:-}
+      - YOOKASSA_API_URL=${YOOKASSA_API_URL:-https://api.yookassa.ru/v3}
+      - YOOKASSA_RETURN_URL=${YOOKASSA_RETURN_URL:-}
+      - YOOKASSA_WEBHOOK_URL=${YOOKASSA_WEBHOOK_URL:-}
+      - SBER_ECOM_ENABLED=${SBER_ECOM_ENABLED:-false}
     depends_on:
       db:
         condition: service_healthy
@@ -166,6 +181,7 @@ services:
       - NEXT_PUBLIC_API_V1_URL=${NEXT_PUBLIC_API_V1_URL:-http://localhost:${BACKEND_PORT:-8000}/api/v1}
       - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:${BACKEND_PORT:-8000}}
       - NEXT_PUBLIC_SITE_URL=${NEXT_PUBLIC_SITE_URL:-http://localhost:${FRONTEND_PORT:-3000}}
+      - NEXT_PUBLIC_ONLINE_PAYMENT_ENABLED=${NEXT_PUBLIC_ONLINE_PAYMENT_ENABLED:-0}
       - API_INTERNAL_V1_URL=http://web:8000/api/v1
       - RINGOO_API_PROXY_TARGET=http://web:8000
       - RINGOO_DISABLE_HMR=${RINGOO_DISABLE_HMR:-0}
@@ -202,6 +218,12 @@ services:
       - DB_PORT=5432
       - DATABASE_URL=postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@db:5432/${DB_NAME:-ringoo}
       - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
+      - YOOKASSA_ENABLED=${YOOKASSA_ENABLED:-0}
+      - YOOKASSA_TEST_MODE=${YOOKASSA_TEST_MODE:-1}
+      - YOOKASSA_SHOP_ID=${YOOKASSA_SHOP_ID:-}
+      - YOOKASSA_SECRET_KEY=${YOOKASSA_SECRET_KEY:-}
+      - YOOKASSA_API_URL=${YOOKASSA_API_URL:-https://api.yookassa.ru/v3}
+      - SBER_ECOM_ENABLED=${SBER_ECOM_ENABLED:-false}
     depends_on:
       - db
       - redis
@@ -225,6 +247,12 @@ services:
       - DB_PORT=5432
       - DATABASE_URL=postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@db:5432/${DB_NAME:-ringoo}
       - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
+      - YOOKASSA_ENABLED=${YOOKASSA_ENABLED:-0}
+      - YOOKASSA_TEST_MODE=${YOOKASSA_TEST_MODE:-1}
+      - YOOKASSA_SHOP_ID=${YOOKASSA_SHOP_ID:-}
+      - YOOKASSA_SECRET_KEY=${YOOKASSA_SECRET_KEY:-}
+      - YOOKASSA_API_URL=${YOOKASSA_API_URL:-https://api.yookassa.ru/v3}
+      - SBER_ECOM_ENABLED=${SBER_ECOM_ENABLED:-false}
     depends_on:
       - db
       - redis

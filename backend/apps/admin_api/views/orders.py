@@ -1,4 +1,4 @@
-"""Admin API: Заказы — PATCH статуса и экспорт."""
+"""Admin API: Заказы — список, детали, PATCH статуса и экспорт."""
 
 import csv
 from io import StringIO
@@ -6,16 +6,68 @@ from io import StringIO
 from django.db.models import Q
 from django.http import HttpResponse
 from django.utils.dateparse import parse_date
-from rest_framework import serializers
-from rest_framework.generics import UpdateAPIView
+from rest_framework import serializers, status
+from rest_framework.generics import ListAPIView, RetrieveUpdateAPIView
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.audit.services import log_admin_action
 from apps.orders.models import Order
 from apps.orders.serializers import OrderSerializer
-
 from ..permissions import RINGOO_GROUP_ORDERS, admin_permissions
+
+
+class OrderAdminPagination(PageNumberPagination):
+    page_size = 20
+    page_size_query_param = "page_size"
+    max_page_size = 100
+
+
+def _admin_orders_queryset(request):
+    """Общие фильтры списка/экспорта заказов для admin_api."""
+    qs = Order.objects.prefetch_related(
+        "items", "manager_rating", "payments"
+    ).order_by("-created_at")
+
+    status_filter = (request.GET.get("status") or "").strip()
+    if status_filter:
+        qs = qs.filter(status=status_filter)
+
+    delivery_type = (request.GET.get("delivery_type") or "").strip()
+    if delivery_type:
+        qs = qs.filter(delivery_type=delivery_type)
+
+    payment_type = (request.GET.get("payment_type") or "").strip()
+    if payment_type:
+        qs = qs.filter(payment_type=payment_type)
+
+    date_from = (request.GET.get("date_from") or "").strip()
+    if date_from:
+        d_from = parse_date(date_from)
+        if d_from:
+            qs = qs.filter(created_at__date__gte=d_from)
+
+    date_to = (request.GET.get("date_to") or "").strip()
+    if date_to:
+        d_to = parse_date(date_to)
+        if d_to:
+            qs = qs.filter(created_at__date__lte=d_to)
+
+    search = (request.GET.get("search") or "").strip()
+    if search:
+        qs = qs.filter(
+            Q(order_number__icontains=search)
+            | Q(phone__icontains=search)
+            | Q(full_name__icontains=search)
+        )
+
+    ordering = (request.GET.get("ordering") or "").strip()
+    if ordering == "created_at":
+        qs = qs.order_by("created_at")
+    else:
+        qs = qs.order_by("-created_at")
+    return qs
 
 
 class OrderAdminUpdateSerializer(serializers.ModelSerializer):
@@ -34,39 +86,42 @@ class OrderAdminUpdateSerializer(serializers.ModelSerializer):
         if value == current:
             return value
 
-        # Допустимые переходы статусов
-        allowed_transitions = {
-            Order.STATUS_NEW: {Order.STATUS_CONFIRMED, Order.STATUS_CANCELLED},
-            Order.STATUS_CONFIRMED: {
-                Order.STATUS_IN_PROGRESS,
-                Order.STATUS_CANCELLED,
-            },
-            Order.STATUS_IN_PROGRESS: {
-                Order.STATUS_COMPLETED,
-                Order.STATUS_CANCELLED,
-            },
-            Order.STATUS_COMPLETED: set(),
-            Order.STATUS_CANCELLED: set(),
-        }
+        from apps.orders.services.transitions import allowed_targets
 
-        if value not in allowed_transitions.get(current, set()):
+        if value not in allowed_targets(current):
             raise serializers.ValidationError("Недопустимый переход статуса.")
         return value
 
-
-class OrderAdminUpdateView(UpdateAPIView):
+class OrderAdminListView(ListAPIView):
     """
-    PATCH /api/v1/admin/orders/{id}/ — смена статуса заказа.
-    Доступ только для staff.
+    GET /api/v1/admin/orders/ — список всех заказов (SEC-001: вместо staff-bypass
+    на customer /api/v1/orders/).
     """
 
     permission_classes = admin_permissions(RINGOO_GROUP_ORDERS)
-    queryset = Order.objects.prefetch_related("items")
-    http_method_names = ["patch"]
+    serializer_class = OrderSerializer
+    pagination_class = OrderAdminPagination
+
+    def get_queryset(self):
+        return _admin_orders_queryset(self.request)
+
+
+class OrderAdminUpdateView(RetrieveUpdateAPIView):
+    """
+    GET /api/v1/admin/orders/{id}/ — детали заказа.
+    PATCH /api/v1/admin/orders/{id}/ — смена статуса.
+    SEC-003: переход в cancelled идёт через cancel_order_and_release_stock.
+    """
+
+    permission_classes = admin_permissions(RINGOO_GROUP_ORDERS)
+    queryset = Order.objects.prefetch_related("items", "payments", "manager_rating")
+    http_method_names = ["get", "patch", "head", "options"]
     lookup_url_kwarg = "pk"
     lookup_field = "pk"
 
     def get_serializer_class(self):
+        if self.request.method == "GET":
+            return OrderSerializer
         return OrderAdminUpdateSerializer
 
     def patch(self, request, *args, **kwargs):
@@ -79,7 +134,30 @@ class OrderAdminUpdateView(UpdateAPIView):
             partial=partial,
         )
         serializer.is_valid(raise_exception=True)
-        serializer.save()
+        new_status = serializer.validated_data.get("status", old_status)
+
+        from apps.orders.services import OrderCancelError
+        from apps.orders.services.transitions import (
+            OrderTransitionError,
+            transition_order_status,
+        )
+
+        try:
+            instance = transition_order_status(
+                instance,
+                new_status,
+                reason="admin_api_status",
+                allow_paid_cancel=False,
+            )
+        except (OrderTransitionError, OrderCancelError) as exc:
+            return Response(
+                {
+                    "detail": getattr(exc, "message", str(exc)),
+                    "code": getattr(exc, "code", "invalid_transition"),
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         log_admin_action(
             request,
             action="order_status_change",
@@ -100,42 +178,7 @@ class OrderAdminExportView(APIView):
     permission_classes = admin_permissions(RINGOO_GROUP_ORDERS)
 
     def get(self, request):
-        from django.utils.dateparse import parse_date
-        from django.db.models import Q
-
-        qs = Order.objects.all().order_by("-created_at")
-
-        status_filter = (request.GET.get("status") or "").strip()
-        if status_filter:
-            qs = qs.filter(status=status_filter)
-
-        delivery_type = (request.GET.get("delivery_type") or "").strip()
-        if delivery_type:
-            qs = qs.filter(delivery_type=delivery_type)
-
-        payment_type = (request.GET.get("payment_type") or "").strip()
-        if payment_type:
-            qs = qs.filter(payment_type=payment_type)
-
-        date_from = (request.GET.get("date_from") or "").strip()
-        if date_from:
-            d_from = parse_date(date_from)
-            if d_from:
-                qs = qs.filter(created_at__date__gte=d_from)
-
-        date_to = (request.GET.get("date_to") or "").strip()
-        if date_to:
-            d_to = parse_date(date_to)
-            if d_to:
-                qs = qs.filter(created_at__date__lte=d_to)
-
-        search = (request.GET.get("search") or "").strip()
-        if search:
-            qs = qs.filter(
-                Q(order_number__icontains=search)
-                | Q(phone__icontains=search)
-                | Q(full_name__icontains=search)
-            )
+        qs = _admin_orders_queryset(request)
 
         status_labels = {
             Order.STATUS_NEW: "Новый",

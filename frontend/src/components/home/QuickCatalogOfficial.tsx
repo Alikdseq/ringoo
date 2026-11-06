@@ -51,7 +51,11 @@ function OfficialHeroCategoryButton({
       <div
         className={cn(
           QUICK_CATALOG_SHELL_CLASS,
-          compact ? 'min-h-[4.5rem] sm:min-h-[5rem]' : wide ? 'min-h-[4.5rem] sm:min-h-[5.5rem]' : 'min-h-[8rem]'
+          compact
+            ? 'min-h-[4.5rem] sm:min-h-[5rem]'
+            : wide
+              ? 'min-h-[4.5rem] sm:min-h-[5.5rem]'
+              : 'min-h-[8rem]'
         )}
       >
         {bgSrc ? (
@@ -82,7 +86,11 @@ function OfficialHeroCategoryButton({
         <span
           className={cn(
             QUICK_CATALOG_LABEL_CLASS,
-            wide ? 'text-xl sm:text-2xl lg:text-3xl' : compact ? 'text-base sm:text-lg' : 'text-xl sm:text-2xl'
+            wide
+              ? 'text-xl sm:text-2xl lg:text-3xl'
+              : compact
+                ? 'text-base sm:text-lg'
+                : 'text-xl sm:text-2xl'
           )}
         >
           {item.label}
@@ -121,11 +129,7 @@ export function QuickCatalogOfficialMobile({
   );
 }
 
-export function QuickCatalogOfficialDesktopStack({
-  items,
-}: {
-  items: HomePageHeroSideCategory[];
-}) {
+export function QuickCatalogOfficialDesktopStack({ items }: { items: HomePageHeroSideCategory[] }) {
   return (
     <div className="hidden h-full min-h-[68vh] flex-col justify-center gap-3 lg:flex lg:min-h-[75vh] lg:gap-4">
       {items.map(item => (
@@ -135,11 +139,7 @@ export function QuickCatalogOfficialDesktopStack({
   );
 }
 
-export function QuickCatalogOfficialFullWidth({
-  item,
-}: {
-  item: HomePageHeroSideCategory;
-}) {
+export function QuickCatalogOfficialFullWidth({ item }: { item: HomePageHeroSideCategory }) {
   return (
     <div className="w-full">
       <OfficialHeroCategoryButton item={item} wide />

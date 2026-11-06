@@ -31,13 +31,21 @@ export const ADMIN_NAV_REQUIRED_GROUPS: Record<string, AdminGroupName[]> = {
   '/admin/promotions': [ADMIN_GROUP.catalog],
   '/admin/crm': [ADMIN_GROUP.crm],
   '/admin/analytics': [ADMIN_GROUP.reports],
+  // Только суперпользователь (canAccessAdminNav → is_superuser)
+  '/admin/backup': [],
 };
+
+/** Разделы только для суперпользователя (даже при пустых required groups). */
+export const ADMIN_SUPERUSER_ONLY_NAV = new Set<string>(['/admin/backup']);
 
 export function canAccessAdminNav(
   href: string,
   access: StaffAccessInfo | null | undefined
 ): boolean {
   if (!access?.staff) return false;
+  if (ADMIN_SUPERUSER_ONLY_NAV.has(href)) {
+    return Boolean(access.is_superuser);
+  }
   if (access.is_superuser) return true;
   const required = ADMIN_NAV_REQUIRED_GROUPS[href];
   if (!required || required.length === 0) return true;

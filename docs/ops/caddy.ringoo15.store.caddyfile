@@ -1,0 +1,22 @@
+# Caddy for https://ringoo15.store
+# Place on VPS (e.g. /etc/caddy/Caddyfile). DNS A/AAAA → this server first.
+
+ringoo15.store, www.ringoo15.store {
+	encode gzip
+
+	# Prefer Next.js (proxies /api/v1 to Django internally when configured)
+	handle {
+		reverse_proxy 127.0.0.1:3000
+	}
+
+	header {
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		X-Frame-Options DENY
+	}
+}
+
+# Optional direct API host (only if not using Next proxy):
+# api.ringoo15.store {
+# 	reverse_proxy 127.0.0.1:8000
+# }

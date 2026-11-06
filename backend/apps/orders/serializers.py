@@ -14,11 +14,22 @@ from .models import ManagerRating, Order, OrderItem
 
 
 class OrderItemSerializer(serializers.ModelSerializer):
-    """Позиция заказа: id, product_title, quantity, price, item_total."""
+    """Позиция заказа: snapshot + цвет (FUNC-011)."""
 
     class Meta:
         model = OrderItem
-        fields = ("id", "product_title", "quantity", "price", "item_total")
+        fields = (
+            "id",
+            "product",
+            "product_title",
+            "quantity",
+            "price",
+            "item_total",
+            "color",
+            "color_label",
+            "color_slug",
+            "color_hex",
+        )
         read_only_fields = fields
 
 
@@ -27,6 +38,9 @@ class OrderSerializer(serializers.ModelSerializer):
 
     items = OrderItemSerializer(many=True, read_only=True)
     has_rating = serializers.SerializerMethodField()
+    can_pay = serializers.SerializerMethodField()
+    can_cancel = serializers.SerializerMethodField()
+    payment_status = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
@@ -51,11 +65,28 @@ class OrderSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
             "has_rating",
+            "can_pay",
+            "can_cancel",
+            "payment_status",
         )
         read_only_fields = fields
 
     def get_has_rating(self, obj):
         return hasattr(obj, "manager_rating") and obj.manager_rating is not None
+
+    def get_can_pay(self, obj) -> bool:
+        from apps.payments.eligibility import evaluate_order_payment_eligibility
+
+        return evaluate_order_payment_eligibility(obj).can_pay
+
+    def get_can_cancel(self, obj) -> bool:
+        from apps.orders.services import customer_may_cancel_order
+
+        return customer_may_cancel_order(obj)
+
+    def get_payment_status(self, obj) -> str | None:
+        latest = obj.payments.order_by("-created_at").only("status").first()
+        return latest.status if latest else None
 
 
 class ManagerRatingSerializer(serializers.ModelSerializer):
@@ -103,8 +134,17 @@ class OrderItemCreateSerializer(serializers.Serializer):
 
     product_id = serializers.UUIDField()
     quantity = serializers.IntegerField(min_value=1, max_value=999)
+    color_id = serializers.UUIDField(required=False, allow_null=True)
     # Цена с клиента не используется — подставляется из БД в OrderCreateSerializer.validate()
     price = serializers.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        min_value=Decimal("0"),
+        required=False,
+        allow_null=True,
+    )
+    # FUNC-003: ожидаемая цена с витрины (price_at_add); при расхождении — price_changed.
+    expected_unit_price = serializers.DecimalField(
         max_digits=12,
         decimal_places=2,
         min_value=Decimal("0"),
@@ -140,6 +180,8 @@ class OrderCreateSerializer(serializers.Serializer):
     )
     consent_personal_data = serializers.BooleanField(required=True)
     consent_marketing = serializers.BooleanField(required=False, default=False)
+    # FUNC-003: явное подтверждение актуальных серверных цен после предупреждения.
+    accept_price_changes = serializers.BooleanField(required=False, default=False)
 
     def validate_consent_personal_data(self, value):
         if not value:
@@ -161,8 +203,12 @@ class OrderCreateSerializer(serializers.Serializer):
     def validate_bonus_used(self, value):
         if value < 0:
             raise serializers.ValidationError("bonus_used не может быть отрицательным.")
-        # Бонусная программа временно скрыта: не списываем бонусы через этот API.
-        return Decimal("0")
+        from django.conf import settings
+
+        # FUNC-007: списание только при явном BONUS_ENABLED (сейчас выкл.).
+        if not bool(getattr(settings, "BONUS_ENABLED", False)):
+            return Decimal("0")
+        return Decimal("0")  # spend API не активирован даже при флаге — отдельное решение
 
     def validate_total_amount(self, value):
         if value < 0:
@@ -208,8 +254,12 @@ class OrderCreateSerializer(serializers.Serializer):
         if not items:
             return attrs
 
+        from apps.products.models import ProductColor
+
         ids = [item["product_id"] for item in items]
-        products = Product.objects.filter(id__in=ids, is_active=True)
+        products = Product.objects.filter(id__in=ids, is_active=True).prefetch_related(
+            "colors"
+        )
         by_id = {p.id: p for p in products}
         missing_ids = set(ids) - set(by_id.keys())
         if missing_ids:
@@ -219,22 +269,99 @@ class OrderCreateSerializer(serializers.Serializer):
                 }
             )
 
+        color_ids = [
+            item.get("color_id") for item in items if item.get("color_id")
+        ]
+        colors_by_id = {}
+        if color_ids:
+            for c in ProductColor.objects.filter(
+                pk__in=color_ids, is_active=True
+            ).select_related("product"):
+                colors_by_id[c.id] = c
+
         resolved = []
-        for item in items:
+        price_changes = []
+        for idx, item in enumerate(items):
             p = by_id[item["product_id"]]
             qty = item["quantity"]
-            unit = Decimal(p.price)
+            color_id = item.get("color_id")
+            color = None
+            active_colors = [c for c in p.colors.all() if c.is_active]
+            if color_id:
+                color = colors_by_id.get(color_id)
+                if color is None or color.product_id != p.id:
+                    raise serializers.ValidationError(
+                        {
+                            "items": {
+                                idx: {
+                                    "color_id": (
+                                        "Цвет не найден, неактивен или не "
+                                        "относится к этому товару."
+                                    )
+                                }
+                            }
+                        }
+                    )
+                unit = Decimal(color.effective_price())
+            else:
+                if active_colors:
+                    raise serializers.ValidationError(
+                        {
+                            "items": {
+                                idx: {
+                                    "color_id": (
+                                        "Для этого товара необходимо выбрать цвет."
+                                    )
+                                }
+                            }
+                        }
+                    )
+                unit = Decimal(p.price)
+
+            expected = item.get("expected_unit_price")
+            if expected is not None and Decimal(expected) != unit:
+                price_changes.append(
+                    {
+                        "product_id": str(p.id),
+                        "product_title": p.title,
+                        "color_id": str(color.id) if color else None,
+                        "color_label": color.label if color else "",
+                        "expected_unit_price": str(Decimal(expected)),
+                        "actual_unit_price": str(unit),
+                        "quantity": qty,
+                    }
+                )
+
             resolved.append(
                 {
                     "product_id": p.id,
                     "quantity": qty,
                     "price": unit,
+                    "color_id": color.id if color else None,
+                    "color_label": color.label if color else "",
+                    "color_slug": color.slug if color else "",
+                    "color_hex": (color.hex or "") if color else "",
                 }
             )
+
+        if price_changes and not attrs.get("accept_price_changes"):
+            raise serializers.ValidationError(
+                {
+                    "code": "price_changed",
+                    "detail": (
+                        "Цены в каталоге изменились. Подтвердите новый итог "
+                        "(accept_price_changes=true)."
+                    ),
+                    "price_changes": price_changes,
+                    "new_total_amount": str(
+                        sum(r["price"] * r["quantity"] for r in resolved)
+                    ),
+                }
+            )
+
         attrs["items"] = resolved
 
         # Стоимость доставки и итог — только сервер (клиентский delivery_cost/total игнорируются).
-        # Сейчас доставка бесплатная; при появлении тарифа расчёт должен жить здесь, не во frontend.
         delivery_cost = Decimal("0")
         attrs["delivery_cost"] = delivery_cost
         bonus_used = attrs.get("bonus_used") if attrs.get("bonus_used") is not None else Decimal("0")

@@ -2,7 +2,13 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { fetchStoreBySlugServer } from '@/lib/api/services/stores.service';
 import { StoreDetailContent } from '@/app/stores/[slug]/StoreDetailContent';
-import { JsonLd, buildPageMetadata, breadcrumbJsonLd, localBusinessJsonLd, truncateDescription } from '@/lib/seo';
+import {
+  JsonLd,
+  buildPageMetadata,
+  breadcrumbJsonLd,
+  localBusinessJsonLd,
+  truncateDescription,
+} from '@/lib/seo';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -18,8 +24,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       noIndex: true,
     });
   }
-  const title =
-    store.meta_title?.trim() || `Магазин Ringoo — ${store.address}, ${store.city}`;
+  const title = store.meta_title?.trim() || `Магазин Ringoo — ${store.address}, ${store.city}`;
   const description =
     store.meta_description?.trim() ||
     store.description?.slice(0, 160) ||

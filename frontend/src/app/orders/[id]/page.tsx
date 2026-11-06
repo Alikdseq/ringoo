@@ -1,7 +1,7 @@
 'use client';
 
 import type { ReactElement } from 'react';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
@@ -14,12 +14,22 @@ import {
   RotateCcw,
 } from 'lucide-react';
 import type { Order } from '@/types';
-import { getOrder, reorderOrder } from '@/lib/api/services/orders.service';
+import {
+  cancelOrder,
+  getOrder,
+  reorderOrder,
+} from '@/lib/api/services/orders.service';
+import {
+  initiateOrderPayment,
+  isOnlinePaymentUiEnabled,
+  stashPayAuth,
+} from '@/lib/api/services/payments.service';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Loading } from '@/components/ui/Loading';
 import { CURRENCY_SYMBOL } from '@/lib/constants';
+import { getFriendlyErrorMessage } from '@/lib/errors';
 import { isOrderIdParam } from '@/lib/validation/route-params';
 
 function formatDate(date: string): string {
@@ -40,11 +50,29 @@ function OrderDetail({
   order,
   onReorder,
   isReordering,
+  onPay,
+  isPaying,
+  payError,
+  onCancel,
+  isCancelling,
+  cancelError,
 }: {
   order: Order;
   onReorder?: () => void;
   isReordering?: boolean;
+  onPay?: () => void;
+  isPaying?: boolean;
+  payError?: string | null;
+  onCancel?: () => void;
+  isCancelling?: boolean;
+  cancelError?: string | null;
 }): ReactElement {
+  const showPay =
+    Boolean(order.can_pay) &&
+    isOnlinePaymentUiEnabled() &&
+    typeof onPay === 'function';
+  const showCancel = Boolean(order.can_cancel) && typeof onCancel === 'function';
+
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
       <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -118,6 +146,27 @@ function OrderDetail({
           </div>
           <div className="space-y-1 text-sm text-zinc-600 dark:text-zinc-300">
             <p>Способ оплаты: {order.payment_type}</p>
+            {order.payment_status && (
+              <p>Статус платежа: {order.payment_status}</p>
+            )}
+            {showPay && (
+              <div className="pt-3">
+                <Button
+                  type="button"
+                  onClick={onPay}
+                  loading={isPaying}
+                  disabled={isPaying}
+                  className="w-full sm:w-auto"
+                >
+                  Оплатить
+                </Button>
+                {payError && (
+                  <p className="mt-2 text-sm text-red-600" role="alert">
+                    {payError}
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         </Card>
       </div>
@@ -133,6 +182,7 @@ function OrderDetail({
                 <p className="font-medium text-zinc-900 dark:text-zinc-50">{item.product_title}</p>
                 <p className="text-xs text-zinc-500 dark:text-zinc-400">
                   {item.quantity} × {item.price} {CURRENCY_SYMBOL}
+                  {item.color_label ? ` · ${item.color_label}` : ''}
                 </p>
               </div>
               <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
@@ -151,11 +201,27 @@ function OrderDetail({
               className="flex items-center gap-2"
               onClick={onReorder}
               loading={isReordering}
-              disabled={isReordering}
+              disabled={isReordering || isPaying || isCancelling}
             >
               <RotateCcw className="h-4 w-4" />
               Повтор заказа
             </Button>
+          )}
+          {showCancel && (
+            <Button
+              variant="outline"
+              className="flex items-center gap-2 text-red-700"
+              onClick={onCancel}
+              loading={isCancelling}
+              disabled={isCancelling || isPaying || isReordering}
+            >
+              Отменить заказ
+            </Button>
+          )}
+          {cancelError && (
+            <p className="w-full text-sm text-red-600" role="alert">
+              {cancelError}
+            </p>
           )}
           <Button variant="outline" className="flex items-center gap-2">
             <MessageCircle className="h-4 w-4" />
@@ -188,24 +254,101 @@ export default function OrderDetailPage(): ReactElement {
   const idValid = isOrderIdParam(id);
   const router = useRouter();
   const { isAuthenticated, isLoading: authLoading, hasToken } = useAuth();
+  const [payError, setPayError] = useState<string | null>(null);
+  const [cancelError, setCancelError] = useState<string | null>(null);
+  const [isRedirectingToPay, setIsRedirectingToPay] = useState(false);
 
   const queryClient = useQueryClient();
   const { data, isLoading, isError } = useQuery({
     queryKey: ['order', id],
     queryFn: () => getOrder(id),
     enabled: isAuthenticated && idValid,
+    // Не опираться на устаревший can_pay после оплаты в другой вкладке.
+    staleTime: 0,
+    refetchOnMount: 'always',
   });
 
   const reorderMutation = useMutation({
     mutationFn: () => reorderOrder(id),
-    onSuccess: () => {
+    onSuccess: result => {
       queryClient.invalidateQueries({ queryKey: ['cart'] });
+      if (result.partial && result.skipped?.length) {
+        const names = result.skipped
+          .slice(0, 3)
+          .map(s => s.product_title)
+          .join(', ');
+        window.alert(
+          `В корзину добавлено ${result.added_count} поз. Часть позиций недоступна: ${names}${
+            result.skipped.length > 3 ? '…' : ''
+          }`
+        );
+      }
       router.push('/cart');
+    },
+  });
+
+  const payMutation = useMutation({
+    mutationFn: async (order: Order) => {
+      const guestToken = order.guest_access_token;
+      stashPayAuth(order.id, {
+        phone: order.phone,
+        order_number: order.order_number,
+        guest_token: guestToken,
+      });
+      return initiateOrderPayment(order.id, {
+        phone: order.phone,
+        order_number: order.order_number,
+        guest_token: guestToken,
+      });
+    },
+    onSuccess: result => {
+      const redirectUrl = result.confirmation_url || result.form_url;
+      if (!redirectUrl) {
+        setPayError('Не получена ссылка на оплату. Попробуйте ещё раз.');
+        return;
+      }
+      setIsRedirectingToPay(true);
+      void queryClient.invalidateQueries({ queryKey: ['order', id] });
+      window.location.assign(redirectUrl);
+    },
+    onError: err => {
+      setPayError(getFriendlyErrorMessage(err));
+      void queryClient.invalidateQueries({ queryKey: ['order', id] });
     },
   });
 
   const handleReorder = () => {
     reorderMutation.mutate();
+  };
+
+  const cancelMutation = useMutation({
+    mutationFn: () => cancelOrder(id),
+    onSuccess: () => {
+      setCancelError(null);
+      void queryClient.invalidateQueries({ queryKey: ['order', id] });
+      void queryClient.invalidateQueries({ queryKey: ['orders'] });
+    },
+    onError: err => {
+      setCancelError(getFriendlyErrorMessage(err));
+    },
+  });
+
+  const handlePay = () => {
+    if (!data || payMutation.isPending || isRedirectingToPay) return;
+    if (!data.can_pay) {
+      setPayError('Оплата этого заказа сейчас недоступна.');
+      void queryClient.invalidateQueries({ queryKey: ['order', id] });
+      return;
+    }
+    setPayError(null);
+    payMutation.mutate(data);
+  };
+
+  const handleCancel = () => {
+    if (!data || cancelMutation.isPending) return;
+    if (!window.confirm('Отменить этот заказ?')) return;
+    setCancelError(null);
+    cancelMutation.mutate();
   };
 
   useEffect(() => {
@@ -260,7 +403,19 @@ export default function OrderDetailPage(): ReactElement {
     );
   }
 
+  const paying = payMutation.isPending || isRedirectingToPay;
+
   return (
-    <OrderDetail order={data} onReorder={handleReorder} isReordering={reorderMutation.isPending} />
+    <OrderDetail
+      order={data}
+      onReorder={handleReorder}
+      isReordering={reorderMutation.isPending}
+      onPay={handlePay}
+      isPaying={paying}
+      payError={payError}
+      onCancel={handleCancel}
+      isCancelling={cancelMutation.isPending}
+      cancelError={cancelError}
+    />
   );
 }

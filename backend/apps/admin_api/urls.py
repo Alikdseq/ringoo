@@ -6,14 +6,30 @@ Admin API URL configuration.
 
 from django.urls import path
 
+from apps.backups.views import (
+    BackupCreateView,
+    BackupDownloadView,
+    BackupLatestView,
+    BackupStatusView,
+)
+
 from .views import content, crm, dashboard, managers, orders, products, promotions, reports, stock, stores, users
 
 app_name = "admin_api"
 
 urlpatterns = [
     path("dashboard/stats/", dashboard.DashboardStatsView.as_view(), name="dashboard-stats"),
-    path("orders/<uuid:pk>/", orders.OrderAdminUpdateView.as_view(), name="order-update"),
+    path("backups/create/", BackupCreateView.as_view(), name="backup-create"),
+    path("backups/latest/", BackupLatestView.as_view(), name="backup-latest"),
+    path("backups/<uuid:backup_id>/", BackupStatusView.as_view(), name="backup-status"),
+    path(
+        "backups/<uuid:backup_id>/download/",
+        BackupDownloadView.as_view(),
+        name="backup-download",
+    ),
+    path("orders/", orders.OrderAdminListView.as_view(), name="order-list"),
     path("orders/export/", orders.OrderAdminExportView.as_view(), name="order-export"),
+    path("orders/<uuid:pk>/", orders.OrderAdminUpdateView.as_view(), name="order-update"),
     path("products/", products.ProductAdminListView.as_view(), name="product-list"),
     path("products/create/", products.ProductAdminCreateView.as_view(), name="product-create"),
     path("products/<uuid:pk>/", products.ProductAdminDetailView.as_view(), name="product-detail"),
@@ -94,7 +110,8 @@ urlpatterns = [
     path("users/", users.UserAdminListView.as_view(), name="user-list"),
     path("users/<uuid:pk>/", users.UserAdminDetailView.as_view(), name="user-detail"),
     path("users/<uuid:pk>/patch/", users.UserAdminUpdateView.as_view(), name="user-update"),
-    # Бонусы: REST админка временно скрыта (модели и apps.bonus сохранены).
+    # SEC-008: бонусы выключены. Views уже требуют admin_permissions(RINGOO_GROUP_BONUS)+MFA.
+    # Не раскомментировать без продуктового решения и тестов.
     # path("bonus/accounts/", bonus.BonusAccountAdminListView.as_view(), name="bonus-account-list"),
     # path("bonus/accounts/<uuid:pk>/", bonus.BonusAccountAdminDetailView.as_view(), name="bonus-account-detail"),
     # path("bonus/accounts/<uuid:pk>/adjust/", bonus.BonusAccountAdjustView.as_view(), name="bonus-account-adjust"),

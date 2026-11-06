@@ -94,7 +94,11 @@ function buildDistribution(ratings: number[]) {
   return { buckets, perc, total };
 }
 
-function useAutoScrollRail(ref: React.RefObject<HTMLDivElement | null>, enabled: boolean, ms: number) {
+function useAutoScrollRail(
+  ref: React.RefObject<HTMLDivElement | null>,
+  enabled: boolean,
+  ms: number
+) {
   useEffect(() => {
     if (!enabled) return;
     const el = ref.current;
@@ -274,9 +278,7 @@ function ReviewCard({
       <p className="mt-4 line-clamp-3 text-sm text-foreground-muted">
         {comment?.trim() || 'Спасибо! Всё понравилось — быстро и удобно.'}
       </p>
-      <p className="mt-4 text-xs text-foreground-muted">
-        {formatRuDateLong(createdAt)}
-      </p>
+      <p className="mt-4 text-xs text-foreground-muted">{formatRuDateLong(createdAt)}</p>
     </Card>
   );
 }
@@ -400,7 +402,9 @@ export function AboutContent() {
                   </div>
                   <div className="rounded-2xl border border-border bg-white/70 px-4 py-3 backdrop-blur">
                     <p className="text-2xl font-semibold text-foreground">5</p>
-                    <p className="text-sm text-foreground-muted">магазинов во Владикавказе и республике</p>
+                    <p className="text-sm text-foreground-muted">
+                      магазинов во Владикавказе и республике
+                    </p>
                   </div>
                   <div className="rounded-2xl border border-border bg-white/70 px-4 py-3 backdrop-blur">
                     <p className="text-2xl font-semibold text-foreground">2 года</p>
@@ -445,10 +449,13 @@ export function AboutContent() {
       <section className="bg-background px-2 py-10 sm:px-4 lg:px-6">
         <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="mb-6">
-            <h2 className="text-2xl font-semibold text-foreground sm:text-3xl">Наша миссия и ценности</h2>
+            <h2 className="text-2xl font-semibold text-foreground sm:text-3xl">
+              Наша миссия и ценности
+            </h2>
             <p className="mt-2 max-w-3xl text-base text-foreground-muted sm:text-lg">
-              Мы делаем современную технику доступной и понятной. Без скрытых комиссий, без долгой доставки,
-              без равнодушия. Потому что верим: хороший сервис начинается с человеческого отношения.
+              Мы делаем современную технику доступной и понятной. Без скрытых комиссий, без долгой
+              доставки, без равнодушия. Потому что верим: хороший сервис начинается с человеческого
+              отношения.
             </p>
           </div>
           <div className="grid gap-4 sm:grid-cols-3">
@@ -482,7 +489,9 @@ export function AboutContent() {
         <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <h2 className="text-2xl font-semibold text-foreground sm:text-3xl">Вас консультируют лучшие</h2>
+              <h2 className="text-2xl font-semibold text-foreground sm:text-3xl">
+                Вас консультируют лучшие
+              </h2>
               <p className="mt-2 text-base text-foreground-muted sm:text-lg">
                 Наши менеджеры — эксперты, которые помогут выбрать и не дадут ошибиться.
               </p>
@@ -494,7 +503,9 @@ export function AboutContent() {
               <Loading />
             </div>
           ) : managers.length === 0 ? (
-            <Card className="p-6 text-center text-foreground-muted">Список менеджеров пока пуст.</Card>
+            <Card className="p-6 text-center text-foreground-muted">
+              Список менеджеров пока пуст.
+            </Card>
           ) : (
             <>
               <Card className="mb-6 rounded-3xl border border-border bg-white p-4 sm:p-5">
@@ -522,7 +533,9 @@ export function AboutContent() {
                     value={filterStoreId}
                     onChange={e => setFilterStoreId(e.target.value)}
                   >
-                    <option value="all">Все магазины{filterCity !== 'all' ? ` (${filterCity})` : ''}</option>
+                    <option value="all">
+                      Все магазины{filterCity !== 'all' ? ` (${filterCity})` : ''}
+                    </option>
                     {storesForFilter.map(s => (
                       <option key={s.id} value={s.id}>
                         {s.name}
@@ -533,8 +546,8 @@ export function AboutContent() {
                 </div>
                 <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-sm text-foreground-muted">
                   <span>
-                    Показано:{' '}
-                    <strong className="text-foreground">{filteredManagers.length}</strong> из {managers.length}
+                    Показано: <strong className="text-foreground">{filteredManagers.length}</strong>{' '}
+                    из {managers.length}
                   </span>
                   {(filterCity !== 'all' || filterStoreId !== 'all') && (
                     <Button
@@ -605,7 +618,9 @@ export function AboutContent() {
       <section className="bg-background px-2 py-10 sm:px-4 lg:px-6">
         <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="mb-6">
-            <h2 className="text-2xl font-semibold text-foreground sm:text-3xl">Что говорят о нас покупатели</h2>
+            <h2 className="text-2xl font-semibold text-foreground sm:text-3xl">
+              Что говорят о нас покупатели
+            </h2>
             <p className="mt-2 text-base text-foreground-muted sm:text-lg">
               Рейтинг магазинов Ringoo на основе реальных отзывов
             </p>
@@ -626,7 +641,8 @@ export function AboutContent() {
                     <StarRating value={avg} />
                   </div>
                   <p className="mt-3 text-sm text-foreground-muted">
-                    {count.toLocaleString('ru-RU')} {formatCountRu(count, 'отзыв', 'отзыва', 'отзывов')}
+                    {count.toLocaleString('ru-RU')}{' '}
+                    {formatCountRu(count, 'отзыв', 'отзыва', 'отзывов')}
                   </p>
                   <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-center lg:justify-start">
                     <Button asChild variant="secondary">
@@ -650,7 +666,10 @@ export function AboutContent() {
                           {stars} <span className="text-amber-500">★</span>
                         </div>
                         <div className="h-2 flex-1 overflow-hidden rounded-full bg-zinc-100">
-                          <div className="h-full rounded-full bg-zinc-900" style={{ width: `${pct}%` }} />
+                          <div
+                            className="h-full rounded-full bg-zinc-900"
+                            style={{ width: `${pct}%` }}
+                          />
                         </div>
                         <div className="w-12 text-right text-sm text-foreground-muted">{pct}%</div>
                       </div>
@@ -684,19 +703,39 @@ export function AboutContent() {
             ref={railReviewsRef}
             className="no-scrollbar flex snap-x snap-mandatory gap-4 overflow-x-auto pb-2"
           >
-            {(recent.length > 0 ? recent : [
-              { rating: 5, comment: 'Быстро помогли выбрать, всё объяснили.', created_at: new Date().toISOString(), manager_name: 'Алан К.' },
-              { rating: 4.8, comment: 'Отличный сервис, доставка в тот же день.', created_at: new Date().toISOString(), manager_name: 'Марина С.' },
-              { rating: 4.9, comment: 'Понравилось отношение — без навязывания.', created_at: new Date().toISOString(), manager_name: 'Руслан М.' },
-            ]).slice(0, 8).map((r, i) => (
-              <ReviewCard
-                key={`${r.created_at}-${i}`}
-                rating={r.rating}
-                comment={r.comment}
-                createdAt={r.created_at}
-                managerName={r.manager_name}
-              />
-            ))}
+            {(recent.length > 0
+              ? recent
+              : [
+                  {
+                    rating: 5,
+                    comment: 'Быстро помогли выбрать, всё объяснили.',
+                    created_at: new Date().toISOString(),
+                    manager_name: 'Алан К.',
+                  },
+                  {
+                    rating: 4.8,
+                    comment: 'Отличный сервис, доставка в тот же день.',
+                    created_at: new Date().toISOString(),
+                    manager_name: 'Марина С.',
+                  },
+                  {
+                    rating: 4.9,
+                    comment: 'Понравилось отношение — без навязывания.',
+                    created_at: new Date().toISOString(),
+                    manager_name: 'Руслан М.',
+                  },
+                ]
+            )
+              .slice(0, 8)
+              .map((r, i) => (
+                <ReviewCard
+                  key={`${r.created_at}-${i}`}
+                  rating={r.rating}
+                  comment={r.comment}
+                  createdAt={r.created_at}
+                  managerName={r.manager_name}
+                />
+              ))}
           </div>
         </div>
       </section>
@@ -705,7 +744,9 @@ export function AboutContent() {
       <section className="bg-background px-2 py-10 sm:px-4 lg:px-6">
         <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="mb-6">
-            <h2 className="text-2xl font-semibold text-foreground sm:text-3xl">Приходите в гости</h2>
+            <h2 className="text-2xl font-semibold text-foreground sm:text-3xl">
+              Приходите в гости
+            </h2>
             <p className="mt-2 text-base text-foreground-muted sm:text-lg">
               Карта и адреса наших магазинов.
             </p>
@@ -749,7 +790,9 @@ export function AboutContent() {
           <Card className="rounded-[32px] border border-border bg-white p-6 sm:p-10">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <p className="text-lg font-semibold text-foreground">Хотите работать в команде Ringoo?</p>
+                <p className="text-lg font-semibold text-foreground">
+                  Хотите работать в команде Ringoo?
+                </p>
                 <p className="mt-1 text-sm text-foreground-muted">
                   Отправьте резюме — мы свяжемся, если будет подходящая позиция.
                 </p>
@@ -766,4 +809,3 @@ export function AboutContent() {
     </div>
   );
 }
-

@@ -78,7 +78,9 @@ export default function InstallmentPage() {
           <div className="rounded-2xl border border-border bg-zinc-50 p-5">
             <p className="text-sm text-foreground-muted">Ежемесячный платёж</p>
             <p className="mt-1 text-3xl font-semibold tracking-tight text-foreground">
-              {monthly == null ? '—' : `${Math.round(monthly).toLocaleString('ru-RU')} ${CURRENCY_SYMBOL}`}
+              {monthly == null
+                ? '—'
+                : `${Math.round(monthly).toLocaleString('ru-RU')} ${CURRENCY_SYMBOL}`}
             </p>
             <p className="mt-2 text-xs text-foreground-muted">
               Расчёт примерный и не является офертой. Одобрение и условия зависят от банка.
@@ -98,4 +100,3 @@ export default function InstallmentPage() {
     </div>
   );
 }
-

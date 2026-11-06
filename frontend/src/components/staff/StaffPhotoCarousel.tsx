@@ -102,7 +102,12 @@ function StaffPhotoHoverSwap({ slides }: { slides: StaffPhotoSlide[] }) {
 /** Мобилка: свайп между фото */
 function StaffPhotoMobileSwiper({ slides }: { slides: StaffPhotoSlide[] }) {
   return (
-    <div className={cn('staff-photo-carousel relative w-full max-w-[280px] sm:max-w-[320px] lg:hidden', 'mx-auto sm:mx-0')}>
+    <div
+      className={cn(
+        'staff-photo-carousel relative w-full max-w-[280px] sm:max-w-[320px] lg:hidden',
+        'mx-auto sm:mx-0'
+      )}
+    >
       <Swiper
         modules={[Navigation, Pagination]}
         navigation={{

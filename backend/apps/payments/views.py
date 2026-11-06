@@ -16,13 +16,13 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.orders.models import Order
-from apps.orders.views import _phone_matches_order
 from config.throttling import (
     PaymentCallbackAnonThrottle,
     PaymentPayAnonThrottle,
     PaymentPayUserThrottle,
     PaymentStatusAnonThrottle,
     PaymentStatusUserThrottle,
+    YooKassaWebhookThrottle,
 )
 
 from .models import Payment
@@ -30,9 +30,10 @@ from .serializers import PaymentSerializer
 from .services import (
     PaymentError,
     handle_sber_callback,
-    initiate_sber_payment,
-    sync_payment_from_bank,
+    initiate_online_payment,
+    sync_payment_status,
 )
+from .yookassa_service import handle_yookassa_webhook
 
 logger = logging.getLogger(__name__)
 
@@ -71,23 +72,38 @@ def _callback_token_ok(request) -> bool:
 
 
 def _can_access_order(request, order: Order) -> bool:
+    """
+    Владелец — по JWT (включая staff со своим заказом).
+    Гость — только guest_access_token (SEC-006; phone+number недостаточно).
+    SEC-001: is_staff не открывает чужие заказы на customer payment API.
+    """
     if request.user.is_authenticated:
-        if request.user.is_staff or order.user_id == request.user.id:
+        if order.user_id == request.user.id:
             return True
+    from apps.orders.guest_access import guest_may_access_order
+
     phone = (
         str(request.data.get("phone") or request.query_params.get("phone") or "")
         .strip()
     )
-    if phone and _phone_matches_order(order.phone, phone):
-        return True
-    return False
+    order_number = (
+        str(
+            request.data.get("order_number")
+            or request.query_params.get("order_number")
+            or ""
+        ).strip()
+    )
+    return guest_may_access_order(
+        request, order, phone=phone, order_number=order_number
+    )
 
 
 class OrderPayView(APIView):
     """
     POST /api/v1/orders/{id}/pay/
-    Создаёт платёж в Сбере (сумма из БД) и возвращает form_url.
-    Auth: владелец / staff; гость — phone в теле.
+    Создаёт платёж у активного провайдера (ЮKassa / Сбер), сумма из БД,
+    возвращает form_url (= confirmation_url ЮKassa).
+    Auth: владелец; гость — guest_token (SEC-006).
     """
 
     permission_classes = [AllowAny]
@@ -105,13 +121,34 @@ class OrderPayView(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
         try:
-            result = initiate_sber_payment(order)
+            result = initiate_online_payment(order)
         except PaymentError as exc:
             http = status.HTTP_400_BAD_REQUEST
             if exc.code == "already_paid":
                 http = status.HTTP_409_CONFLICT
-            elif exc.code == "sber_register_failed":
+            elif exc.code in (
+                "order_cancelled",
+                "order_completed",
+                "order_status",
+                "not_online",
+                "payment_blocked",
+            ):
+                http = status.HTTP_409_CONFLICT
+            elif exc.code == "payment_status_unknown":
+                http = status.HTTP_503_SERVICE_UNAVAILABLE
+            elif exc.code in (
+                "sber_register_failed",
+                "yookassa_create_failed",
+                "yookassa_unreachable",
+            ):
                 http = status.HTTP_502_BAD_GATEWAY
+            elif exc.code in (
+                "yookassa_misconfigured",
+                "yookassa_test_key_required",
+                "yookassa_live_key_required",
+                "payments_disabled",
+            ):
+                http = status.HTTP_503_SERVICE_UNAVAILABLE
             return Response(
                 {"code": exc.code, "detail": exc.message},
                 status=http,
@@ -120,6 +157,7 @@ class OrderPayView(APIView):
             {
                 "payment": PaymentSerializer(result.payment).data,
                 "form_url": result.form_url,
+                "confirmation_url": result.form_url,
                 "reused": result.reused,
             },
             status=status.HTTP_200_OK,
@@ -161,6 +199,10 @@ class OrderPaymentStatusView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
+        has_gateway_id = bool(
+            (payment.provider == Payment.PROVIDER_YOOKASSA and payment.yookassa_payment_id)
+            or (payment.provider == Payment.PROVIDER_SBER and payment.sber_order_id)
+        )
         should_sync = (
             payment.status
             not in (
@@ -169,8 +211,9 @@ class OrderPaymentStatusView(APIView):
                 Payment.STATUS_REFUNDED,
                 Payment.STATUS_REVERSED,
                 Payment.STATUS_NEEDS_REVIEW,
+                Payment.STATUS_FAILED,
             )
-            and payment.sber_order_id
+            and has_gateway_id
         )
         if should_sync and payment.last_status_checked_at:
             age = (timezone.now() - payment.last_status_checked_at).total_seconds()
@@ -179,7 +222,7 @@ class OrderPaymentStatusView(APIView):
 
         if should_sync:
             try:
-                payment = sync_payment_from_bank(payment)
+                payment = sync_payment_status(payment)
             except PaymentError as exc:
                 order.refresh_from_db()
                 return Response(
@@ -236,4 +279,60 @@ class SberCallbackView(APIView):
             getattr(payment, "pk", None),
         )
         # Банк ожидает 200 при успешной приёмке; успешный HTTP ≠ paid.
+        return Response({"ok": True}, status=status.HTTP_200_OK)
+
+
+class YooKassaWebhookView(APIView):
+    """
+    POST /api/v1/payments/yookassa/webhook/
+    SEC-007: throttle + size limit + валидация; paid только после re-fetch API.
+    """
+
+    permission_classes = [AllowAny]
+    authentication_classes = []
+    throttle_classes = [YooKassaWebhookThrottle]
+
+    def post(self, request):
+        max_bytes = int(getattr(settings, "YOOKASSA_WEBHOOK_MAX_BODY_BYTES", 65536) or 65536)
+        cl = request.META.get("CONTENT_LENGTH")
+        try:
+            if cl is not None and int(cl) > max_bytes:
+                return Response(
+                    {"detail": "payload too large"},
+                    status=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                )
+        except (TypeError, ValueError):
+            pass
+
+        payload = request.data
+        if not isinstance(payload, dict):
+            return Response({"detail": "invalid"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Грубая оценка сериализованного размера (защита от раздутых dict без CL)
+        try:
+            import json as _json
+
+            if len(_json.dumps(payload, default=str)) > max_bytes:
+                return Response(
+                    {"detail": "payload too large"},
+                    status=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                )
+        except Exception:
+            return Response({"detail": "invalid"}, status=status.HTTP_400_BAD_REQUEST)
+
+        event = str(payload.get("event") or "")
+        obj = payload.get("object") if isinstance(payload.get("object"), dict) else {}
+        logger.info(
+            "YooKassa webhook event=%s payment_id=%s status=%s",
+            event,
+            obj.get("id"),
+            obj.get("status"),
+        )
+
+        payment = handle_yookassa_webhook(payload)
+        logger.info(
+            "YooKassa webhook processed found=%s payment_id=%s",
+            payment is not None,
+            getattr(payment, "pk", None),
+        )
         return Response({"ok": True}, status=status.HTTP_200_OK)

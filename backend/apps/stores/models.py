@@ -472,3 +472,77 @@ class Stock(models.Model):
             if updated == 1:
                 remaining -= take
         return remaining == 0
+
+
+class StockMovement(models.Model):
+    """
+    Журнал складских операций по резерву/остатку (INT-009).
+    Пишется в той же транзакции, что и изменение Stock.
+    """
+
+    OP_RESERVE = "reserve"
+    OP_RELEASE = "release"
+    OP_DEDUCTION = "deduction"
+    OP_RESTOCK = "restock"
+    OP_RECONCILIATION = "reconciliation"
+    OP_CORRECTION = "correction"
+    OP_CHOICES = [
+        (OP_RESERVE, "Резерв"),
+        (OP_RELEASE, "Снятие резерва"),
+        (OP_DEDUCTION, "Списание"),
+        (OP_RESTOCK, "Возврат на склад"),
+        (OP_RECONCILIATION, "Сверка"),
+        (OP_CORRECTION, "Корректировка"),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    product = models.ForeignKey(
+        "products.Product",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="stock_movements",
+    )
+    store = models.ForeignKey(
+        Store,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="stock_movements",
+    )
+    order = models.ForeignKey(
+        "orders.Order",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="stock_movements",
+    )
+    order_item = models.ForeignKey(
+        "orders.OrderItem",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="stock_movements",
+    )
+    operation = models.CharField(max_length=32, choices=OP_CHOICES, db_index=True)
+    quantity = models.PositiveIntegerField(default=0)
+    reserved_before = models.IntegerField(default=0)
+    reserved_after = models.IntegerField(default=0)
+    stock_quantity_before = models.IntegerField(null=True, blank=True)
+    stock_quantity_after = models.IntegerField(null=True, blank=True)
+    onec_series_id = models.CharField(max_length=64, blank=True, default="")
+    reason = models.CharField(max_length=255, blank=True, default="")
+    source = models.CharField(max_length=64, blank=True, default="")
+    idempotency_key = models.CharField(max_length=128, unique=True, db_index=True)
+    success = models.BooleanField(default=True)
+    error_message = models.CharField(max_length=512, blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        db_table = "stores_stock_movement"
+        verbose_name = "Складская операция"
+        verbose_name_plural = "Складские операции"
+        ordering = ["-created_at"]
+
+    def __str__(self) -> str:
+        return f"{self.operation} {self.quantity} ({self.idempotency_key})"

@@ -10,7 +10,8 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 BACKUP_DIR="${1:-$PROJECT_ROOT/backups}"
 DB_CONTAINER="${DB_CONTAINER:-ringoo_db}"
 DB_NAME="${DB_NAME:-ringoo}"
-DB_USER="${DB_USER:-postgres}"
+# Prefer app/bootstrap role from env; do not assume superuser "postgres"
+DB_USER="${DB_USER:-ringoo_admin}"
 
 mkdir -p "$BACKUP_DIR"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)

@@ -32,8 +32,7 @@ export function ConsentCheckboxes({
   className,
   variant = 'default',
 }: ConsentCheckboxesProps) {
-  const textMuted =
-    variant === 'dark' ? 'text-zinc-400' : 'text-zinc-600 dark:text-zinc-400';
+  const textMuted = variant === 'dark' ? 'text-zinc-400' : 'text-zinc-600 dark:text-zinc-400';
   const boxClass =
     variant === 'dark'
       ? 'border-zinc-600 bg-zinc-700/50'
@@ -55,7 +54,7 @@ export function ConsentCheckboxes({
           aria-describedby="consent-personal-label"
         />
         <span id="consent-personal-label" className={textMuted}>
-          Я даю{' '}
+          Даю отдельное{' '}
           <Link
             href={LEGAL_DOC_LINKS.consent}
             target="_blank"
@@ -64,7 +63,7 @@ export function ConsentCheckboxes({
           >
             согласие на обработку персональных данных
           </Link>{' '}
-          и ознакомлен(а) с{' '}
+          и подтверждаю ознакомление с{' '}
           <Link
             href={LEGAL_DOC_LINKS.privacy}
             target="_blank"

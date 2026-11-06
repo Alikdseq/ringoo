@@ -13,18 +13,31 @@ from apps.bonus.models import BonusTransaction
 
 
 def create_bonus_account_for_new_user(sender, instance, created, **kwargs):
-    """При создании пользователя автоматически создаём бонусный счёт."""
-    if created:
-        BonusAccount.objects.get_or_create(user=instance)
+    """
+    При создании пользователя создаём бонусный счёт.
+    INT-027: при BONUS_ENABLED=False побочных сущностей не создаём.
+    """
+    if not created:
+        return
+    from django.conf import settings
+
+    if not bool(getattr(settings, "BONUS_ENABLED", False)):
+        return
+    BonusAccount.objects.get_or_create(user=instance)
 
 
 def award_bonus_on_order_confirmed(sender, instance, created, **kwargs):
     """
     При переходе заказа в статус 'confirmed' начислить бонусы на счёт пользователя.
     Начисление выполняется один раз (проверка по bonus_earned == 0).
+    FUNC-007: только при BONUS_ENABLED=True.
     """
+    from django.conf import settings
+
     from apps.orders.models import Order
 
+    if not bool(getattr(settings, "BONUS_ENABLED", False)):
+        return
     if instance.status != Order.STATUS_CONFIRMED:
         return
     if not instance.user_id:

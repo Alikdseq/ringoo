@@ -8,7 +8,9 @@ export function isUiMode(v: unknown): v is UiMode {
 
 export function readUiModeFromCookie(): UiMode | null {
   if (typeof document === 'undefined') return null;
-  const m = document.cookie.match(new RegExp(`(?:^|; )${UI_MODE_COOKIE_NAME}=(official|svoi)(?:;|$)`));
+  const m = document.cookie.match(
+    new RegExp(`(?:^|; )${UI_MODE_COOKIE_NAME}=(official|svoi)(?:;|$)`)
+  );
   const v = m?.[1];
   return isUiMode(v) ? v : null;
 }

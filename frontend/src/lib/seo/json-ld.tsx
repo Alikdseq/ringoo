@@ -13,7 +13,9 @@ export function JsonLd({ data }: JsonLdProps) {
   return (
     <script
       type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(payload.length === 1 ? payload[0] : payload) }}
+      dangerouslySetInnerHTML={{
+        __html: JSON.stringify(payload.length === 1 ? payload[0] : payload),
+      }}
     />
   );
 }
@@ -89,9 +91,7 @@ export function productJsonLd(product: ProductDetail, slug: string) {
       url: `${getSiteUrl()}/products/${slug}`,
       priceCurrency: 'RUB',
       price: price && Number.isFinite(price) ? price : undefined,
-      availability: inStock
-        ? 'https://schema.org/InStock'
-        : 'https://schema.org/OutOfStock',
+      availability: inStock ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
     },
   };
 }

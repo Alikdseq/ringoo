@@ -28,10 +28,7 @@ import { Loading } from '@/components/ui/Loading';
 import { cn } from '@/lib/theme/utils';
 import { getPageGallery } from '@/lib/api/services/pageGallery.service';
 import { PageHeroGallery } from '@/components/content/PageHeroGallery';
-import {
-  fetchMagazinGalleryUrls,
-  magazinUrlsToGalleryImages,
-} from '@/lib/stores/magazin-gallery';
+import { fetchMagazinGalleryUrls, magazinUrlsToGalleryImages } from '@/lib/stores/magazin-gallery';
 
 const StoresMapDynamic = dynamic(
   () =>
@@ -84,7 +81,12 @@ function parseWorkingHoursRange(value: string): { startMin: number; endMin: numb
   const sm = Number(m[2] ?? '0');
   const eh = Number(m[3]);
   const em = Number(m[4] ?? '0');
-  if (!Number.isFinite(sh) || !Number.isFinite(sm) || !Number.isFinite(eh) || !Number.isFinite(em)) {
+  if (
+    !Number.isFinite(sh) ||
+    !Number.isFinite(sm) ||
+    !Number.isFinite(eh) ||
+    !Number.isFinite(em)
+  ) {
     return null;
   }
   const startMin = sh * 60 + sm;
@@ -118,8 +120,7 @@ function haversineKm(a: { lat: number; lon: number }, b: { lat: number; lon: num
   const dLon = toRad(b.lon - a.lon);
   const lat1 = toRad(a.lat);
   const lat2 = toRad(b.lat);
-  const s =
-    Math.sin(dLat / 2) ** 2 + Math.sin(dLon / 2) ** 2 * Math.cos(lat1) * Math.cos(lat2);
+  const s = Math.sin(dLat / 2) ** 2 + Math.sin(dLon / 2) ** 2 * Math.cos(lat1) * Math.cos(lat2);
   return 2 * R * Math.asin(Math.sqrt(s));
 }
 
@@ -300,7 +301,7 @@ export function StoresContent() {
         store: s,
         available: stockByStore.get(s.id)?.available_quantity ?? 0,
       }))
-      .filter(x => selectedProduct ? true : false);
+      .filter(x => (selectedProduct ? true : false));
   }, [stores, city, stockByStore, selectedProduct]);
 
   const hasStockInFilteredStores = useMemo(
@@ -392,7 +393,9 @@ export function StoresContent() {
                 <div className="mt-4 flex flex-col gap-2 sm:flex-row">
                   <Button
                     className="w-full sm:w-auto"
-                    onClick={() => heroMapRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                    onClick={() =>
+                      heroMapRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                    }
                   >
                     Найти ближайший магазин <MapPin className="ml-2 h-4 w-4" />
                   </Button>
@@ -405,7 +408,9 @@ export function StoresContent() {
                     Геолокация <Crosshair className="ml-2 h-4 w-4" />
                   </Button>
                 </div>
-                {geoError && <p className="mt-2 text-sm text-red-600 dark:text-red-400">{geoError}</p>}
+                {geoError && (
+                  <p className="mt-2 text-sm text-red-600 dark:text-red-400">{geoError}</p>
+                )}
 
                 <div className="mt-4 md:hidden">
                   <p className="text-sm font-semibold text-foreground">Визит без сюрпризов</p>
@@ -485,7 +490,10 @@ export function StoresContent() {
                   ))}
                 </FilterSelect>
                 <div>
-                  <label htmlFor="stores-search" className="mb-1 block text-sm text-foreground-muted">
+                  <label
+                    htmlFor="stores-search"
+                    className="mb-1 block text-sm text-foreground-muted"
+                  >
                     Поиск по адресу
                   </label>
                   <div className="relative">
@@ -551,15 +559,20 @@ export function StoresContent() {
           <div className="mb-6 px-0 max-md:px-4">
             <h2 className="text-2xl font-semibold text-foreground sm:text-3xl">Карта и адреса</h2>
             <p className="mt-2 text-base text-foreground-muted sm:text-lg">
-              Выберите магазин в списке — карта подсветит точку. Нажмите на маркер, чтобы перейти к карточке.
+              Выберите магазин в списке — карта подсветит точку. Нажмите на маркер, чтобы перейти к
+              карточке.
             </p>
           </div>
 
           <div className="grid gap-5 max-md:grid-cols-1 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
             <div className="max-md:px-0 md:rounded-3xl md:border md:border-border md:bg-white md:p-4 lg:p-5">
-              <p className="mb-3 hidden text-sm font-semibold text-foreground md:block">Список магазинов</p>
+              <p className="mb-3 hidden text-sm font-semibold text-foreground md:block">
+                Список магазинов
+              </p>
               {sortedStores.length === 0 ? (
-                <p className="text-sm text-foreground-muted">По заданным фильтрам ничего не найдено.</p>
+                <p className="text-sm text-foreground-muted">
+                  По заданным фильтрам ничего не найдено.
+                </p>
               ) : (
                 <ul
                   ref={listRef}
@@ -603,7 +616,9 @@ export function StoresContent() {
                         >
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0">
-                              <h3 className="truncate font-semibold text-foreground">{store.name}</h3>
+                              <h3 className="truncate font-semibold text-foreground">
+                                {store.name}
+                              </h3>
                               <p className="mt-1 flex items-start gap-2 text-sm text-foreground-muted">
                                 <MapPin className="mt-0.5 size-4 shrink-0" />
                                 <span className="truncate">
@@ -625,7 +640,9 @@ export function StoresContent() {
                                 <div
                                   className={cn(
                                     'mt-1 inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold',
-                                    open ? 'bg-emerald-50 text-emerald-700' : 'bg-zinc-100 text-zinc-600'
+                                    open
+                                      ? 'bg-emerald-50 text-emerald-700'
+                                      : 'bg-zinc-100 text-zinc-600'
                                   )}
                                 >
                                   {open ? 'Открыто' : 'Закрыто'}
@@ -715,7 +732,10 @@ export function StoresContent() {
           <Card className="rounded-3xl border border-border bg-white p-4 sm:p-6">
             <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
               <div className="relative">
-                <label htmlFor="stores-product" className="mb-1 block text-sm text-foreground-muted">
+                <label
+                  htmlFor="stores-product"
+                  className="mb-1 block text-sm text-foreground-muted"
+                >
                   Поиск товара
                 </label>
                 <Input
@@ -754,11 +774,17 @@ export function StoresContent() {
                               }}
                             >
                               <div className="flex items-center justify-between gap-3">
-                                <span className="truncate font-medium text-foreground">{item.title}</span>
-                                <span className="shrink-0 text-xs text-foreground-muted">{item.price} ₽</span>
+                                <span className="truncate font-medium text-foreground">
+                                  {item.title}
+                                </span>
+                                <span className="shrink-0 text-xs text-foreground-muted">
+                                  {item.price} ₽
+                                </span>
                               </div>
                               {item.sku && (
-                                <div className="mt-0.5 text-xs text-foreground-muted">SKU: {item.sku}</div>
+                                <div className="mt-0.5 text-xs text-foreground-muted">
+                                  SKU: {item.sku}
+                                </div>
                               )}
                             </button>
                           </li>
@@ -796,12 +822,16 @@ export function StoresContent() {
               <div className="mt-4 rounded-2xl border border-border bg-zinc-50 p-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-foreground">{selectedProduct.title}</p>
+                    <p className="truncate text-sm font-semibold text-foreground">
+                      {selectedProduct.title}
+                    </p>
                     <p className="mt-1 text-xs text-foreground-muted">
                       {selectedProduct.sku ? `SKU: ${selectedProduct.sku}` : 'SKU: —'}
                     </p>
                   </div>
-                  <div className="text-sm font-semibold text-foreground">{selectedProduct.price} ₽</div>
+                  <div className="text-sm font-semibold text-foreground">
+                    {selectedProduct.price} ₽
+                  </div>
                 </div>
               </div>
             )}
@@ -815,19 +845,19 @@ export function StoresContent() {
                   </div>
                 ) : (
                   <div className="grid gap-3 lg:grid-cols-2">
-                    {selectedProduct &&
-                      storesForStock.length > 0 &&
-                      !hasStockInFilteredStores && (
-                        <div className="col-span-full rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
-                          <p className="font-medium">Кнопка «Забрать в этом магазине» выключена намеренно.</p>
-                          <p className="mt-1 text-amber-900/90">
-                            По ответу API остатков для этого товара во всех показанных точках{' '}
-                            <strong>доступное количество равно нулю</strong> (нет записи склада или всё
-                            зарезервировано). Когда появится свободный остаток, бейдж покажет количество, и
-                            кнопка станет активной.
-                          </p>
-                        </div>
-                      )}
+                    {selectedProduct && storesForStock.length > 0 && !hasStockInFilteredStores && (
+                      <div className="col-span-full rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+                        <p className="font-medium">
+                          Кнопка «Забрать в этом магазине» выключена намеренно.
+                        </p>
+                        <p className="mt-1 text-amber-900/90">
+                          По ответу API остатков для этого товара во всех показанных точках{' '}
+                          <strong>доступное количество равно нулю</strong> (нет записи склада или
+                          всё зарезервировано). Когда появится свободный остаток, бейдж покажет
+                          количество, и кнопка станет активной.
+                        </p>
+                      </div>
+                    )}
                     {storesForStock
                       .map(({ store, available }) => ({ store, available }))
                       .sort((a, b) => b.available - a.available)
@@ -846,7 +876,9 @@ export function StoresContent() {
                           >
                             <div className="flex items-start justify-between gap-3">
                               <div className="min-w-0">
-                                <p className="truncate text-sm font-semibold text-foreground">{store.name}</p>
+                                <p className="truncate text-sm font-semibold text-foreground">
+                                  {store.name}
+                                </p>
                                 <p className="mt-1 text-xs text-foreground-muted">
                                   {store.city}, {store.address}
                                 </p>
@@ -854,7 +886,9 @@ export function StoresContent() {
                               <div
                                 className={cn(
                                   'shrink-0 rounded-full px-2 py-1 text-xs font-semibold',
-                                  available > 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-zinc-100 text-zinc-600'
+                                  available > 0
+                                    ? 'bg-emerald-50 text-emerald-700'
+                                    : 'bg-zinc-100 text-zinc-600'
                                 )}
                               >
                                 {quantityLabel(available)}
@@ -864,25 +898,30 @@ export function StoresContent() {
                             <div className="mt-3 grid gap-2 text-sm">
                               <div className="flex items-center justify-between gap-2">
                                 <span className="text-foreground-muted">Самовывоз сегодня</span>
-                                <span className={cn('font-semibold', pickupToday ? 'text-emerald-700' : 'text-zinc-500')}>
+                                <span
+                                  className={cn(
+                                    'font-semibold',
+                                    pickupToday ? 'text-emerald-700' : 'text-zinc-500'
+                                  )}
+                                >
                                   {pickupToday ? 'Да' : 'Нет'}
                                 </span>
                               </div>
                               <div className="flex items-center justify-between gap-2">
                                 <span className="text-foreground-muted">Самовывоз завтра</span>
-                                <span className={cn('font-semibold', pickupTomorrow ? 'text-emerald-700' : 'text-zinc-500')}>
+                                <span
+                                  className={cn(
+                                    'font-semibold',
+                                    pickupTomorrow ? 'text-emerald-700' : 'text-zinc-500'
+                                  )}
+                                >
                                   {pickupTomorrow ? 'Да' : 'Нет'}
                                 </span>
                               </div>
                             </div>
 
                             <div className="mt-4 grid gap-2 sm:grid-cols-2">
-                              <Button
-                                asChild
-                                variant="outline"
-                                size="sm"
-                                className="w-full"
-                              >
+                              <Button asChild variant="outline" size="sm" className="w-full">
                                 <a
                                   href={buildYandexRouteUrl(store, userLocation ?? undefined)}
                                   target="_blank"
@@ -922,7 +961,8 @@ export function StoresContent() {
 
             {!selectedProduct && (
               <p className="mt-4 text-sm text-foreground-muted">
-                Начните вводить название товара — появятся подсказки. Затем покажем наличие по магазинам.
+                Начните вводить название товара — появятся подсказки. Затем покажем наличие по
+                магазинам.
               </p>
             )}
           </Card>
@@ -979,4 +1019,3 @@ export function StoresContent() {
     </div>
   );
 }
-

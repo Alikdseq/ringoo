@@ -17,6 +17,8 @@ class CustomUserManager(UserManager):
         extra_fields.setdefault("is_staff", False)
         extra_fields.setdefault("is_superuser", False)
         email = extra_fields.pop("email", None)
+        # USERNAME_FIELD is phone; ignore legacy username= kwargs from older tests/callers.
+        extra_fields.pop("username", None)
         if not phone:
             raise ValueError("Нужно указать phone.")
         user = self.model(phone=phone, email=email, username=phone, **extra_fields)

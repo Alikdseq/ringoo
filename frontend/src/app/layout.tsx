@@ -44,8 +44,7 @@ export default async function RootLayout({
 }>) {
   const cookieStore = await cookies();
   const raw = cookieStore.get(UI_MODE_COOKIE_NAME)?.value;
-  const initialUiMode: UiMode =
-    UI_MODE_SVOI_ENABLED && isUiMode(raw) ? raw : 'official';
+  const initialUiMode: UiMode = UI_MODE_SVOI_ENABLED && isUiMode(raw) ? raw : 'official';
 
   const uiModeBootstrap = UI_MODE_SVOI_ENABLED
     ? `(function(){try{var c=document.cookie.match(/(?:^|; )ringoo_ui_mode=(official|svoi)(?:;|$)/);var v=c?c[1]:(typeof localStorage!=='undefined'?localStorage.getItem('ringoo_ui_mode'):null);if(v==='svoi'||v==='official'){document.documentElement.setAttribute('data-ui-mode',v);}else{document.documentElement.setAttribute('data-ui-mode','official');}}catch(e){document.documentElement.setAttribute('data-ui-mode','official');}})();`

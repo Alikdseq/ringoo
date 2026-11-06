@@ -141,8 +141,7 @@ export function AddressAutocomplete({
   const debouncedQuery = useDebounce(value, debounceMs);
   const apiKey = getSuggestApiKey();
   const shouldFetch = Boolean(apiKey && debouncedQuery.length >= minLength);
-  const suggestions =
-    shouldFetch && suggestPack.q === debouncedQuery ? suggestPack.items : [];
+  const suggestions = shouldFetch && suggestPack.q === debouncedQuery ? suggestPack.items : [];
   const isLoadingSuggestions = shouldFetch && resolvedQuery !== debouncedQuery;
 
   useEffect(() => {

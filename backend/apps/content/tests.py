@@ -22,7 +22,6 @@ class TestContentSerializers(TestCase):
         self.tag = Tag.objects.create(name="Тест", slug="test")
         self.user = CustomUser.objects.create_user(
             phone="+79991234567",
-            username="+79991234567",
             password="testpass123",
         )
 
@@ -155,6 +154,14 @@ class TestContentAPI(TestCase):
             comment="Норм",
             is_approved=True,
         )
+        Review.objects.create(
+            product=product,
+            name="Скрытый",
+            email="hidden@test.com",
+            rating=1,
+            comment="Плохо",
+            is_approved=False,
+        )
         url = reverse("api_v1:content:review-list")
         response = self.client.get(url, {"product": str(product.id)})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -162,6 +169,43 @@ class TestContentAPI(TestCase):
         results = data.get("results", data)
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0]["rating"], 4)
+        self.assertNotIn("email", results[0])
+
+    def test_review_list_rejects_unapproved_filter(self):
+        """SEC-002: ?is_approved=false не раскрывает скрытые отзывы."""
+        category = Category.objects.create(title="C3", slug="c3")
+        product = Product.objects.create(
+            title="P3",
+            slug="p3",
+            price=Decimal("15"),
+            category=category,
+        )
+        Review.objects.create(
+            product=product,
+            name="Одобрен",
+            email="ok@test.com",
+            rating=5,
+            comment="Ок",
+            is_approved=True,
+        )
+        Review.objects.create(
+            product=product,
+            name="Черновик",
+            email="secret@test.com",
+            rating=1,
+            comment="Секрет",
+            is_approved=False,
+        )
+        url = reverse("api_v1:content:review-list")
+        response = self.client.get(
+            url, {"product": str(product.id), "is_approved": "false"}
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        results = response.json().get("results", response.json())
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]["name"], "Одобрен")
+        self.assertNotIn("email", results[0])
+        self.assertNotIn("secret@test.com", response.content.decode())
 
     def test_review_create(self):
         category = Category.objects.create(title="C2", slug="c2")
@@ -182,3 +226,6 @@ class TestContentAPI(TestCase):
         response = self.client.post(url, payload, format="json")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(Review.objects.filter(product=product).count(), 1)
+        review = Review.objects.get(product=product)
+        self.assertEqual(review.email, "guest@test.com")
+        self.assertFalse(review.is_approved)

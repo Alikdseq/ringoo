@@ -194,10 +194,15 @@ export interface Cart {
 
 export interface OrderItem {
   id: string;
+  product?: string | null;
   product_title: string;
   quantity: number;
   price: string;
   item_total: string;
+  color?: string | null;
+  color_label?: string;
+  color_slug?: string;
+  color_hex?: string;
 }
 
 export interface Order {
@@ -221,6 +226,17 @@ export interface Order {
   updated_at: string;
   /** Есть ли оценка менеджера по этому заказу (для ЛК). */
   has_rating?: boolean;
+  /** Серверное разрешение на онлайн-оплату (не опираться только на status). */
+  can_pay?: boolean;
+  /** Серверное разрешение на отмену (FUNC-009). */
+  can_cancel?: boolean;
+  /** Статус последнего платежа, если есть. */
+  payment_status?: string | null;
+  /**
+   * SEC-006: plaintext guest access token — только в ответе создания гостевого заказа.
+   * Не хранить в аналитике; класть в sessionStorage для pay/cancel.
+   */
+  guest_access_token?: string;
 }
 
 // --- Блог / контент ---

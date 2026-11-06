@@ -31,7 +31,8 @@ const TONE_CLASS: Record<Slide['tone'], string> = {
   mint: 'bg-[radial-gradient(circle_at_20%_20%,rgba(34,197,94,0.20),transparent_55%),linear-gradient(180deg,#ffffff,#f6fff8)]',
   sky: 'bg-[radial-gradient(circle_at_20%_20%,rgba(59,130,246,0.18),transparent_55%),linear-gradient(180deg,#ffffff,#f6faff)]',
   zinc: 'bg-[radial-gradient(circle_at_20%_20%,rgba(24,24,27,0.10),transparent_55%),linear-gradient(180deg,#ffffff,#fafafa)]',
-  amber: 'bg-[radial-gradient(circle_at_20%_20%,rgba(245,158,11,0.20),transparent_55%),linear-gradient(180deg,#ffffff,#fffaf1)]',
+  amber:
+    'bg-[radial-gradient(circle_at_20%_20%,rgba(245,158,11,0.20),transparent_55%),linear-gradient(180deg,#ffffff,#fffaf1)]',
 };
 
 function pickTone(i: number): Slide['tone'] {
@@ -306,4 +307,3 @@ export function PromoFomoCarousel() {
   if (!mounted) return <PromoFomoCarouselSkeleton />;
   return <PromoFomoCarouselInner />;
 }
-

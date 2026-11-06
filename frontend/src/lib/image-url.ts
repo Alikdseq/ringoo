@@ -6,14 +6,11 @@
 const DOCKER_INTERNAL_HOST =
   /^(?:https?:\/\/)?(?:web|ringoo_backend|host\.docker\.internal)(?::\d+)?(?=\/|$)/i;
 
-const LOCAL_API_ORIGIN =
-  /^https?:\/\/(?:localhost|127\.0\.0\.1|0\.0\.0\.0)(?::\d+)?$/i;
+const LOCAL_API_ORIGIN = /^https?:\/\/(?:localhost|127\.0\.0\.1|0\.0\.0\.0)(?::\d+)?$/i;
 
 function publicSiteOrigin(): string {
   const site =
-    process.env.NEXT_PUBLIC_SITE_URL?.trim() ||
-    process.env.NEXT_PUBLIC_APP_URL?.trim() ||
-    '';
+    process.env.NEXT_PUBLIC_SITE_URL?.trim() || process.env.NEXT_PUBLIC_APP_URL?.trim() || '';
   return site.replace(/\/+$/, '');
 }
 
@@ -138,8 +135,5 @@ export function shouldUnoptimizeImage(src: string): boolean {
   if (preferRelativeMedia()) return true;
   if (process.env.NODE_ENV === 'production') return false;
   const normalized = normalizeMediaUrl(src);
-  return (
-    normalized.startsWith('http://127.0.0.1') ||
-    normalized.startsWith('http://localhost')
-  );
+  return normalized.startsWith('http://127.0.0.1') || normalized.startsWith('http://localhost');
 }

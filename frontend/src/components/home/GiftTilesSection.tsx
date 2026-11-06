@@ -56,7 +56,10 @@ export function GiftTilesSection() {
             <h2 className="text-2xl font-semibold text-foreground sm:text-3xl">Подарки</h2>
             <p className="mt-2 text-base text-foreground-muted sm:text-lg">Выбрал подарок?</p>
           </div>
-          <Link href="/catalog" className="text-sm font-medium text-brand hover:underline sm:text-base">
+          <Link
+            href="/catalog"
+            className="text-sm font-medium text-brand hover:underline sm:text-base"
+          >
             Смотреть всё
           </Link>
         </div>
@@ -101,4 +104,3 @@ export function GiftTilesSection() {
     </section>
   );
 }
-

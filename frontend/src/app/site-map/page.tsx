@@ -11,8 +11,11 @@ const LINKS = [
   { href: '/cart', label: 'Корзина' },
   { href: '/checkout', label: 'Оформление заказа' },
   { href: '/docs/requisites', label: 'Реквизиты организации' },
-  { href: '/docs/offer', label: 'Оферта' },
+  { href: '/docs/offer', label: 'Публичная оферта' },
   { href: '/docs/privacy', label: 'Политика конфиденциальности' },
+  { href: '/docs/consent', label: 'Согласие на обработку ПДн' },
+  { href: '/docs/marketing-consent', label: 'Согласие на маркетинг' },
+  { href: '/docs/cookies', label: 'Cookie и аналитика' },
 ];
 
 /** Человекочитаемая карта разделов. Машинный sitemap — `/sitemap.xml` (см. `app/sitemap.ts`). */

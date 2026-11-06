@@ -20,6 +20,16 @@ urlpatterns = [
         views.ManagerRatingSummaryView.as_view(),
         name="ratings-summary",
     ),
+    path(
+        "guest-access/recover/",
+        views.GuestAccessRecoverRequestView.as_view(),
+        name="guest-access-recover",
+    ),
+    path(
+        "guest-access/recover/confirm/",
+        views.GuestAccessRecoverConfirmView.as_view(),
+        name="guest-access-recover-confirm",
+    ),
     path("<uuid:pk>/reorder/", views.OrderReorderView.as_view(), name="order-reorder"),
     path("<uuid:pk>/cancel/", views.OrderCancelView.as_view(), name="order-cancel"),
     path("<uuid:pk>/pay/", OrderPayView.as_view(), name="order-pay"),

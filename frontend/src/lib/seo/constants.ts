@@ -13,15 +13,17 @@ export function getDefaultOgImageUrl(): string {
 
 export const ORGANIZATION_CONTACT = {
   name: SEO_BRAND,
-  legalName: 'ООО «Рингу»',
+  /** Юридическое наименование оператора (ИП). */
+  legalName: 'ИП Мисиков Герман Ростиславович',
   url: getSiteUrl(),
   telephone: '+7 (918) 415-77-88',
-  email: 'info@ringoo.ru',
+  email: 'misikov.german@mail.ru',
+  /** Юридический адрес регистрации */
   address: {
-    streetAddress: 'ул. Весенняя, 19Г',
+    streetAddress: 'ул. Карцинское шоссе, д. 5, кв. 58',
     addressLocality: SEO_GEO_CITY,
     addressRegion: 'РСО-Алания',
-    postalCode: '362000',
+    postalCode: '362002',
     addressCountry: 'RU',
   },
 } as const;

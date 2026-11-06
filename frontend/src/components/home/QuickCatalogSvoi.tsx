@@ -79,12 +79,12 @@ function Column({
   items: HomePageQuickCatalogItem[];
 }) {
   return (
-      <div className="flex min-h-0 w-full flex-col gap-3">
-        <div className="mb-1">
-          <h3 className="text-sm font-bold leading-tight text-foreground sm:text-base">{title}</h3>
-          <p className="mt-0.5 text-xs font-medium text-foreground-muted sm:text-sm">{subtitle}</p>
-        </div>
-        <div className="flex w-full flex-col gap-3">
+    <div className="flex min-h-0 w-full flex-col gap-3">
+      <div className="mb-1">
+        <h3 className="text-sm font-bold leading-tight text-foreground sm:text-base">{title}</h3>
+        <p className="mt-0.5 text-xs font-medium text-foreground-muted sm:text-sm">{subtitle}</p>
+      </div>
+      <div className="flex w-full flex-col gap-3">
         {items.map((item, i) => (
           <SvoiLinkButton key={`${item.href}-${i}`} item={item} />
         ))}

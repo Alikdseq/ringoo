@@ -548,7 +548,10 @@ class PaymentApiTests(TestCase):
 
     def test_pay_endpoint_wires_to_service(self):
         """View → initiate_sber_payment → клиент (мок HTTP, не мок всего сервиса)."""
+        from apps.orders.guest_access import issue_guest_access_token
+
         order, _, _ = _order()
+        guest_token = issue_guest_access_token(order)
         mock_client = MagicMock()
         mock_client.register_order.return_value = {
             "orderId": "88888888-8888-8888-8888-888888888888",
@@ -560,7 +563,11 @@ class PaymentApiTests(TestCase):
         ):
             resp = self.client.post(
                 f"/api/v1/orders/{order.id}/pay/",
-                {"phone": "79001112233"},
+                {
+                    "phone": order.phone,
+                    "order_number": order.order_number,
+                    "guest_token": guest_token,
+                },
                 format="json",
             )
         self.assertEqual(resp.status_code, 200)

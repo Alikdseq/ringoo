@@ -12,7 +12,11 @@ import { getMediaUrl } from '@/lib/image-url';
 import { usePromotionCountdown } from '@/lib/hooks/usePromotionCountdown';
 import { CURRENCY_SYMBOL } from '@/lib/constants';
 import { cn } from '@/lib/theme/utils';
-import { HOME_SECTION_CLASS, HOME_SECTION_INNER_CLASS, PRODUCT_CARD_GRID_CLASS } from '@/lib/theme/spacing';
+import {
+  HOME_SECTION_CLASS,
+  HOME_SECTION_INNER_CLASS,
+  PRODUCT_CARD_GRID_CLASS,
+} from '@/lib/theme/spacing';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Loading } from '@/components/ui/Loading';
@@ -87,7 +91,12 @@ function PromoBadge({ kind, text }: { kind: Exclude<PromoKind, 'all'>; text: str
           ? 'bg-amber-600'
           : 'bg-zinc-900';
   return (
-    <span className={cn('inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold text-white', tone)}>
+    <span
+      className={cn(
+        'inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold text-white',
+        tone
+      )}
+    >
       {text}
     </span>
   );
@@ -149,7 +158,9 @@ function PromoCard({ promotion }: { promotion: Promotion }) {
 
   // пока нет поля участников — делаем мягкое соцдоказательство детерминированно
   const participants = useMemo(() => {
-    const seed = String(promotion.id).split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+    const seed = String(promotion.id)
+      .split('')
+      .reduce((a, c) => a + c.charCodeAt(0), 0);
     return 900 + (seed % 2400);
   }, [promotion.id]);
 
@@ -192,7 +203,12 @@ function PromoCard({ promotion }: { promotion: Promotion }) {
             {stripDescriptionHtml(promotion.description) || 'Ограниченное предложение'}
           </p>
 
-          <div className={cn('flex items-center gap-2 text-sm', ended ? 'text-danger' : 'text-foreground-muted')}>
+          <div
+            className={cn(
+              'flex items-center gap-2 text-sm',
+              ended ? 'text-danger' : 'text-foreground-muted'
+            )}
+          >
             <Clock className="h-4 w-4 shrink-0" />
             <span>{ended ? 'Акция завершена' : `До конца: ${timeLeft}`}</span>
           </div>
@@ -462,7 +478,9 @@ function ProductOfDayProductBlock({ product }: { product: Product }) {
 
               <div className="mt-3 flex w-full flex-wrap items-center justify-center gap-3">
                 <div className="text-3xl font-semibold leading-none text-foreground">
-                  {cur != null && Number.isFinite(cur) ? Math.round(cur).toLocaleString('ru-RU') : '—'}{' '}
+                  {cur != null && Number.isFinite(cur)
+                    ? Math.round(cur).toLocaleString('ru-RU')
+                    : '—'}{' '}
                   {CURRENCY_SYMBOL}
                 </div>
                 {old != null && cur != null && old > cur && (
@@ -498,7 +516,6 @@ function ProductOfDayProductBlock({ product }: { product: Product }) {
     </section>
   );
 }
-
 
 function Faq() {
   const items = [
@@ -540,7 +557,12 @@ function Faq() {
                   onClick={() => setOpen(v => (v === idx ? null : idx))}
                 >
                   <span className="text-sm font-semibold text-foreground sm:text-base">{it.q}</span>
-                  <span className={cn('text-sm text-foreground-muted transition-transform', isOpen && 'rotate-180')}>
+                  <span
+                    className={cn(
+                      'text-sm text-foreground-muted transition-transform',
+                      isOpen && 'rotate-180'
+                    )}
+                  >
                     ↓
                   </span>
                 </button>
@@ -566,7 +588,11 @@ export default function PromotionsPage() {
   const didInitRef = useRef(false);
   const didScrollTopRef = useRef(false);
 
-  const { data: promotions = [], isLoading, isError } = useQuery({
+  const {
+    data: promotions = [],
+    isLoading,
+    isError,
+  } = useQuery({
     queryKey: ['promotions', 'public'],
     queryFn: () => getPromotions({}),
   });
@@ -596,7 +622,8 @@ export default function PromotionsPage() {
     return products.filter(p => {
       const old = p.old_price ? Number(p.old_price) : null;
       const cur = p.price ? Number(p.price) : null;
-      const byOldPrice = old != null && cur != null && Number.isFinite(old) && Number.isFinite(cur) && old > cur;
+      const byOldPrice =
+        old != null && cur != null && Number.isFinite(old) && Number.isFinite(cur) && old > cur;
       const byPercent = p.discount_percent != null && Number(p.discount_percent) > 0;
       return byOldPrice || byPercent;
     });
@@ -701,9 +728,7 @@ export default function PromotionsPage() {
           </div>
 
           {filter === 'product_of_day' ? (
-            <Card className="p-6 text-center text-foreground-muted">
-              Товар дня показан выше.
-            </Card>
+            <Card className="p-6 text-center text-foreground-muted">Товар дня показан выше.</Card>
           ) : filter === 'installment' ? (
             <div className="-mx-2 overflow-hidden sm:-mx-4 lg:-mx-6">
               <InstallmentZeroSection />
@@ -734,7 +759,11 @@ export default function PromotionsPage() {
 
               {discountedProducts.length > visibleCount && (
                 <div className="mt-6 flex justify-center">
-                  <Button type="button" variant="secondary" onClick={() => setVisibleCount(v => v + 12)}>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => setVisibleCount(v => v + 12)}
+                  >
                     Показать ещё
                   </Button>
                 </div>

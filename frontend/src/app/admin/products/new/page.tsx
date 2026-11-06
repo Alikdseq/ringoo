@@ -4,10 +4,7 @@ import { useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import type { AdminProductPayload } from '@/lib/api/services/adminProducts.service';
-import {
-  createAdminProduct,
-  uploadProductImage,
-} from '@/lib/api/services/adminProducts.service';
+import { createAdminProduct, uploadProductImage } from '@/lib/api/services/adminProducts.service';
 import { getAdminCategories, type AdminCategory } from '@/lib/api/services/adminCatalog.service';
 import { slugifyProductTitle } from '@/lib/slugify';
 import { Card } from '@/components/ui/Card';
@@ -165,9 +162,7 @@ export default function AdminProductCreatePage() {
                     <button
                       type="button"
                       className="text-red-600 hover:underline"
-                      onClick={() =>
-                        setPendingImages(prev => prev.filter((_, idx) => idx !== i))
-                      }
+                      onClick={() => setPendingImages(prev => prev.filter((_, idx) => idx !== i))}
                     >
                       ×
                     </button>

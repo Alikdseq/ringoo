@@ -59,8 +59,7 @@ export function hasAuthSessionFlag(): boolean {
 export function hasAuthSessionHint(): boolean {
   if (typeof window === 'undefined') return false;
   return (
-    sessionStorage.getItem(AUTH_HINT_KEY) === '1' ||
-    localStorage.getItem(AUTH_REMEMBER_KEY) === '1'
+    sessionStorage.getItem(AUTH_HINT_KEY) === '1' || localStorage.getItem(AUTH_REMEMBER_KEY) === '1'
   );
 }
 

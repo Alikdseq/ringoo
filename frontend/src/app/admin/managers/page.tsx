@@ -61,9 +61,7 @@ export default function AdminManagersPage() {
 
   const createMutation = useMutation({
     mutationFn: () =>
-      createAdminManager(
-        buildManagerFormData(form, { photo: photoFile, photo_2: photo2File })
-      ),
+      createAdminManager(buildManagerFormData(form, { photo: photoFile, photo_2: photo2File })),
     onSuccess: () => {
       void refetch();
       resetForm();
@@ -72,10 +70,7 @@ export default function AdminManagersPage() {
 
   const updateMutation = useMutation({
     mutationFn: (id: string) =>
-      updateAdminManager(
-        id,
-        buildManagerFormData(form, { photo: photoFile, photo_2: photo2File })
-      ),
+      updateAdminManager(id, buildManagerFormData(form, { photo: photoFile, photo_2: photo2File })),
     onSuccess: () => {
       void refetch();
       resetForm();
@@ -201,11 +196,19 @@ export default function AdminManagersPage() {
           </div>
           <div>
             <label className="mb-1 block text-sm text-zinc-600">Фото 1</label>
-            <input type="file" accept="image/*" onChange={e => setPhotoFile(e.target.files?.[0] ?? null)} />
+            <input
+              type="file"
+              accept="image/*"
+              onChange={e => setPhotoFile(e.target.files?.[0] ?? null)}
+            />
           </div>
           <div>
             <label className="mb-1 block text-sm text-zinc-600">Фото 2</label>
-            <input type="file" accept="image/*" onChange={e => setPhoto2File(e.target.files?.[0] ?? null)} />
+            <input
+              type="file"
+              accept="image/*"
+              onChange={e => setPhoto2File(e.target.files?.[0] ?? null)}
+            />
           </div>
           <div className="flex flex-wrap gap-2 sm:col-span-2">
             <Button type="submit" disabled={isSaving}>
@@ -244,7 +247,14 @@ export default function AdminManagersPage() {
                 <li key={m.id} className="flex flex-wrap items-center gap-4 py-4">
                   <div className="relative size-12 overflow-hidden rounded-full bg-zinc-100">
                     {photoUrl ? (
-                      <Image src={photoUrl} alt="" fill className="object-cover" sizes="48px" unoptimized />
+                      <Image
+                        src={photoUrl}
+                        alt=""
+                        fill
+                        className="object-cover"
+                        sizes="48px"
+                        unoptimized
+                      />
                     ) : (
                       <span className="flex size-full items-center justify-center text-sm font-semibold">
                         {m.name.slice(0, 1)}

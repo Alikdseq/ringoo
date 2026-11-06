@@ -33,10 +33,7 @@ interface MobileMenuProps {
   navItems: NavItem[];
 }
 
-const MOBILE_CARD_META: Record<
-  string,
-  { subtitle: string; icon: LucideIcon; badge?: string }
-> = {
+const MOBILE_CARD_META: Record<string, { subtitle: string; icon: LucideIcon; badge?: string }> = {
   '/catalog': { subtitle: 'Смартфоны, техника и аксессуары', icon: LayoutGrid },
   '/promotions': { subtitle: 'Скидки и спецпредложения', icon: Percent, badge: 'HOT' },
   '/stores': { subtitle: 'Адреса и часы работы', icon: MapPin },

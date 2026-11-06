@@ -27,6 +27,8 @@ export interface AdminReviewListItem {
   product: string;
   user: string | null;
   name: string;
+  /** Доступен только в admin_api (SEC-002). */
+  email?: string | null;
   rating: number;
   comment: string;
   is_approved: boolean;

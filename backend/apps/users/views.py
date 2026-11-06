@@ -35,10 +35,21 @@ from django.db import transaction
 from apps.cart.services import merge_guest_cart_into_user
 from config.throttling import (
     AuthLoginAnonThrottle,
+    AuthMfaVerifyUserThrottle,
     AuthRefreshAnonThrottle,
     AuthRegisterAnonThrottle,
 )
 
+from .admin_mfa import (
+    ADMIN_MFA_CLAIM,
+    ADMIN_MFA_CLAIM_VALUE,
+    admin_otp_required,
+    issue_tokens_with_admin_mfa,
+    request_has_admin_mfa,
+    staff_needs_mfa_step,
+    user_has_confirmed_totp,
+    verify_totp_code,
+)
 from .jwt_cookies import (
     clear_jwt_cookies,
     client_uses_cookie_auth,
@@ -56,6 +67,39 @@ from .security_logging import log_login_failed, log_token_refresh_failed
 from .services import normalize_phone, record_successful_password_login
 
 logger = logging.getLogger(__name__)
+
+
+class AdminMfaAwareTokenRefreshSerializer(serializers.Serializer):
+    """
+    Refresh that preserves admin_mfa claim across rotation.
+    Does not grant MFA if the old refresh lacked the claim.
+    """
+
+    refresh = serializers.CharField()
+
+    def validate(self, attrs):
+        from rest_framework_simplejwt.serializers import TokenRefreshSerializer
+        from rest_framework_simplejwt.tokens import AccessToken
+
+        # Read claim before rotation/blacklist of the presented refresh.
+        try:
+            old = RefreshToken(attrs["refresh"])
+        except TokenError as exc:
+            raise InvalidToken(exc.args[0]) from exc
+        had_mfa = old.get(ADMIN_MFA_CLAIM) == ADMIN_MFA_CLAIM_VALUE
+
+        base = TokenRefreshSerializer(context=self.context)
+        data = base.validate(attrs)
+        if not had_mfa:
+            return data
+        access_token = AccessToken(data["access"])
+        access_token[ADMIN_MFA_CLAIM] = ADMIN_MFA_CLAIM_VALUE
+        data["access"] = str(access_token)
+        if data.get("refresh"):
+            new_refresh = RefreshToken(data["refresh"])
+            new_refresh[ADMIN_MFA_CLAIM] = ADMIN_MFA_CLAIM_VALUE
+            data["refresh"] = str(new_refresh)
+        return data
 
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
@@ -137,6 +181,7 @@ class StaffAccessView(APIView):
     """
     GET /api/v1/auth/staff-access/
     Проверка доступа к админ-панели: 200 только для is_staff.
+    При ADMIN_OTP_ENABLED требуется JWT-claim admin_mfa (после TOTP).
     Не подмешивает признак staff в публичный ответ /auth/me/.
     """
 
@@ -145,6 +190,17 @@ class StaffAccessView(APIView):
     def get(self, request):
         if not request.user.is_staff:
             return Response(status=status.HTTP_403_FORBIDDEN)
+        otp_on = admin_otp_required()
+        mfa_ok = (not otp_on) or request_has_admin_mfa(request)
+        if otp_on and not mfa_ok:
+            return Response(
+                {
+                    "detail": "Требуется подтверждение второго фактора (TOTP).",
+                    "code": "admin_mfa_required",
+                    "mfa_enrolled": user_has_confirmed_totp(request.user),
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
         from apps.admin_api.permissions import ALL_ADMIN_GROUPS
 
         user = request.user
@@ -161,8 +217,103 @@ class StaffAccessView(APIView):
                 "staff": True,
                 "is_superuser": bool(user.is_superuser),
                 "groups": groups,
+                "admin_mfa": True if (otp_on and mfa_ok) else (not otp_on),
             }
         )
+
+
+class AdminMfaStatusView(APIView):
+    """GET /api/v1/auth/mfa/status/ — enrollment / verified claim (без секретов)."""
+
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request):
+        user = request.user
+        needs = staff_needs_mfa_step(user)
+        return Response(
+            {
+                "otp_enabled": admin_otp_required(),
+                "staff": bool(user.is_staff or user.is_superuser),
+                "mfa_required": needs,
+                "mfa_enrolled": user_has_confirmed_totp(user) if needs else False,
+                "admin_mfa_verified": request_has_admin_mfa(request),
+            }
+        )
+
+
+class AdminMfaVerifyView(APIView):
+    """
+    POST /api/v1/auth/mfa/verify/  body: { "totp": "123456" }
+    После пароля staff подтверждает TOTP → новые JWT с admin_mfa=1.
+    """
+
+    permission_classes = (IsAuthenticated,)
+    throttle_classes = [AuthMfaVerifyUserThrottle]
+
+    def post(self, request):
+        from apps.audit.services import log_admin_action
+
+        user = request.user
+        if not (user.is_staff or user.is_superuser):
+            return Response(
+                {"detail": "Только для сотрудников.", "code": "not_staff"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        if not admin_otp_required():
+            access, refresh = issue_tokens_with_admin_mfa(user)
+            body = {"access": access, "refresh": refresh, "admin_mfa": True}
+            if client_uses_cookie_auth(request):
+                body = strip_tokens_from_response_data(body)
+            response = Response(body, status=status.HTTP_200_OK)
+            set_jwt_cookies(response, access, refresh)
+            return response
+        if not user_has_confirmed_totp(user):
+            log_admin_action(
+                request,
+                action="mfa_verify_denied_unenrolled",
+                model_name="auth.mfa",
+                object_id=str(user.pk),
+                object_repr="totp_unenrolled",
+            )
+            return Response(
+                {
+                    "detail": (
+                        "TOTP-устройство не зарегистрировано. "
+                        "Выполните enrollment через Django Admin / ops (см. ADMIN_MFA_SETUP)."
+                    ),
+                    "code": "mfa_not_enrolled",
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        code = ""
+        if isinstance(request.data, dict):
+            code = str(request.data.get("totp") or request.data.get("token") or "")
+        if not verify_totp_code(user, code):
+            log_admin_action(
+                request,
+                action="mfa_verify_failed",
+                model_name="auth.mfa",
+                object_id=str(user.pk),
+                object_repr="totp_failed",
+            )
+            return Response(
+                {"detail": "Неверный код подтверждения.", "code": "mfa_invalid"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        access, refresh = issue_tokens_with_admin_mfa(user)
+        log_admin_action(
+            request,
+            action="mfa_verify_ok",
+            model_name="auth.mfa",
+            object_id=str(user.pk),
+            object_repr="totp_ok",
+        )
+        body = {"access": access, "refresh": refresh, "admin_mfa": True}
+        if client_uses_cookie_auth(request):
+            body = strip_tokens_from_response_data(body)
+        response = Response(body, status=status.HTTP_200_OK)
+        set_jwt_cookies(response, access, refresh)
+        return response
 
 
 class UserMeView(APIView):
@@ -326,6 +477,12 @@ class TokenObtainPairViewNoCSRF(TokenObtainPairView):
             merge_guest_cart_into_user(request, serializer.user)
 
             payload = dict(serializer.validated_data)
+            user = serializer.user
+            # Password login never grants admin_mfa; staff must call /auth/mfa/verify/.
+            if staff_needs_mfa_step(user):
+                payload["admin_mfa_required"] = True
+                payload["mfa_enrolled"] = user_has_confirmed_totp(user)
+                payload["admin_mfa"] = False
             if client_uses_cookie_auth(request):
                 payload = strip_tokens_from_response_data(payload)
             response = Response(payload, status=status.HTTP_200_OK)
@@ -357,11 +514,13 @@ class TokenObtainPairViewNoCSRF(TokenObtainPairView):
 class CookieTokenRefreshView(TokenRefreshView):
     """
     Обновление access; refresh из тела или из HttpOnly-куки (для режима NEXT_PUBLIC_USE_AUTH_COOKIES).
+    Сохраняет admin_mfa claim только если он уже был в refresh (refresh не обходит MFA).
     """
 
     authentication_classes: ClassVar[list] = []
     permission_classes = (AllowAny,)
     throttle_classes = [AuthRefreshAnonThrottle]
+    serializer_class = AdminMfaAwareTokenRefreshSerializer
 
     def post(self, request, *args, **kwargs):
         if isinstance(request.data, dict):

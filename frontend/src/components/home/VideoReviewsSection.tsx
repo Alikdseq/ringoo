@@ -27,9 +27,21 @@ const MOCK_VIDEO_REVIEWS: VideoReview[] = [
     quote: 'Реальный отзыв из магазина — смотрите видео.',
     src: REVIEW_VIDEO_1,
   },
-  { id: 'vr-2', name: 'Диана', city: 'Беслан', quote: 'Взяла в рассрочку — оформили за минуты.', src: null },
+  {
+    id: 'vr-2',
+    name: 'Диана',
+    city: 'Беслан',
+    quote: 'Взяла в рассрочку — оформили за минуты.',
+    src: null,
+  },
   { id: 'vr-3', name: 'Тимур', city: 'Моздок', quote: 'Товар как новый, всё честно.', src: null },
-  { id: 'vr-4', name: 'Зарина', city: 'Владикавказ', quote: 'Забрала в магазине в тот же день.', src: null },
+  {
+    id: 'vr-4',
+    name: 'Зарина',
+    city: 'Владикавказ',
+    quote: 'Забрала в магазине в тот же день.',
+    src: null,
+  },
   { id: 'vr-5', name: 'Руслан', city: 'Беслан', quote: 'Рекомендую Ringoo.', src: null },
 ];
 
@@ -154,7 +166,11 @@ function VideoCard({
             className={cn(
               'inline-flex h-14 w-14 items-center justify-center rounded-full',
               'bg-white/90 shadow-sm backdrop-blur transition-opacity',
-              hasVideo ? (isPlaying ? 'opacity-0 group-hover/video:opacity-100' : 'opacity-100') : 'opacity-75'
+              hasVideo
+                ? isPlaying
+                  ? 'opacity-0 group-hover/video:opacity-100'
+                  : 'opacity-100'
+                : 'opacity-75'
             )}
           >
             {isPlaying ? (
@@ -275,7 +291,10 @@ export function VideoReviewsSection() {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <Link href="/stores" className="text-sm font-medium text-brand hover:underline sm:text-base">
+            <Link
+              href="/stores"
+              className="text-sm font-medium text-brand hover:underline sm:text-base"
+            >
               Смотреть все
             </Link>
             <div className="hidden items-center gap-1 sm:flex">

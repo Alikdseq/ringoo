@@ -350,7 +350,7 @@ class TestMergeGuestCartIntoUser(TestCase):
             category=self.category,
             is_active=True,
         )
-        self.user = CustomUser.objects.create_user(phone="+79991234567", username="+79991234567")
+        self.user = CustomUser.objects.create_user(phone="+79991234567")
 
     def _request_with_session(self, session_key):
         request = self.factory.get("/")

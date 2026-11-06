@@ -19,6 +19,8 @@ class PaymentSerializer(serializers.ModelSerializer):
             "currency",
             "merchant_order_number",
             "sber_order_id",
+            "yookassa_payment_id",
+            "is_test",
             "form_url",
             "sber_order_status",
             "action_code",

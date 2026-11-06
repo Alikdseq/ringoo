@@ -41,14 +41,8 @@ export function ProductGallery({
   const galleryModules = useMemo(() => [Navigation], []);
 
   const allImages = product.images ?? [];
-  const colorGroups = useMemo(
-    () => mergeColorGroups(product.colors ?? []),
-    [product.colors]
-  );
-  const targetIphoneGallery = isTargetIphoneGallerySlug(
-    product.slug,
-    product.category?.slug
-  );
+  const colorGroups = useMemo(() => mergeColorGroups(product.colors ?? []), [product.colors]);
+  const targetIphoneGallery = isTargetIphoneGallerySlug(product.slug, product.category?.slug);
   const imageVisualMode = useMemo(
     () => getCatalogImageVisualMode(product.slug, product.category?.slug),
     [product.slug, product.category?.slug]
@@ -157,9 +151,7 @@ export function ProductGallery({
             <Swiper
               key={`main-${swiperDataKey}`}
               modules={showGalleryNav ? galleryModules : []}
-              navigation={
-                showGalleryNav ? { enabled: true, hideOnClick: false } : false
-              }
+              navigation={showGalleryNav ? { enabled: true, hideOnClick: false } : false}
               allowTouchMove
               touchStartPreventDefault={false}
               resistanceRatio={0.85}

@@ -20,9 +20,7 @@ export function LegalDocLayout({ title, description, children }: LegalDocLayoutP
   return (
     <div className="mx-auto w-full max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
       <h1 className="mb-2 text-2xl font-semibold text-foreground sm:text-3xl">{title}</h1>
-      {description ? (
-        <p className="mb-2 text-sm text-foreground-muted">{description}</p>
-      ) : null}
+      {description ? <p className="mb-2 text-sm text-foreground-muted">{description}</p> : null}
       <p className="mb-8 text-sm text-foreground-muted">Версия документа: {POLICY_VERSION}</p>
       <div className="prose prose-zinc max-w-none space-y-8 text-sm dark:prose-invert">
         {children}

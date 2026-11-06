@@ -47,8 +47,7 @@ export const QUICK_CATALOG_SCRIM_CLASS =
   'pointer-events-none absolute inset-x-0 bottom-0 h-1/2 bg-[linear-gradient(to_top,rgba(0,0,0,0.45)_0%,rgba(0,0,0,0.18)_45%,transparent_100%)]';
 
 /** Без затемнения (раньше был backdrop-blur). Оставляем класс для совместимости. */
-export const QUICK_CATALOG_FROST_CLASS =
-  'pointer-events-none absolute inset-0 opacity-0';
+export const QUICK_CATALOG_FROST_CLASS = 'pointer-events-none absolute inset-0 opacity-0';
 
 /** Glow по краям при hover — усиливает 3D-эффект без перекрытия фото. */
 export const QUICK_CATALOG_GLOW_CLASS = [

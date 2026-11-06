@@ -142,7 +142,8 @@ export function SubscribeDealsSection() {
                   {error && <p className="text-sm text-danger">{error}</p>}
                   {!isAuthenticated && (
                     <p className="text-xs text-foreground-muted">
-                      Подписка сохранится на устройстве. Чтобы привязать к аккаунту — войдите в профиль.
+                      Подписка сохранится на устройстве. Чтобы привязать к аккаунту — войдите в
+                      профиль.
                     </p>
                   )}
                 </div>
@@ -154,4 +155,3 @@ export function SubscribeDealsSection() {
     </section>
   );
 }
-

@@ -9,7 +9,11 @@ import { getFriendlyErrorMessage } from '@/lib/errors';
 import { ProductCard } from '@/components/features/products/ProductCard';
 import { Button } from '@/components/ui/Button';
 import { dedupeById } from '@/lib/dedupe-by-id';
-import { HOME_SECTION_CLASS, HOME_SECTION_INNER_CLASS, PRODUCT_CARD_GRID_CLASS } from '@/lib/theme/spacing';
+import {
+  HOME_SECTION_CLASS,
+  HOME_SECTION_INNER_CLASS,
+  PRODUCT_CARD_GRID_CLASS,
+} from '@/lib/theme/spacing';
 
 const NEWEST_FILTERS: ProductFilters = {
   page_size: 3,
@@ -62,12 +66,17 @@ export function PopularNowSection({ initialSamsung, initialIphone }: PopularNowS
       <div className={HOME_SECTION_INNER_CLASS}>
         <div className="mb-6 flex items-end justify-between gap-4">
           <div>
-            <h2 className="text-2xl font-semibold text-foreground sm:text-3xl">Популярное сейчас</h2>
+            <h2 className="text-2xl font-semibold text-foreground sm:text-3xl">
+              Популярное сейчас
+            </h2>
             <p className="mt-2 text-base text-foreground-muted sm:text-lg">
               Три новых Samsung и три новых iPhone.
             </p>
           </div>
-          <Link href="/catalog" className="text-sm font-medium text-brand hover:underline sm:text-base">
+          <Link
+            href="/catalog"
+            className="text-sm font-medium text-brand hover:underline sm:text-base"
+          >
             Смотреть всё
           </Link>
         </div>
@@ -92,12 +101,7 @@ export function PopularNowSection({ initialSamsung, initialIphone }: PopularNowS
         ) : (
           <div className={PRODUCT_CARD_GRID_CLASS}>
             {products.map((product, index) => (
-              <ProductCard
-                key={product.id}
-                product={product}
-                enableTilt
-                className="h-full"
-              />
+              <ProductCard key={product.id} product={product} enableTilt className="h-full" />
             ))}
           </div>
         )}

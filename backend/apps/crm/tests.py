@@ -29,7 +29,6 @@ class MissingProductRequestModelTest(TestCase):
     def test_create_with_user(self):
         user = CustomUser.objects.create_user(
             phone="+79990000000",
-            username="+79990000000",
             email="user@test.com",
         )
         req = MissingProductRequest.objects.create(
@@ -74,7 +73,6 @@ class MissingProductRequestCreateAPITest(TestCase):
     def test_create_authenticated_sets_user(self, mock_task):
         user = CustomUser.objects.create_user(
             phone="+79997777777",
-            username="+79997777777",
             email="auth@test.com",
         )
         self.client.force_authenticate(user=user)

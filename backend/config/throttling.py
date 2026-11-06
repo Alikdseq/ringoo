@@ -84,6 +84,12 @@ class AuthRefreshAnonThrottle(DynamicThrottleRatesMixin, AnonRateThrottle):
     scope = "auth_refresh"
 
 
+class AuthMfaVerifyUserThrottle(DynamicThrottleRatesMixin, UserRateThrottle):
+    """Лимит POST /auth/mfa/verify/ (подбор TOTP)."""
+
+    scope = "auth_mfa_verify"
+
+
 class CartReadRateThrottle(DynamicThrottleRatesMixin, AnonRateThrottle):
     """GET корзины — гости и авторизованные (по IP / user)."""
 
@@ -142,4 +148,49 @@ class PaymentStatusUserThrottle(DynamicThrottleRatesMixin, UserRateThrottle):
     """GET /orders/{id}/payment/ для авторизованных."""
 
     scope = "payment_status_user"
+
+
+class ReviewCreateAnonThrottle(DynamicThrottleRatesMixin, AnonRateThrottle):
+    """SEC-004: POST создания отзыва (гость по IP)."""
+
+    scope = "review_create_anon"
+
+
+class ReviewCreateUserThrottle(DynamicThrottleRatesMixin, UserRateThrottle):
+    """SEC-004: POST создания отзыва (авторизованный)."""
+
+    scope = "review_create"
+
+
+class YooKassaWebhookThrottle(DynamicThrottleRatesMixin, AnonRateThrottle):
+    """
+    SEC-007: отдельный лимит на webhook ЮKassa (по IP).
+    Не единственная защита — paid только после re-fetch API.
+    """
+
+    scope = "yookassa_webhook"
+
+
+class PasswordResetAnonThrottle(DynamicThrottleRatesMixin, AnonRateThrottle):
+    """SEC-009: запрос восстановления пароля."""
+
+    scope = "password_reset"
+
+
+class PasswordResetConfirmAnonThrottle(DynamicThrottleRatesMixin, AnonRateThrottle):
+    """SEC-009: подтверждение нового пароля по токену."""
+
+    scope = "password_reset_confirm"
+
+
+class GuestAccessRecoverAnonThrottle(DynamicThrottleRatesMixin, AnonRateThrottle):
+    """SEC-006: запрос восстановления гостевого доступа к заказу."""
+
+    scope = "guest_access_recover"
+
+
+class GuestAccessRecoverConfirmAnonThrottle(DynamicThrottleRatesMixin, AnonRateThrottle):
+    """SEC-006: подтверждение recovery-токена гостевого заказа."""
+
+    scope = "guest_access_recover_confirm"
 

@@ -83,9 +83,22 @@ class NewsAdminSerializer(serializers.ModelSerializer):
 
 
 class ReviewSerializer(serializers.ModelSerializer):
+    """Админский список отзывов: email доступен при правах content (SEC-002)."""
+
     class Meta:
         model = Review
-        fields = ("id", "product", "user", "name", "rating", "comment", "is_approved", "is_verified_purchase", "created_at")
+        fields = (
+            "id",
+            "product",
+            "user",
+            "name",
+            "email",
+            "rating",
+            "comment",
+            "is_approved",
+            "is_verified_purchase",
+            "created_at",
+        )
 
 
 class ReviewModerationSerializer(serializers.ModelSerializer):

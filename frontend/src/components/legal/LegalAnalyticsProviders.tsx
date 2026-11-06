@@ -4,13 +4,20 @@ import { useCallback, useEffect, useState } from 'react';
 import { YandexMetrika } from '@/components/analytics/YandexMetrika';
 import { CookieConsentBanner } from '@/components/legal/CookieConsentBanner';
 import { postAnalyticsConsent } from '@/lib/api/services/legal.service';
-import { readAnalyticsConsent, setAnalyticsConsent } from '@/lib/legal/analytics-consent';
+import {
+  ANALYTICS_CONSENT_RESET_EVENT,
+  readAnalyticsConsent,
+  setAnalyticsConsent,
+} from '@/lib/legal/analytics-consent';
 
 export function LegalAnalyticsProviders() {
   const [consent, setConsent] = useState<boolean | null>(null);
 
   useEffect(() => {
     setConsent(readAnalyticsConsent());
+    const onReset = () => setConsent(null);
+    window.addEventListener(ANALYTICS_CONSENT_RESET_EVENT, onReset);
+    return () => window.removeEventListener(ANALYTICS_CONSENT_RESET_EVENT, onReset);
   }, []);
 
   const applyChoice = useCallback((accepted: boolean) => {

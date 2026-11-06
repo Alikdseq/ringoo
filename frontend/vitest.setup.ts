@@ -7,6 +7,30 @@ vi.mock("next/font/google", () => ({
   Comfortaa: () => ({ className: "mock-comfortaa" }),
 }));
 
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({
+    push: vi.fn(),
+    replace: vi.fn(),
+    prefetch: vi.fn(),
+    back: vi.fn(),
+  }),
+  usePathname: () => "/",
+  useSearchParams: () => new URLSearchParams(),
+  useParams: () => ({}),
+  redirect: vi.fn(),
+}));
+
+vi.mock("next/image", () => ({
+  __esModule: true,
+  default: (props: { alt?: string; src?: string }) => {
+    const React = require("react") as typeof import("react");
+    return React.createElement("img", {
+      src: typeof props.src === "string" ? props.src : "",
+      alt: props.alt ?? "",
+    });
+  },
+}));
+
 if (typeof window !== "undefined") {
   window.IntersectionObserver = class IntersectionObserver {
     observe = () => null;

@@ -21,8 +21,7 @@ interface Props {
   fullBleed?: boolean;
 }
 
-const frameClass =
-  'relative aspect-[4/3] w-full overflow-hidden bg-zinc-100 ring-1 ring-black/5';
+const frameClass = 'relative aspect-[4/3] w-full overflow-hidden bg-zinc-100 ring-1 ring-black/5';
 
 const roundedDefault = 'rounded-3xl';
 const roundedBleed = 'max-md:rounded-none max-md:ring-0 md:rounded-3xl';

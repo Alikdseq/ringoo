@@ -17,7 +17,10 @@ function absoluteUrl(path: string): string {
   return `${base}${path.startsWith('/') ? path : `/${path}`}`;
 }
 
-export function formatTitle(title: string, options?: { withBrand?: boolean; brandFirst?: boolean }): string {
+export function formatTitle(
+  title: string,
+  options?: { withBrand?: boolean; brandFirst?: boolean }
+): string {
   const trimmed = title.trim();
   if (!trimmed) return SEO_BRAND;
   const withBrand = options?.withBrand !== false;
@@ -27,9 +30,15 @@ export function formatTitle(title: string, options?: { withBrand?: boolean; bran
   return `${trimmed} ${SEO_BRAND_SUFFIX}`;
 }
 
-export function truncateDescription(text: string | null | undefined, max = 160): string | undefined {
+export function truncateDescription(
+  text: string | null | undefined,
+  max = 160
+): string | undefined {
   if (!text?.trim()) return undefined;
-  const plain = text.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+  const plain = text
+    .replace(/<[^>]*>/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
   if (!plain) return undefined;
   return plain.length <= max ? plain : `${plain.slice(0, max - 1)}…`;
 }
@@ -46,9 +55,7 @@ export function buildPageMetadata(input: PageMetadataInput): Metadata {
     alternates: {
       canonical: canonicalPath,
     },
-    robots: input.noIndex
-      ? { index: false, follow: true }
-      : { index: true, follow: true },
+    robots: input.noIndex ? { index: false, follow: true } : { index: true, follow: true },
     openGraph: {
       title,
       description,

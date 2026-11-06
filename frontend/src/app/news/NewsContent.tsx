@@ -195,9 +195,7 @@ export function NewsContent({ initialNews, initialTags }: NewsContentProps) {
 
 function NewsCard({ news }: { news: NewsList }) {
   const imageSrc = news.image ? getMediaUrl(news.image) : null;
-  const categoryLabel = news.category
-    ? (CATEGORY_LABELS[news.category] ?? news.category)
-    : null;
+  const categoryLabel = news.category ? (CATEGORY_LABELS[news.category] ?? news.category) : null;
   const dateStr = news.published_at
     ? new Date(news.published_at).toLocaleDateString('ru-RU', {
         day: 'numeric',

@@ -6,10 +6,9 @@ export interface PromotionsParams {
 }
 
 export async function getPromotions(params: PromotionsParams = {}): Promise<Promotion[]> {
-  const { data } = await apiClient.get<PaginatedResponse<Promotion> | Promotion[]>(
-    '/promotions/',
-    { params }
-  );
+  const { data } = await apiClient.get<PaginatedResponse<Promotion> | Promotion[]>('/promotions/', {
+    params,
+  });
   if (Array.isArray(data)) return data;
   return data.results ?? [];
 }

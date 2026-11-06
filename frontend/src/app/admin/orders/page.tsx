@@ -5,7 +5,8 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 import { Download, RefreshCw } from 'lucide-react';
 import type { Order } from '@/types';
 import {
-  getOrders,
+  getAdminOrder,
+  getAdminOrders,
   type OrderListParams,
   updateOrderStatus,
   exportOrdersCsv,
@@ -14,7 +15,6 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Loading } from '@/components/ui/Loading';
 import { CURRENCY_SYMBOL } from '@/lib/constants';
-import { getOrder } from '@/lib/api/services/orders.service';
 import { allowedOrderStatusOptions } from '@/lib/admin/nav-access';
 
 const STATUS_LABELS: Record<string, string> = {
@@ -59,7 +59,7 @@ export default function AdminOrdersPage() {
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['admin', 'orders', params],
-    queryFn: () => getOrders(params),
+    queryFn: () => getAdminOrders(params),
   });
 
   const statusMutation = useMutation({
@@ -96,7 +96,7 @@ export default function AdminOrdersPage() {
     isError: selectedError,
   } = useQuery({
     queryKey: ['admin', 'order', selectedOrderId],
-    queryFn: () => getOrder(selectedOrderId as string),
+    queryFn: () => getAdminOrder(selectedOrderId as string),
     enabled: !!selectedOrderId,
   });
 

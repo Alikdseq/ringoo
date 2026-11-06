@@ -10,7 +10,12 @@ from rest_framework.mixins import CreateModelMixin, ListModelMixin, RetrieveMode
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import AllowAny
 
-from config.throttling import AnonReadRateThrottle, UserReadRateThrottle
+from config.throttling import (
+    AnonReadRateThrottle,
+    ReviewCreateAnonThrottle,
+    ReviewCreateUserThrottle,
+    UserReadRateThrottle,
+)
 
 from .models import Article, News, PageGalleryImage, Review, Tag
 from .serializers import (
@@ -145,29 +150,31 @@ class ReviewViewSet(
     """
     Отзывы на товары: list, retrieve, create.
     Создавать может любой (гость — name/email, авторизованный — user подставляется).
-    Фильтр по product, is_approved (по умолчанию только одобренные).
+    Публичный list/retrieve — только одобренные (SEC-002).
+    Create — отдельный throttle scope (SEC-004).
     """
 
     permission_classes = (AllowAny,)
     pagination_class = ContentPagination
 
+    def get_throttles(self):
+        if self.action == "create":
+            if self.request.user and self.request.user.is_authenticated:
+                return [ReviewCreateUserThrottle()]
+            return [ReviewCreateAnonThrottle()]
+        return [AnonReadRateThrottle(), UserReadRateThrottle()]
+
     def get_queryset(self):
+        # SEC-002: публичный API всегда только одобренные; query-параметр
+        # is_approved=false не раскрывает скрытые отзывы.
         qs = (
-            Review.objects.all()
+            Review.objects.filter(is_approved=True)
             .select_related("user", "product")
             .order_by("-created_at")
         )
         product_id = self.request.query_params.get("product")
         if product_id:
             qs = qs.filter(product_id=product_id)
-        is_approved = self.request.query_params.get("is_approved")
-        if is_approved is not None:
-            if str(is_approved).lower() in ("true", "1", "yes"):
-                qs = qs.filter(is_approved=True)
-            elif str(is_approved).lower() in ("false", "0", "no"):
-                qs = qs.filter(is_approved=False)
-        else:
-            qs = qs.filter(is_approved=True)
         return qs
 
     def get_serializer_class(self):

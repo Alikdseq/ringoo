@@ -2,15 +2,20 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Check, ChevronLeft, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import type { Store } from '@/types';
 import { useCart } from '@/lib/hooks/useCart';
 import { updateMarketingOptIn } from '@/lib/api/services/auth.service';
 import { createOrder, type CreateOrderPayload } from '@/lib/api/services/orders.service';
+import {
+  initiateOrderPayment,
+  isOnlinePaymentUiEnabled,
+  stashPayAuth,
+} from '@/lib/api/services/payments.service';
 import { getFriendlyErrorMessage } from '@/lib/errors';
-import { getStores } from '@/lib/api/services/stores.service';
+import { getProductStock, getStores } from '@/lib/api/services/stores.service';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
@@ -25,9 +30,11 @@ import { getAddresses } from '@/lib/api/services/addresses.service';
 import { mergeCheckoutFromUser } from '@/lib/user-profile-form';
 import { ConsentCheckboxes } from '@/components/legal/ConsentCheckboxes';
 import { PageContainer } from '@/components/layout/PageContainer';
+import type { Order } from '@/types';
 
 type DeliveryType = 'pickup' | 'delivery';
-type PaymentType = 'cash' | 'card_on_delivery' | 'bank_transfer' | 'online';
+/** Новые заказы: cash / card_on_delivery / online. bank_transfer только в истории. */
+type PaymentType = 'cash' | 'card_on_delivery' | 'online';
 
 interface DeliveryFormState {
   fullName: string;
@@ -125,10 +132,13 @@ export default function CheckoutPage() {
   const [deliveryErrors, setDeliveryErrors] = useState<DeliveryErrors>({});
   const [paymentErrors, setPaymentErrors] = useState<PaymentErrors>({});
   const [consentPersonalData, setConsentPersonalData] = useState(false);
+  /** Акцепт оферты — отдельно от согласия на ПДн (ст. 9 152-ФЗ) */
+  const [consentOffer, setConsentOffer] = useState(false);
   /** Согласие на рассылку — отдельный чекбокс, по умолчанию не отмечен */
   const [consentNewsletter, setConsentNewsletter] = useState(false);
   const [consentError, setConsentError] = useState<string | null>(null);
-  const [isSubmitted, setIsSubmitted] = useState(false);
+  /** Пока уходим на ЮKassa — не показывать «пустая корзина» после invalidate. */
+  const [isRedirectingToPay, setIsRedirectingToPay] = useState(false);
   const router = useRouter();
   const queryClient = useQueryClient();
   const { isAuthenticated, user } = useAuth();
@@ -149,15 +159,96 @@ export default function CheckoutPage() {
     if (!isAuthenticated || !user) return;
     setDelivery(prev => mergeCheckoutFromUser(prev, user, defaultAddress));
   }, [isAuthenticated, user, defaultAddress]);
+
+  type CheckoutMutationResult = {
+    order: Order;
+    redirectUrl: string | null;
+  };
+
+  type CheckoutMutationError = Error & { orderId?: string; priceChanged?: boolean };
+  const [acceptPriceChanges, setAcceptPriceChanges] = useState(false);
+  const [priceChangeNotice, setPriceChangeNotice] = useState<string | null>(null);
+
   const createOrderMutation = useMutation({
-    mutationFn: (payload: {
+    /**
+     * Заказ и (для online) платёж — в одном mutationFn:
+     * isPending закрывает оба шага, нет гонки с пустой корзиной после invalidate.
+     */
+    mutationFn: async (payload: {
       data: CreateOrderPayload;
       idempotencyKey: string;
       consentNewsletter: boolean;
-    }) => createOrder(payload.data, { idempotencyKey: payload.idempotencyKey }),
-    onSuccess: async (order, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['cart'] });
-      queryClient.invalidateQueries({ queryKey: ['orders'] });
+    }): Promise<CheckoutMutationResult> => {
+      let order;
+      try {
+        order = await createOrder(payload.data, {
+          idempotencyKey: payload.idempotencyKey,
+        });
+        setPriceChangeNotice(null);
+        setAcceptPriceChanges(false);
+      } catch (err) {
+        const payloadData = (err as { response?: { data?: Record<string, unknown> } })
+          ?.response?.data;
+        const codeVal = payloadData?.code;
+        const priceChanged =
+          codeVal === 'price_changed' ||
+          (Array.isArray(codeVal) && codeVal.includes('price_changed')) ||
+          payloadData?.price_changes != null;
+        if (priceChanged) {
+          const newTotal = payloadData?.new_total_amount;
+          const detail = payloadData?.detail;
+          const msg = Array.isArray(detail)
+            ? detail.join(' ')
+            : typeof detail === 'string'
+              ? detail
+              : 'Цены изменились. Подтвердите новый итог.';
+          setPriceChangeNotice(
+            typeof newTotal === 'string' ? `${msg} Новый итог: ${newTotal} ₽` : msg
+          );
+          const wrapped: CheckoutMutationError = Object.assign(new Error(msg), {
+            priceChanged: true,
+          });
+          throw wrapped;
+        }
+        throw err;
+      }
+
+      if (payload.data.payment_type !== 'online') {
+        return { order, redirectUrl: null };
+      }
+
+      try {
+        if (!isOnlinePaymentUiEnabled()) {
+          throw new Error('Онлайн-оплата временно недоступна.');
+        }
+        const phone = payload.data.phone;
+        const orderNumber = order.order_number;
+        const guestToken = order.guest_access_token;
+        stashPayAuth(order.id, {
+          phone,
+          order_number: orderNumber,
+          guest_token: guestToken,
+        });
+        const pay = await initiateOrderPayment(order.id, {
+          phone,
+          order_number: orderNumber,
+          guest_token: guestToken,
+        });
+        const redirectUrl = pay.confirmation_url || pay.form_url;
+        if (!redirectUrl) {
+          throw new Error('Не получена ссылка на оплату. Попробуйте ещё раз.');
+        }
+        return { order, redirectUrl };
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : getFriendlyErrorMessage(err);
+        const wrapped: CheckoutMutationError = Object.assign(new Error(message), {
+          orderId: order.id,
+        });
+        throw wrapped;
+      }
+    },
+    onSuccess: async (result, variables) => {
       if (isAuthenticated && variables.consentNewsletter) {
         try {
           await updateMarketingOptIn(true);
@@ -165,26 +256,31 @@ export default function CheckoutPage() {
           /* согласие не критично для завершения заказа */
         }
       }
-      if (variables.data.payment_type === 'online') {
-        try {
-          const { initiateOrderPayment, stashPayPhone } = await import(
-            '@/lib/api/services/payments.service'
-          );
-          const phone = variables.data.phone;
-          stashPayPhone(order.id, phone);
-          const pay = await initiateOrderPayment(order.id, { phone });
-          if (pay.form_url) {
-            window.location.assign(pay.form_url);
-            return;
-          }
-        } catch {
-          router.push(`/orders/${order.id}/payment/fail`);
-          return;
-        }
+
+      // Инвалидация после готовности redirect — иначе checkout мигает «пустая корзина».
+      if (result.redirectUrl) {
+        setIsRedirectingToPay(true);
+        queryClient.invalidateQueries({ queryKey: ['cart'] });
+        queryClient.invalidateQueries({ queryKey: ['orders'] });
+        window.location.assign(result.redirectUrl);
+        return;
       }
-      router.push(`/orders/${order.id}/success`);
+
+      queryClient.invalidateQueries({ queryKey: ['cart'] });
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      router.push(`/orders/${result.order.id}/success`);
+    },
+    onError: error => {
+      const orderId = (error as CheckoutMutationError).orderId;
+      if (!orderId) return;
+      // Заказ создан, но оплата не стартовала — корзина для online сохранена на backend.
+      queryClient.invalidateQueries({ queryKey: ['cart'] });
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      router.push(`/orders/${orderId}/payment/fail`);
     },
   });
+
+  const checkoutBusy = createOrderMutation.isPending || isRedirectingToPay;
 
   const items = useMemo(() => cart?.items ?? [], [cart]);
   /** Сумма с сервера; итог заказа на бэкенде пересчитывается из каталога — показываем ту же базу без демо-скидок. */
@@ -196,6 +292,59 @@ export default function CheckoutPage() {
   });
   const stores: Store[] = storesData?.results ?? [];
 
+  const cartProductIds = useMemo(
+    () => [...new Set(items.map(i => i.product.id))],
+    [items]
+  );
+  const stockQueries = useQueries({
+    queries: cartProductIds.map(productId => ({
+      queryKey: ['product-stock', productId] as const,
+      queryFn: () => getProductStock(productId),
+      enabled: cartProductIds.length > 0,
+      staleTime: 30_000,
+    })),
+  });
+  const storesWithoutFullCartStock = useMemo(() => {
+    if (!stores.length || !items.length) return [] as string[];
+    if (stockQueries.some(q => q.isLoading || q.isError)) return [] as string[];
+    const qtyByProduct = new Map<string, number>();
+    for (const item of items) {
+      qtyByProduct.set(
+        item.product.id,
+        (qtyByProduct.get(item.product.id) ?? 0) + item.quantity
+      );
+    }
+    const stockByProduct = new Map<
+      string,
+      Awaited<ReturnType<typeof getProductStock>>
+    >();
+    cartProductIds.forEach((id, idx) => {
+      stockByProduct.set(id, stockQueries[idx]?.data ?? []);
+    });
+    const disabled: string[] = [];
+    for (const store of stores) {
+      let ok = true;
+      for (const [productId, need] of qtyByProduct) {
+        const rows = stockByProduct.get(productId) ?? [];
+        const available = rows
+          .filter(r => r.store === store.id)
+          .reduce((sum, r) => sum + (r.available_quantity ?? 0), 0);
+        if (available < need) {
+          ok = false;
+          break;
+        }
+      }
+      if (!ok) disabled.push(store.id);
+    }
+    return disabled;
+  }, [stores, items, stockQueries, cartProductIds]);
+
+  useEffect(() => {
+    if (delivery.storeId && storesWithoutFullCartStock.includes(delivery.storeId)) {
+      setDelivery(prev => ({ ...prev, storeId: null }));
+    }
+  }, [delivery.storeId, storesWithoutFullCartStock]);
+
   const validateDeliveryStep = (): boolean => {
     const errors: DeliveryErrors = {};
     if (!delivery.fullName.trim()) {
@@ -204,8 +353,11 @@ export default function CheckoutPage() {
     if (!delivery.phone.trim()) {
       errors.phone = 'Укажите телефон';
     }
-    if (delivery.deliveryType === 'pickup' && !delivery.storeId) {
-      errors.storeId = 'Выберите магазин для самовывоза';
+    if (!delivery.storeId) {
+      errors.storeId =
+        delivery.deliveryType === 'pickup'
+          ? 'Выберите магазин для самовывоза'
+          : 'Выберите магазин комплектации, где все товары есть в наличии';
     }
     if (delivery.deliveryType === 'delivery') {
       if (!delivery.addressLine.trim()) {
@@ -251,10 +403,15 @@ export default function CheckoutPage() {
   };
 
   const handleSubmit = () => {
+    if (checkoutBusy) return;
     setConsentError(null);
     if (!validateDeliveryStep() || !validatePaymentStep()) return;
     if (!consentPersonalData) {
       setConsentError('Необходимо согласие на обработку персональных данных');
+      return;
+    }
+    if (!consentOffer) {
+      setConsentError('Необходимо принять условия публичной оферты');
       return;
     }
     const deliveryAddress =
@@ -279,16 +436,14 @@ export default function CheckoutPage() {
       email: delivery.email.trim() || null,
       delivery_type: delivery.deliveryType,
       delivery_address: deliveryAddress,
-      // Для доставки store не передаём (иначе 400: «Для доставки поле «магазин» не указывается»),
-      // в т.ч. если пользователь переключился с самовывоза и storeId ещё в state.
-      store:
-        delivery.deliveryType === 'pickup' && delivery.storeId?.trim()
-          ? delivery.storeId.trim()
-          : null,
+      // Магазин обязателен и для самовывоза, и для доставки (точка комплектации с наличием).
+      store: delivery.storeId?.trim() ? delivery.storeId.trim() : null,
       payment_type: payment.paymentType!,
       items: items.map(item => ({
         product_id: item.product.id,
         quantity: item.quantity,
+        color_id: item.color?.id || null,
+        expected_unit_price: item.price_at_add || item.product.price || null,
       })),
       total_amount: String(cartTotal.toFixed(2)),
       delivery_cost: '0',
@@ -296,6 +451,7 @@ export default function CheckoutPage() {
       comment: delivery.comment.trim() || null,
       consent_personal_data: true,
       consent_marketing: consentNewsletter,
+      accept_price_changes: acceptPriceChanges,
     };
     const idempotencyKey =
       typeof crypto !== 'undefined' && crypto.randomUUID
@@ -308,15 +464,25 @@ export default function CheckoutPage() {
     });
   };
 
-  if (isLoading) {
+  if (isLoading || checkoutBusy) {
     return (
-      <div className="flex min-h-[50vh] items-center justify-center">
+      <div className="flex min-h-[50vh] flex-col items-center justify-center gap-3 px-4 text-center">
         <Loading />
+        {checkoutBusy ? (
+          <p className="text-sm text-zinc-500 dark:text-zinc-400">
+            {isRedirectingToPay
+              ? 'Переходим к оплате…'
+              : payment.paymentType === 'online'
+                ? 'Создаём заказ и платёж…'
+                : 'Оформляем заказ…'}
+          </p>
+        ) : null}
       </div>
     );
   }
 
-  if (isError || !cart || items.length === 0) {
+  // Пустая корзина вне активного checkout — не путать с ошибкой оформления / online-оплатой.
+  if ((isError || !cart || items.length === 0) && !checkoutBusy) {
     return (
       <div className="flex min-h-[60vh] flex-col items-center justify-center px-4 text-center">
         <p className="mb-3 text-sm text-red-600 dark:text-red-400">
@@ -538,7 +704,6 @@ export default function CheckoutPage() {
                       setDelivery(prev => ({
                         ...prev,
                         deliveryType: 'delivery',
-                        storeId: null,
                       }))
                     }
                   >
@@ -547,14 +712,18 @@ export default function CheckoutPage() {
                 </div>
               </div>
 
-              {delivery.deliveryType === 'pickup' && (
-                <StoreSelector
-                  stores={stores}
-                  selectedStoreId={delivery.storeId}
-                  onSelectStore={storeId => setDelivery(prev => ({ ...prev, storeId }))}
-                  error={deliveryErrors.storeId}
-                />
-              )}
+              <StoreSelector
+                stores={stores}
+                selectedStoreId={delivery.storeId}
+                onSelectStore={storeId => setDelivery(prev => ({ ...prev, storeId }))}
+                error={deliveryErrors.storeId}
+                listTitle={
+                  delivery.deliveryType === 'pickup'
+                    ? 'Магазин самовывоза (только с наличием всех товаров)'
+                    : 'Магазин комплектации доставки (только с наличием всех товаров)'
+                }
+                disabledStoreIds={storesWithoutFullCartStock}
+              />
 
               {delivery.deliveryType === 'delivery' && (
                 <div className="space-y-3">
@@ -635,12 +804,15 @@ export default function CheckoutPage() {
                   Выберите удобный способ оплаты.
                 </p>
                 <div className="grid gap-2 text-sm sm:grid-cols-2">
-                  {[
-                    { value: 'cash', label: 'Наличными при получении' },
-                    { value: 'card_on_delivery', label: 'Картой при получении' },
-                    { value: 'bank_transfer', label: 'Банковский перевод' },
-                    { value: 'online', label: 'Онлайн-оплата' },
-                  ].map(opt => (
+                  {(
+                    [
+                      { value: 'cash', label: 'Наличными при получении' },
+                      { value: 'card_on_delivery', label: 'Картой при получении' },
+                      ...(isOnlinePaymentUiEnabled()
+                        ? ([{ value: 'online', label: 'Онлайн-оплата' }] as const)
+                        : []),
+                    ] as const
+                  ).map(opt => (
                     <button
                       key={opt.value}
                       type="button"
@@ -700,13 +872,30 @@ export default function CheckoutPage() {
                   className="mt-3 border-0 bg-transparent p-0"
                   consentPersonal={consentPersonalData}
                   onConsentPersonalChange={setConsentPersonalData}
+                  consentOffer={consentOffer}
+                  onConsentOfferChange={setConsentOffer}
+                  showOffer
                   consentMarketing={consentNewsletter}
                   onConsentMarketingChange={setConsentNewsletter}
                 />
                 {consentError && (
                   <p className="text-xs text-red-600 dark:text-red-400">{consentError}</p>
                 )}
-                {createOrderMutation.isError && (
+                {priceChangeNotice && (
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                    <p>{priceChangeNotice}</p>
+                    <label className="mt-2 flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={acceptPriceChanges}
+                        onChange={e => setAcceptPriceChanges(e.target.checked)}
+                      />
+                      Подтверждаю новые цены
+                    </label>
+                  </div>
+                )}
+                {createOrderMutation.isError &&
+                  !(createOrderMutation.error as CheckoutMutationError)?.priceChanged && (
                   <p className="text-xs text-red-600 dark:text-red-400">
                     {getFriendlyErrorMessage(createOrderMutation.error)}
                   </p>
@@ -764,8 +953,8 @@ export default function CheckoutPage() {
                 type="button"
                 size="sm"
                 onClick={handleSubmit}
-                disabled={createOrderMutation.isPending}
-                loading={createOrderMutation.isPending}
+                disabled={checkoutBusy}
+                loading={checkoutBusy}
                 className="flex-1"
               >
                 Подтвердить заказ

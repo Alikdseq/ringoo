@@ -8,16 +8,20 @@ class PaymentAdmin(admin.ModelAdmin):
     list_display = (
         "merchant_order_number",
         "order",
+        "provider",
         "status",
         "amount",
-        "sber_order_id",
+        "currency",
+        "external_payment_id",
+        "is_test",
         "paid_at",
         "created_at",
     )
-    list_filter = ("status", "provider", "created_at")
+    list_filter = ("status", "provider", "is_test", "created_at")
     search_fields = (
         "merchant_order_number",
         "sber_order_id",
+        "yookassa_payment_id",
         "order__order_number",
         "error_message",
     )
@@ -31,6 +35,8 @@ class PaymentAdmin(admin.ModelAdmin):
         "currency",
         "merchant_order_number",
         "sber_order_id",
+        "yookassa_payment_id",
+        "is_test",
         "form_url",
         "sber_order_status",
         "action_code",
@@ -43,8 +49,13 @@ class PaymentAdmin(admin.ModelAdmin):
         "created_at",
         "updated_at",
     )
-    # order не через raw_id: статус/сумма/заказ только через банк или ops-action
     actions = ("mark_needs_review_ack",)
+
+    @admin.display(description="ID платежа шлюза")
+    def external_payment_id(self, obj: Payment) -> str:
+        if obj.provider == Payment.PROVIDER_YOOKASSA:
+            return obj.yookassa_payment_id or "—"
+        return obj.sber_order_id or "—"
 
     @admin.action(description="Пометить needs_review как обработанный (failed)")
     def mark_needs_review_ack(self, request, queryset):

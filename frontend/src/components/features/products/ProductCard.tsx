@@ -57,10 +57,7 @@ export function ProductCard({
 }: ProductCardProps) {
   const { mode } = useUiMode();
   const pathname = usePathname();
-  const cardSwiperModules = useMemo(
-    () => [Navigation, Pagination],
-    []
-  );
+  const cardSwiperModules = useMemo(() => [Navigation, Pagination], []);
   const listColors = useMemo(
     () => mergeListColorsForCard(product.colors ?? []),
     [product.colors, product.id]
@@ -232,180 +229,175 @@ export function ProductCard({
         )}
       >
         <div className="relative">
-            <div className="relative aspect-square w-full touch-pan-y overflow-hidden rounded-[28px] bg-white overscroll-x-contain">
-              {displaySlides.length > 1 ? (
-                <Swiper
-                  key={galleryKey}
-                  modules={showGalleryNav ? cardSwiperModules : [Pagination]}
-                  navigation={
-                    showGalleryNav
-                      ? { enabled: true, hideOnClick: false }
-                      : false
-                  }
-                  pagination={{ clickable: true, dynamicBullets: true }}
-                  loop={swiperLoop}
-                  slidesPerView={1}
-                  spaceBetween={0}
-                  touchStartPreventDefault={false}
-                  preventClicksPropagation
-                  className="product-card-swiper relative z-0 h-full w-full max-md:[&_.swiper-button-next]:!hidden max-md:[&_.swiper-button-prev]:!hidden md:[&_.swiper-button-next]:!flex md:[&_.swiper-button-prev]:!flex [&_.swiper-button-next]:right-1 [&_.swiper-button-prev]:left-1 [&_.swiper-button-next]:z-[5] [&_.swiper-button-prev]:z-[5] [&_.swiper-button-next]:!size-8 [&_.swiper-button-prev]:!size-8 [&_.swiper-button-next]:!bg-transparent [&_.swiper-button-prev]:!bg-transparent [&_.swiper-button-next]:!shadow-none [&_.swiper-button-prev]:!shadow-none [&_.swiper-button-next]:text-brand [&_.swiper-button-prev]:text-brand [&_.swiper-button-next]:after:!text-base [&_.swiper-button-prev]:after:!text-base [&_.swiper-pagination]:bottom-2 [&_.swiper-pagination-bullet]:bg-zinc-400 [&_.swiper-pagination-bullet-active]:bg-brand"
-                >
-                  {displaySlides.map((slide, si) => (
-                    <SwiperSlide key={`${product.id}-${si}-${slide.id}`} className="!h-full">
-                      <Link
-                        href={productHref}
-                        className="relative block h-full w-full"
-                        draggable={false}
-                      >
-                        <span className="relative block aspect-square w-full">
-                          <Image
-                            src={slide.src}
-                            alt={slide.alt}
-                            fill
-                            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 50vw, 34vw"
-                            className={cardImageClass}
-                            loading={si === 0 && priority ? 'eager' : 'lazy'}
-                            priority={Boolean(si === 0 && priority)}
-                            placeholder={si === 0 && priority ? 'blur' : 'empty'}
-                            blurDataURL={si === 0 && priority ? BLUR_DATA_URL : undefined}
-                            unoptimized={shouldUnoptimizeImage(slide.src)}
-                          />
-                        </span>
-                      </Link>
-                    </SwiperSlide>
-                  ))}
-                </Swiper>
-              ) : displaySlides.length === 1 ? (
-                <Link
-                  key={galleryKey}
-                  href={productHref}
-                  className="relative block h-full w-full"
-                  draggable={false}
-                >
-                  <span className="relative block aspect-square w-full">
-                    <Image
-                      src={displaySlides[0]!.src}
-                      alt={displaySlides[0]!.alt}
-                      fill
-                      sizes="(max-width: 640px) 50vw, (max-width: 1024px) 50vw, 34vw"
-                      className={cardImageClass}
-                      loading={priority ? 'eager' : 'lazy'}
-                      priority={priority}
-                      placeholder={priority ? 'blur' : 'empty'}
-                      blurDataURL={priority ? BLUR_DATA_URL : undefined}
-                      unoptimized={shouldUnoptimizeImage(displaySlides[0]!.src)}
-                    />
-                  </span>
-                </Link>
-              ) : (
-                <div className="flex h-full items-center justify-center text-foreground-subtle">
-                  Нет фото
-                </div>
-              )}
-              {hasDiscount && <DiscountBadge percent={displayPrice.discount_percent} />}
-            </div>
-
+          <div className="relative aspect-square w-full touch-pan-y overflow-hidden rounded-[28px] bg-white overscroll-x-contain">
+            {displaySlides.length > 1 ? (
+              <Swiper
+                key={galleryKey}
+                modules={showGalleryNav ? cardSwiperModules : [Pagination]}
+                navigation={showGalleryNav ? { enabled: true, hideOnClick: false } : false}
+                pagination={{ clickable: true, dynamicBullets: true }}
+                loop={swiperLoop}
+                slidesPerView={1}
+                spaceBetween={0}
+                touchStartPreventDefault={false}
+                preventClicksPropagation
+                className="product-card-swiper relative z-0 h-full w-full max-md:[&_.swiper-button-next]:!hidden max-md:[&_.swiper-button-prev]:!hidden md:[&_.swiper-button-next]:!flex md:[&_.swiper-button-prev]:!flex [&_.swiper-button-next]:right-1 [&_.swiper-button-prev]:left-1 [&_.swiper-button-next]:z-[5] [&_.swiper-button-prev]:z-[5] [&_.swiper-button-next]:!size-8 [&_.swiper-button-prev]:!size-8 [&_.swiper-button-next]:!bg-transparent [&_.swiper-button-prev]:!bg-transparent [&_.swiper-button-next]:!shadow-none [&_.swiper-button-prev]:!shadow-none [&_.swiper-button-next]:text-brand [&_.swiper-button-prev]:text-brand [&_.swiper-button-next]:after:!text-base [&_.swiper-button-prev]:after:!text-base [&_.swiper-pagination]:bottom-2 [&_.swiper-pagination-bullet]:bg-zinc-400 [&_.swiper-pagination-bullet-active]:bg-brand"
+              >
+                {displaySlides.map((slide, si) => (
+                  <SwiperSlide key={`${product.id}-${si}-${slide.id}`} className="!h-full">
+                    <Link
+                      href={productHref}
+                      className="relative block h-full w-full"
+                      draggable={false}
+                    >
+                      <span className="relative block aspect-square w-full">
+                        <Image
+                          src={slide.src}
+                          alt={slide.alt}
+                          fill
+                          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 50vw, 34vw"
+                          className={cardImageClass}
+                          loading={si === 0 && priority ? 'eager' : 'lazy'}
+                          priority={Boolean(si === 0 && priority)}
+                          placeholder={si === 0 && priority ? 'blur' : 'empty'}
+                          blurDataURL={si === 0 && priority ? BLUR_DATA_URL : undefined}
+                          unoptimized={shouldUnoptimizeImage(slide.src)}
+                        />
+                      </span>
+                    </Link>
+                  </SwiperSlide>
+                ))}
+              </Swiper>
+            ) : displaySlides.length === 1 ? (
+              <Link
+                key={galleryKey}
+                href={productHref}
+                className="relative block h-full w-full"
+                draggable={false}
+              >
+                <span className="relative block aspect-square w-full">
+                  <Image
+                    src={displaySlides[0]!.src}
+                    alt={displaySlides[0]!.alt}
+                    fill
+                    sizes="(max-width: 640px) 50vw, (max-width: 1024px) 50vw, 34vw"
+                    className={cardImageClass}
+                    loading={priority ? 'eager' : 'lazy'}
+                    priority={priority}
+                    placeholder={priority ? 'blur' : 'empty'}
+                    blurDataURL={priority ? BLUR_DATA_URL : undefined}
+                    unoptimized={shouldUnoptimizeImage(displaySlides[0]!.src)}
+                  />
+                </span>
+              </Link>
+            ) : (
+              <div className="flex h-full items-center justify-center text-foreground-subtle">
+                Нет фото
+              </div>
+            )}
+            {hasDiscount && <DiscountBadge percent={displayPrice.discount_percent} />}
           </div>
+        </div>
 
         <Link href={productHref} className="flex flex-1 flex-col">
-            <div
-              className="space-y-2 px-4 pt-3 md:px-6"
-              onClick={e => e.preventDefault()}
-              onKeyDown={e => e.stopPropagation()}
-              role="presentation"
-            >
-              {listColors.length === 1 ? (
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-xs text-foreground-muted">Цвет:</span>
-                  {listColors.map(c => {
-                    const fill = resolveColorSwatchHex(c);
-                    return (
-                      <span
-                        key={c.id}
-                        className="flex items-center gap-1.5 rounded-full border border-brand bg-brand/5 py-0.5 pl-0.5 pr-2 text-xs text-foreground"
-                        title={c.label}
-                      >
-                        <span
-                          className="h-6 w-6 shrink-0 rounded-full border-2 border-white shadow ring-1 ring-black/10"
-                          style={{ backgroundColor: fill }}
-                          aria-hidden
-                        />
-                        <span className="max-w-[9rem] truncate">{c.label}</span>
-                      </span>
-                    );
-                  })}
-                </div>
-              ) : (
-                <>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={e => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        setColorsOpen(o => !o);
-                      }}
-                      className={cn(
-                        'rounded-full border px-3 py-1 text-xs font-medium transition-colors',
-                        colorsOpen
-                          ? 'border-brand bg-brand/5 text-foreground'
-                          : 'border-border bg-zinc-50 text-foreground-muted hover:border-zinc-300'
-                      )}
-                      aria-expanded={colorsOpen}
+          <div
+            className="space-y-2 px-4 pt-3 md:px-6"
+            onClick={e => e.preventDefault()}
+            onKeyDown={e => e.stopPropagation()}
+            role="presentation"
+          >
+            {listColors.length === 1 ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs text-foreground-muted">Цвет:</span>
+                {listColors.map(c => {
+                  const fill = resolveColorSwatchHex(c);
+                  return (
+                    <span
+                      key={c.id}
+                      className="flex items-center gap-1.5 rounded-full border border-brand bg-brand/5 py-0.5 pl-0.5 pr-2 text-xs text-foreground"
+                      title={c.label}
                     >
-                      Цвета
-                    </button>
-                    {!colorsOpen && activeListColor ? (
-                      <span className="flex min-w-0 items-center gap-1.5 text-xs text-foreground-muted">
-                        <span
-                          className="h-5 w-5 shrink-0 rounded-full border-2 border-white shadow ring-1 ring-black/10"
-                          style={{
-                            backgroundColor: resolveColorSwatchHex(activeListColor),
-                          }}
-                          aria-hidden
-                        />
-                        <span className="truncate">{activeListColor.label}</span>
-                      </span>
-                    ) : null}
-                  </div>
-                  {colorsOpen ? (
-                    <div className="flex flex-wrap gap-2">
-                      {listColors.map(c => {
-                        const active = c.id === (selectedColorId ?? listColors[0]?.id);
-                        const fill = resolveColorSwatchHex(c);
-                        return (
-                          <button
-                            key={c.id}
-                            type="button"
-                            title={c.label}
-                            aria-label={c.label}
-                            aria-pressed={active}
-                            onClick={e => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              setSelectedColorId(c.id);
-                            }}
-                            className={cn(
-                              'flex items-center gap-1.5 rounded-full border py-0.5 pl-0.5 pr-2 text-left text-xs transition-colors',
-                              active
-                                ? 'border-brand bg-brand/5 text-foreground'
-                                : 'border-transparent bg-zinc-50 text-foreground-muted hover:border-zinc-200'
-                            )}
-                          >
-                            <span
-                              className="h-6 w-6 shrink-0 rounded-full border-2 border-white shadow ring-1 ring-black/10"
-                              style={{ backgroundColor: fill }}
-                              aria-hidden
-                            />
-                            <span className="max-w-[8rem] truncate sm:max-w-[10rem]">{c.label}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
+                      <span
+                        className="h-6 w-6 shrink-0 rounded-full border-2 border-white shadow ring-1 ring-black/10"
+                        style={{ backgroundColor: fill }}
+                        aria-hidden
+                      />
+                      <span className="max-w-[9rem] truncate">{c.label}</span>
+                    </span>
+                  );
+                })}
+              </div>
+            ) : (
+              <>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={e => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setColorsOpen(o => !o);
+                    }}
+                    className={cn(
+                      'rounded-full border px-3 py-1 text-xs font-medium transition-colors',
+                      colorsOpen
+                        ? 'border-brand bg-brand/5 text-foreground'
+                        : 'border-border bg-zinc-50 text-foreground-muted hover:border-zinc-300'
+                    )}
+                    aria-expanded={colorsOpen}
+                  >
+                    Цвета
+                  </button>
+                  {!colorsOpen && activeListColor ? (
+                    <span className="flex min-w-0 items-center gap-1.5 text-xs text-foreground-muted">
+                      <span
+                        className="h-5 w-5 shrink-0 rounded-full border-2 border-white shadow ring-1 ring-black/10"
+                        style={{
+                          backgroundColor: resolveColorSwatchHex(activeListColor),
+                        }}
+                        aria-hidden
+                      />
+                      <span className="truncate">{activeListColor.label}</span>
+                    </span>
                   ) : null}
-                </>
-              )}
-            </div>
+                </div>
+                {colorsOpen ? (
+                  <div className="flex flex-wrap gap-2">
+                    {listColors.map(c => {
+                      const active = c.id === (selectedColorId ?? listColors[0]?.id);
+                      const fill = resolveColorSwatchHex(c);
+                      return (
+                        <button
+                          key={c.id}
+                          type="button"
+                          title={c.label}
+                          aria-label={c.label}
+                          aria-pressed={active}
+                          onClick={e => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setSelectedColorId(c.id);
+                          }}
+                          className={cn(
+                            'flex items-center gap-1.5 rounded-full border py-0.5 pl-0.5 pr-2 text-left text-xs transition-colors',
+                            active
+                              ? 'border-brand bg-brand/5 text-foreground'
+                              : 'border-transparent bg-zinc-50 text-foreground-muted hover:border-zinc-200'
+                          )}
+                        >
+                          <span
+                            className="h-6 w-6 shrink-0 rounded-full border-2 border-white shadow ring-1 ring-black/10"
+                            style={{ backgroundColor: fill }}
+                            aria-hidden
+                          />
+                          <span className="max-w-[8rem] truncate sm:max-w-[10rem]">{c.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : null}
+              </>
+            )}
+          </div>
 
           <div className="flex flex-1 flex-col px-6 pb-6 pt-5">
             <div className="flex items-start justify-between gap-3">
@@ -447,14 +439,14 @@ export function ProductCard({
             </div>
             <div className="mt-3 flex items-start justify-between gap-3">
               <div className="flex min-w-0 flex-wrap items-baseline gap-2">
-              <span className="text-[19px] font-semibold text-foreground sm:text-[20px]">
-                {Math.round(Number(displayPrice.price))} {CURRENCY_SYMBOL}
-              </span>
-              {displayPrice.old_price && (
-                <span className="text-sm text-foreground-muted line-through">
-                  {Math.round(Number(displayPrice.old_price))} {CURRENCY_SYMBOL}
+                <span className="text-[19px] font-semibold text-foreground sm:text-[20px]">
+                  {Math.round(Number(displayPrice.price))} {CURRENCY_SYMBOL}
                 </span>
-              )}
+                {displayPrice.old_price && (
+                  <span className="text-sm text-foreground-muted line-through">
+                    {Math.round(Number(displayPrice.old_price))} {CURRENCY_SYMBOL}
+                  </span>
+                )}
               </div>
               <div className="flex shrink-0 flex-col gap-2 md:hidden">
                 <motion.div

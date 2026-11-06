@@ -23,9 +23,7 @@ export default async function ProductPage({ params }: PageProps) {
       ? [
           {
             name: product.category.title,
-            path: categorySlug
-              ? `/catalog/category/${categorySlug}`
-              : '/catalog',
+            path: categorySlug ? `/catalog/category/${categorySlug}` : '/catalog',
           },
         ]
       : []),

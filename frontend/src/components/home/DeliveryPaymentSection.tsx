@@ -13,9 +13,7 @@ const StoresYandexMapDynamic = dynamic(
     })),
   {
     ssr: false,
-    loading: () => (
-      <div className="h-72 w-full animate-pulse rounded-2xl bg-zinc-100 sm:h-80" />
-    ),
+    loading: () => <div className="h-72 w-full animate-pulse rounded-2xl bg-zinc-100 sm:h-80" />,
   }
 );
 
@@ -91,15 +89,20 @@ export function DeliveryPaymentSection() {
         </div>
 
         <div className="relative overflow-hidden rounded-xl border border-border bg-white">
-          <StoresYandexMapDynamic heightClass="h-72 sm:h-[22rem] lg:h-[26rem]" className="rounded-none border-0" />
+          <StoresYandexMapDynamic
+            heightClass="h-72 sm:h-[22rem] lg:h-[26rem]"
+            className="rounded-none border-0"
+          />
           <div className="border-t border-border p-4 text-sm text-foreground-muted">
             <p className="flex items-center gap-2 font-semibold text-foreground">
               <MapPin className="h-4 w-4 text-brand" aria-hidden /> Все магазины Ringoo на карте
             </p>
             <p className="mt-1 flex items-center gap-2">
               <Phone className="h-4 w-4 text-brand" aria-hidden />
-              <a href="tel:+79184157788" className="hover:underline">+7 (918) 415-77-88</a>
-              <span>· г. Владикавказ, ул. Весенняя 19Г</span>
+              <a href="tel:+79184157788" className="hover:underline">
+                +7 (918) 415-77-88
+              </a>
+              <span>· г. Владикавказ, ул. Доватора, д. 5 · ул. Кирова, д. 41</span>
             </p>
           </div>
         </div>

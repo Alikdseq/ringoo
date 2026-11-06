@@ -5,12 +5,7 @@ import type { ProductColor, ProductListColor } from '@/types';
  * back/front, префикс iphone-*- в slug цвета.
  */
 export function canonicalColorSlug(slug: string): string {
-  let s = slug
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '');
+  let s = slug.trim().toLowerCase().replace(/\s+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
 
   let prevOuter = '';
   while (prevOuter !== s) {

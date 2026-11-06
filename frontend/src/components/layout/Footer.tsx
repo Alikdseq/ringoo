@@ -9,6 +9,7 @@ import { ArrowRight, Instagram } from 'lucide-react';
 import { LINK_PREFETCH_DEFAULT } from '@/lib/navigation/link-prefetch';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { requestAnalyticsConsentReset } from '@/lib/legal/analytics-consent';
 import { useCategories } from '@/lib/hooks/useProducts';
 import type { Category } from '@/types';
 
@@ -34,6 +35,7 @@ const FOOTER_DOCS = [
   { label: 'Оферта', href: '/docs/offer' },
   { label: 'Политика конфиденциальности', href: '/docs/privacy' },
   { label: 'Согласие на обработку ПДн', href: '/docs/consent' },
+  { label: 'Согласие на маркетинг', href: '/docs/marketing-consent' },
   { label: 'Cookie и аналитика', href: '/docs/cookies' },
   { label: 'Карта сайта', href: '/site-map' },
 ];
@@ -76,10 +78,7 @@ export function Footer({ initialCategories }: FooterProps) {
   const { data: categories = initialCategories ?? [] } = useCategories({
     initialData: initialCategories,
   });
-  const catalogLinks = useMemo(
-    () => buildFooterCatalogLinks(categories),
-    [categories]
-  );
+  const catalogLinks = useMemo(() => buildFooterCatalogLinks(categories), [categories]);
 
   return (
     <footer className="mt-auto border-t border-border bg-zinc-800 text-white">
@@ -142,6 +141,15 @@ export function Footer({ initialCategories }: FooterProps) {
                   </Link>
                 </li>
               ))}
+              <li>
+                <button
+                  type="button"
+                  onClick={() => requestAnalyticsConsentReset()}
+                  className="text-left text-sm text-zinc-300 transition-colors hover:text-white"
+                >
+                  Настройки cookie
+                </button>
+              </li>
             </ul>
           </div>
 
@@ -166,9 +174,7 @@ export function Footer({ initialCategories }: FooterProps) {
                 size="sm"
                 className="h-11 min-h-[44px] w-11 shrink-0 rounded-lg bg-zinc-600 px-0 hover:bg-zinc-500 touch-manipulation"
                 aria-label="Отправить"
-                disabled={
-                  subscribeMutation.isPending || !phone.trim() || !consentPersonal
-                }
+                disabled={subscribeMutation.isPending || !phone.trim() || !consentPersonal}
                 onClick={() => {
                   setFooterMessage(null);
                   const trimmed = phone.trim();
@@ -192,9 +198,7 @@ export function Footer({ initialCategories }: FooterProps) {
               consentMarketing={consentMarketing}
               onConsentMarketingChange={setConsentMarketing}
             />
-            {footerMessage ? (
-              <p className="mt-2 text-xs text-zinc-300">{footerMessage}</p>
-            ) : null}
+            {footerMessage ? <p className="mt-2 text-xs text-zinc-300">{footerMessage}</p> : null}
             <div className="mt-4 flex gap-3">
               <a
                 href="https://instagram.com"

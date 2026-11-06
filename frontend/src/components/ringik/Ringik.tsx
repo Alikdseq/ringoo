@@ -68,10 +68,8 @@ function RingikRobot({
               className={cn(
                 'absolute',
                 bubblePlacement === 'top' && '-top-3 -translate-y-full',
-                bubblePlacement === 'left' &&
-                  'left-0 top-1/2 -translate-x-full -translate-y-1/2',
-                bubblePlacement === 'right' &&
-                  'right-0 top-1/2 translate-x-full -translate-y-1/2',
+                bubblePlacement === 'left' && 'left-0 top-1/2 -translate-x-full -translate-y-1/2',
+                bubblePlacement === 'right' && 'right-0 top-1/2 translate-x-full -translate-y-1/2',
                 bubblePlacement === 'top' &&
                   (bubbleAlign === 'center'
                     ? 'left-1/2 -translate-x-1/2'

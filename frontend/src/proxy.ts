@@ -8,10 +8,8 @@ const API_PROXY_TARGET =
     ? ''
     : (process.env.RINGOO_API_PROXY_TARGET?.replace(/\/+$/, '') ?? '');
 
-const ACCESS_COOKIE =
-  process.env.NEXT_PUBLIC_JWT_COOKIE_ACCESS_NAME ?? 'ringoo_access';
-const REFRESH_COOKIE =
-  process.env.NEXT_PUBLIC_JWT_COOKIE_REFRESH_NAME ?? 'ringoo_refresh';
+const ACCESS_COOKIE = process.env.NEXT_PUBLIC_JWT_COOKIE_ACCESS_NAME ?? 'ringoo_access';
+const REFRESH_COOKIE = process.env.NEXT_PUBLIC_JWT_COOKIE_REFRESH_NAME ?? 'ringoo_refresh';
 
 function hasAuthCookie(req: NextRequest): boolean {
   const a = req.cookies.get(ACCESS_COOKIE)?.value;
@@ -23,7 +21,14 @@ function isOrdersPublicPath(pathname: string): boolean {
   if (pathname === '/orders/success' || pathname.startsWith('/orders/success/')) {
     return true;
   }
-  return /^\/orders\/[^/]+\/success\/?$/.test(pathname);
+  if (/^\/orders\/[^/]+\/success\/?$/.test(pathname)) {
+    return true;
+  }
+  // Возврат со страницы оплаты Сбера (гость без JWT)
+  if (/^\/orders\/[^/]+\/payment\/(return|fail)\/?$/.test(pathname)) {
+    return true;
+  }
+  return false;
 }
 
 export function proxy(request: NextRequest) {

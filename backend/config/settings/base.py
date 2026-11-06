@@ -36,16 +36,29 @@ if sys.platform == "win32":
     os.environ["TMP"] = tmp_path
     os.environ["APPDATA"] = pgconfig_path
 
-# Load environment variables (UTF-8 to avoid UnicodeDecodeError on Windows)
-# Сначала backend/.env.development, затем корень репозитория
-for env_path in (BASE_DIR / ".env.development", BASE_DIR.parent / ".env.development"):
-    if env_path.exists():
-        load_dotenv(env_path, encoding="utf-8")
-        break
-else:
-    for env_path in (BASE_DIR / ".env", BASE_DIR.parent / ".env"):
+# Load environment variables (UTF-8 to avoid UnicodeDecodeError on Windows).
+# Production НЕ загружает .env.development — только явный process env / .env.production.
+_settings_module = os.getenv("DJANGO_SETTINGS_MODULE", "")
+_is_production_settings = (
+    _settings_module.endswith(".production") or _settings_module.endswith("production")
+)
+if not _is_production_settings:
+    # Dev/test: сначала backend/.env.development, затем корень репозитория
+    for env_path in (BASE_DIR / ".env.development", BASE_DIR.parent / ".env.development"):
         if env_path.exists():
             load_dotenv(env_path, encoding="utf-8")
+            break
+    else:
+        for env_path in (BASE_DIR / ".env", BASE_DIR.parent / ".env"):
+            if env_path.exists():
+                load_dotenv(env_path, encoding="utf-8")
+                break
+else:
+    # Production: опционально только .env.production (не development), если файл есть
+    # (обычно секреты задаёт оркестратор / Docker env_file явно).
+    for env_path in (BASE_DIR / ".env.production", BASE_DIR.parent / ".env.production"):
+        if env_path.exists():
+            load_dotenv(env_path, encoding="utf-8", override=False)
             break
 
 # SECURITY WARNING: keep the secret key used in production secret!
@@ -59,8 +72,13 @@ if not _admin_candidate or not re.fullmatch(
     _admin_candidate = 'admin'
 ADMIN_SITE_URL_PATH = f'{_admin_candidate}/'
 
-# TOTP для Django admin: ADMIN_OTP_ENABLED=1, migrate; в админке — «TOTP devices» для staff
-ADMIN_OTP_ENABLED = os.getenv('ADMIN_OTP_ENABLED', '').lower() in ('1', 'true', 'yes')
+# TOTP для Django admin. В production settings — по умолчанию включено (см. production.py).
+_otp_raw = os.getenv('ADMIN_OTP_ENABLED', '').strip().lower()
+if _is_production_settings:
+    # Fail-closed: OTP on unless explicitly disabled (production.py then raises).
+    ADMIN_OTP_ENABLED = _otp_raw not in ('0', 'false', 'no')
+else:
+    ADMIN_OTP_ENABLED = _otp_raw in ('1', 'true', 'yes')
 
 # Application definition
 INSTALLED_APPS = [
@@ -93,6 +111,7 @@ INSTALLED_APPS = [
     'apps.wishlist',
     'apps.admin_api',
     'apps.audit',
+    'apps.backups',
 ]
 
 if ADMIN_OTP_ENABLED:
@@ -122,7 +141,7 @@ MIDDLEWARE += [
 ]
 
 # Политика конфиденциальности (версия для ConsentRecord)
-POLICY_VERSION = (os.getenv('POLICY_VERSION', '2026-05-01') or '2026-05-01').strip()
+POLICY_VERSION = (os.getenv('POLICY_VERSION', '2026-11-03') or '2026-11-03').strip()
 
 # Лимиты загрузки (защита от oversized body)
 DATA_UPLOAD_MAX_MEMORY_SIZE = int(os.getenv('DATA_UPLOAD_MAX_MEMORY_SIZE', str(10 * 1024 * 1024)))
@@ -210,6 +229,16 @@ STATIC_ROOT = os.getenv('STATIC_ROOT', BASE_DIR / 'staticfiles')
 MEDIA_URL = os.getenv('MEDIA_URL', '/media/')
 MEDIA_ROOT = os.getenv('MEDIA_ROOT', BASE_DIR / 'media')
 
+# Admin downloadable backups (DB + media). Never put secrets in archives.
+BACKUP_STORAGE_ROOT = Path(
+    os.getenv('BACKUP_STORAGE_ROOT', str(BASE_DIR / 'var' / 'backups'))
+)
+BACKUP_DOWNLOAD_TTL_HOURS = int(os.getenv('BACKUP_DOWNLOAD_TTL_HOURS', '24') or '24')
+BACKUP_CREATE_LOCK_TTL_SECONDS = int(
+    os.getenv('BACKUP_CREATE_LOCK_TTL_SECONDS', '900') or '900'
+)
+BACKUP_STALE_ALERT_HOURS = int(os.getenv('BACKUP_STALE_ALERT_HOURS', '48') or '48')
+
 # Абсолютные URL в API для браузера (не docker-host web:8000)
 PUBLIC_API_ORIGIN = os.getenv('PUBLIC_API_ORIGIN', 'http://localhost:8000').rstrip('/')
 
@@ -255,6 +284,7 @@ REST_FRAMEWORK = {
         'auth_login': '5/minute',        # вход по паролю (anon, по IP)
         'auth_register': '5/hour',       # регистрация (anon, по IP)
         'auth_refresh': '30/minute',     # обновление access (anon, по IP)
+        'auth_mfa_verify': '5/minute',   # TOTP verify (подбор кода)
         'crm_create': '10/hour',         # заявка «нет в наличии» (anon)
         'legal_analytics': '30/hour',    # согласие на cookie аналитики (anon)
         'cart_read': '600/hour',         # GET корзины
@@ -265,8 +295,28 @@ REST_FRAMEWORK = {
         'payment_callback': '120/minute',  # callback Сбера (по IP шлюза)
         'payment_status_anon': '30/minute',  # polling статуса (гость)
         'payment_status_user': '60/minute',  # polling статуса (user)
+        'review_create_anon': '10/hour',     # SEC-004: создание отзыва (гость)
+        'review_create': '20/hour',          # SEC-004: создание отзыва (user)
+        'yookassa_webhook': '60/minute',     # SEC-007: webhook ЮKassa (по IP)
+        'password_reset': '5/hour',          # SEC-009: запрос reset по IP
+        'password_reset_confirm': '10/hour', # SEC-009: confirm по IP
+        'guest_access_recover': '5/hour',    # SEC-006: recover guest order по IP
+        'guest_access_recover_confirm': '10/hour',
     },
 }
+
+# SEC-007: лимит размера JSON webhook и debounce re-fetch одного платежа
+YOOKASSA_WEBHOOK_MAX_BODY_BYTES = int(
+    os.getenv('YOOKASSA_WEBHOOK_MAX_BODY_BYTES', '65536') or '65536'
+)
+YOOKASSA_WEBHOOK_SYNC_DEBOUNCE_SECONDS = int(
+    os.getenv('YOOKASSA_WEBHOOK_SYNC_DEBOUNCE_SECONDS', '2') or '2'
+)
+
+# SEC-006: срок жизни guest access token (дни)
+ORDER_GUEST_ACCESS_TOKEN_TTL_DAYS = int(
+    os.getenv('ORDER_GUEST_ACCESS_TOKEN_TTL_DAYS', '90') or '90'
+)
 
 # HttpOnly-куки с JWT (дублируют JSON; фронт может перейти на NEXT_PUBLIC_USE_AUTH_COOKIES)
 JWT_COOKIE_ENABLED = os.getenv('JWT_COOKIE_ENABLED', 'True') == 'True'
@@ -355,6 +405,10 @@ MANAGER_EMAIL = os.getenv('MANAGER_EMAIL', '')
 # Базовый URL фронтенда (для ссылок в письмах, напр. форма оценки заказа)
 FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:3000').rstrip('/')
 
+# FUNC-007: бонусный модуль выключен по умолчанию (signals/checkout spend).
+_bonus_raw = os.getenv('BONUS_ENABLED', '').strip().lower()
+BONUS_ENABLED = _bonus_raw in ('1', 'true', 'yes')
+
 # Yandex Maps (integrations 2.4.3)
 YANDEX_GEOCODER_API_KEY = os.getenv('YANDEX_GEOCODER_API_KEY', '')
 
@@ -436,10 +490,41 @@ else:
 ONLINE_PAYMENT_TIMEOUT_MINUTES = int(
     os.getenv('ONLINE_PAYMENT_TIMEOUT_MINUTES', '20')
 )
+# INT-007: TTL distributed lock для Celery expire/reconcile (сек.)
+PAYMENTS_EXPIRE_LOCK_TTL_SECONDS = int(
+    os.getenv('PAYMENTS_EXPIRE_LOCK_TTL_SECONDS', '240') or '240'
+)
+PAYMENTS_RECONCILE_LOCK_TTL_SECONDS = int(
+    os.getenv('PAYMENTS_RECONCILE_LOCK_TTL_SECONDS', '180') or '180'
+)
+# Ops: включать только для внутреннего мониторинга (не публичный LB probe).
+OPS_HEALTH_DETAILS = os.getenv('OPS_HEALTH_DETAILS', '').strip().lower() in (
+    '1',
+    'true',
+    'yes',
+)
 # Оплата после cancel: manual | revive | reverse
 LATE_ONLINE_PAYMENT_POLICY = (
     os.getenv('LATE_ONLINE_PAYMENT_POLICY', 'manual') or 'manual'
 ).strip().lower()
+
+# --- ЮKassa (основной онлайн-эквайринг). Тест по умолчанию. ---
+YOOKASSA_ENABLED = os.getenv('YOOKASSA_ENABLED', '').strip().lower() in (
+    '1',
+    'true',
+    'yes',
+    'on',
+)
+_yk_test = os.getenv('YOOKASSA_TEST_MODE', '1').strip().lower()
+YOOKASSA_TEST_MODE = _yk_test not in ('0', 'false', 'no', 'off')
+YOOKASSA_SHOP_ID = os.getenv('YOOKASSA_SHOP_ID', '').strip()
+YOOKASSA_SECRET_KEY = os.getenv('YOOKASSA_SECRET_KEY', '').strip()
+YOOKASSA_API_URL = (
+    os.getenv('YOOKASSA_API_URL', 'https://api.yookassa.ru/v3') or 'https://api.yookassa.ru/v3'
+).rstrip('/')
+YOOKASSA_RETURN_URL = os.getenv('YOOKASSA_RETURN_URL', '').strip()
+YOOKASSA_WEBHOOK_URL = os.getenv('YOOKASSA_WEBHOOK_URL', '').strip()
+YOOKASSA_TIMEOUT = int(os.getenv('YOOKASSA_TIMEOUT', '30'))
 
 # Redis Cache Configuration (задача 2.5.1)
 CACHE_TIMEOUT_PRODUCTS_LIST = 60  # список товаров; сигналы инвалидируют при сохранении в админке

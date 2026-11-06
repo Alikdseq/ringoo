@@ -107,11 +107,7 @@ export function UiModeToggle({ variant = 'header' }: { variant?: Variant }) {
   }
 
   return (
-    <div
-      className="hidden items-center lg:flex"
-      role="group"
-      aria-label="Режим оформления сайта"
-    >
+    <div className="hidden items-center lg:flex" role="group" aria-label="Режим оформления сайта">
       <button
         type="button"
         onClick={() => setMode('official')}

@@ -18,6 +18,7 @@ import {
   Upload,
   Menu,
   X,
+  HardDriveDownload,
 } from 'lucide-react';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { BrandLogo } from '@/components/layout/BrandLogo';
@@ -40,6 +41,7 @@ const navItems = [
   { href: '/admin/promotions', label: 'Акции', icon: Tag },
   { href: '/admin/crm', label: 'Заявки (CRM)', icon: MessageSquare },
   { href: '/admin/analytics', label: 'Аналитика', icon: BarChart3 },
+  { href: '/admin/backup', label: 'Резервное копирование', icon: HardDriveDownload },
 ];
 
 function AdminSidebar({

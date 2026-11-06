@@ -19,11 +19,7 @@ import {
 } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getOrders, getRatingsSummary } from '@/lib/api/services/orders.service';
-import {
-  deleteAccount,
-  exportMyData,
-  updateMarketingOptIn,
-} from '@/lib/api/services/auth.service';
+import { deleteAccount, exportMyData, updateMarketingOptIn } from '@/lib/api/services/auth.service';
 import { getAddresses } from '@/lib/api/services/addresses.service';
 import { getWishlist } from '@/lib/api/services/wishlist.service';
 import { addToCart } from '@/lib/api/services/cart.service';
@@ -271,7 +267,14 @@ export function ProfileContent() {
           <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-start">
             <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-full bg-zinc-100 ring-2 ring-black/5">
               {avatarSrc ? (
-                <Image src={avatarSrc} alt="" fill className="object-cover" sizes="80px" unoptimized />
+                <Image
+                  src={avatarSrc}
+                  alt=""
+                  fill
+                  className="object-cover"
+                  sizes="80px"
+                  unoptimized
+                />
               ) : (
                 <div className="flex h-full w-full items-center justify-center text-zinc-500">
                   <UserIcon className="h-9 w-9" />
@@ -282,25 +285,34 @@ export function ProfileContent() {
               <h1 className="text-2xl font-semibold text-foreground">Привет, {displayName}</h1>
               <div className="mt-2 flex flex-wrap items-center justify-center gap-2 sm:justify-start">
                 <span className="text-sm text-foreground-muted">{user.phone}</span>
-                <Button type="button" variant="ghost" size="sm" onClick={copyPhone} className="h-8 gap-1 px-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={copyPhone}
+                  className="h-8 gap-1 px-2"
+                >
                   <Copy className="h-3.5 w-3.5" />
                   Копировать
                 </Button>
               </div>
-              {user.email && (
-                <p className="mt-1 text-sm text-foreground-muted">{user.email}</p>
-              )}
+              {user.email && <p className="mt-1 text-sm text-foreground-muted">{user.email}</p>}
               <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                 <Button asChild variant="outline" size="sm">
                   <Link href="#privacy">Управление данными</Link>
                 </Button>
               </div>
             </div>
-            <div id="bonuses" className="w-full shrink-0 rounded-2xl border border-amber-200 bg-amber-50/60 p-4 sm:w-56">
-              <p className="text-xs font-semibold uppercase tracking-wide text-amber-900/80">Бонусы</p>
+            <div
+              id="bonuses"
+              className="w-full shrink-0 rounded-2xl border border-amber-200 bg-amber-50/60 p-4 sm:w-56"
+            >
+              <p className="text-xs font-semibold uppercase tracking-wide text-amber-900/80">
+                Бонусы
+              </p>
               <p className="mt-1 text-sm text-amber-950/90">
-                Программа лояльности подключается на стороне сервера. Следите за новостями — скоро здесь
-                появится баланс и история начислений.
+                Программа лояльности подключается на стороне сервера. Следите за новостями — скоро
+                здесь появится баланс и история начислений.
               </p>
             </div>
           </div>
@@ -405,7 +417,9 @@ export function ProfileContent() {
                         {it.product_title.slice(0, 1)}
                       </div>
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-medium text-foreground">{it.product_title}</p>
+                        <p className="truncate text-sm font-medium text-foreground">
+                          {it.product_title}
+                        </p>
                         <p className="text-xs text-foreground-muted">
                           {it.quantity} × {money(it.price)} {CURRENCY_SYMBOL}
                         </p>
@@ -432,13 +446,22 @@ export function ProfileContent() {
           {ratingsSummary && (
             <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
               <div>
-                <p className="text-4xl font-semibold text-foreground">{ratingsSummary.average.toFixed(1)}</p>
+                <p className="text-4xl font-semibold text-foreground">
+                  {ratingsSummary.average.toFixed(1)}
+                </p>
                 <p className="mt-1 text-sm text-foreground-muted">
                   из 5 · {ratingsSummary.count}{' '}
-                  {ratingsSummary.count === 1 ? 'оценка' : ratingsSummary.count < 5 ? 'оценки' : 'оценок'}
+                  {ratingsSummary.count === 1
+                    ? 'оценка'
+                    : ratingsSummary.count < 5
+                      ? 'оценки'
+                      : 'оценок'}
                 </p>
               </div>
-              <Link href="/about#managers" className="text-sm font-medium text-primary hover:underline">
+              <Link
+                href="/about#managers"
+                className="text-sm font-medium text-primary hover:underline"
+              >
                 Подробнее на странице «О нас»
               </Link>
             </div>
@@ -506,14 +529,23 @@ export function ProfileContent() {
                     <Link href={`/products/${w.product.slug}`} className="block">
                       <div className="relative mx-auto h-24 w-24 overflow-hidden rounded-xl bg-zinc-100">
                         {imgUrl ? (
-                          <Image src={imgUrl} alt="" fill className="object-cover" sizes="96px" unoptimized />
+                          <Image
+                            src={imgUrl}
+                            alt=""
+                            fill
+                            className="object-cover"
+                            sizes="96px"
+                            unoptimized
+                          />
                         ) : (
                           <div className="flex h-full w-full items-center justify-center text-xs text-foreground-muted">
                             фото
                           </div>
                         )}
                       </div>
-                      <p className="mt-2 line-clamp-2 text-sm font-medium text-foreground">{w.product.title}</p>
+                      <p className="mt-2 line-clamp-2 text-sm font-medium text-foreground">
+                        {w.product.title}
+                      </p>
                       <p className="mt-1 text-sm font-semibold text-foreground">
                         {money(w.product.price)} {CURRENCY_SYMBOL}
                       </p>
@@ -575,9 +607,12 @@ export function ProfileContent() {
 
         {/* Блок 7: Уведомления */}
         <Card id="notifications" className="mt-8 rounded-2xl border border-border p-5 shadow-sm">
-          <h2 className="mb-2 text-lg font-semibold text-foreground">Уведомления о статусе заказа</h2>
+          <h2 className="mb-2 text-lg font-semibold text-foreground">
+            Уведомления о статусе заказа
+          </h2>
           <p className="mb-4 text-sm text-foreground-muted">
-            Мы будем присылать обновления в рамках выбранных каналов. SMS и Telegram подключим отдельно.
+            Мы будем присылать обновления в рамках выбранных каналов. SMS и Telegram подключим
+            отдельно.
           </p>
           <div className="grid gap-4 sm:grid-cols-3">
             <label className="flex cursor-pointer items-start gap-2 rounded-xl border border-border bg-white p-3">
@@ -608,7 +643,9 @@ export function ProfileContent() {
 
         {/* Персональные данные */}
         <Card id="privacy" className="mt-8 rounded-2xl border border-border p-5 shadow-sm">
-          <h2 className="mb-2 text-lg font-semibold text-foreground">Персональные данные и согласия</h2>
+          <h2 className="mb-2 text-lg font-semibold text-foreground">
+            Персональные данные и согласия
+          </h2>
           <p className="mb-4 text-sm text-foreground-muted">
             Согласие с политикой зафиксировано при регистрации
             {user.privacy_policy_accepted_at

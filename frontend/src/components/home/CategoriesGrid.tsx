@@ -31,7 +31,11 @@ export function CategoriesGrid() {
         <h2 className={TYPOGRAPHY.h2 + ' mb-8 text-center text-foreground'}>Каталог</h2>
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
           {list.map(item => (
-            <Link key={item.slug} href={`/catalog?category=${item.slug}`} prefetch={LINK_PREFETCH_DEFAULT}>
+            <Link
+              key={item.slug}
+              href={`/catalog?category=${item.slug}`}
+              prefetch={LINK_PREFETCH_DEFAULT}
+            >
               <Card className="flex aspect-square flex-col items-center justify-center p-4 transition-all duration-200 hover:-translate-y-1 hover:shadow-md">
                 <div className="mb-2 h-16 w-16 rounded-xl bg-zinc-100" />
                 <span className={TYPOGRAPHY.bodySmall + ' text-center font-medium text-foreground'}>

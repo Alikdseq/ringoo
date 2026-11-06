@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { UiModeProvider } from '@/lib/providers/UiModeProvider';
 import PromotionsPage from './page';
 
 // JSDOM: polyfill for code that checks prefers-reduced-motion etc.
@@ -24,6 +25,7 @@ vi.mock('@/lib/api/services/promotions.service', () => ({
 
 vi.mock('@/lib/api/services/products.service', () => ({
   getProducts: vi.fn(),
+  getProductDetail: vi.fn().mockResolvedValue(null),
 }));
 
 vi.mock('@/lib/hooks/useProducts', () => ({
@@ -33,7 +35,9 @@ vi.mock('@/lib/hooks/useProducts', () => ({
 const mockGetPromotions = vi.mocked(
   (await import('@/lib/api/services/promotions.service')).getPromotions
 );
-const mockGetProducts = vi.mocked((await import('@/lib/api/services/products.service')).getProducts);
+const mockGetProducts = vi.mocked(
+  (await import('@/lib/api/services/products.service')).getProducts
+);
 
 const futureEnd = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
 const mockPromotions = [
@@ -64,7 +68,13 @@ const mockProducts = {
       old_price: '10000',
       rating: 4.6,
       reviews_count: 10,
-      category: { id: 'c1', title: 'Электроника', slug: 'electronics', parent: null, description: null },
+      category: {
+        id: 'c1',
+        title: 'Электроника',
+        slug: 'electronics',
+        parent: null,
+        description: null,
+      },
       discount_percent: 10,
       availability_status: 'in_stock' as const,
     },
@@ -75,7 +85,11 @@ function renderWithClient(ui: React.ReactElement) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
-  return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>);
+  return render(
+    <QueryClientProvider client={client}>
+      <UiModeProvider initialMode="official">{ui}</UiModeProvider>
+    </QueryClientProvider>
+  );
 }
 
 describe('PromotionsPage', () => {
@@ -87,9 +101,7 @@ describe('PromotionsPage', () => {
   it('renders hero and filters', async () => {
     renderWithClient(<PromotionsPage />);
 
-    expect(
-      screen.getByText('Экономить — это умно. А у нас ещё и выгодно.')
-    ).toBeInTheDocument();
+    expect(screen.getByText('Экономить — это умно. А у нас ещё и выгодно.')).toBeInTheDocument();
     expect(screen.getAllByRole('button', { name: 'Все акции' }).length).toBeGreaterThan(0);
     expect(screen.getByRole('button', { name: 'Скидка %' })).toBeInTheDocument();
   });
@@ -113,6 +125,6 @@ describe('PromotionsPage', () => {
 
     renderWithClient(<PromotionsPage />);
 
-    expect(await screen.findByText('Сейчас нет активных акций.')).toBeInTheDocument();
+    expect(await screen.findByText(/Сейчас нет активных акций/)).toBeInTheDocument();
   });
 });

@@ -147,8 +147,14 @@ class TestAdminIntegrityChains(TestCase):
         self.assertEqual(created.status_code, 201, created.content)
         order_id = created.json()["id"]
 
+        # SEC-001: чужие заказы — только admin_api, не customer /orders/
         self.client.force_authenticate(user=self.staff_orders)
-        listing = self.client.get("/api/v1/orders/")
+        customer_listing = self.client.get("/api/v1/orders/")
+        self.assertEqual(customer_listing.status_code, 200)
+        customer_ids = [o["id"] for o in customer_listing.json()["results"]]
+        self.assertNotIn(order_id, customer_ids)
+
+        listing = self.client.get("/api/v1/admin/orders/")
         self.assertEqual(listing.status_code, 200)
         ids = [o["id"] for o in listing.json()["results"]]
         self.assertIn(order_id, ids)
@@ -215,7 +221,7 @@ class TestAdminIntegrityChains(TestCase):
         self.client.force_authenticate(user=self.staff_orders)
         r = self.client.get("/api/v1/admin/products/")
         self.assertEqual(r.status_code, 403)
-        r2 = self.client.get("/api/v1/orders/")
+        r2 = self.client.get("/api/v1/admin/orders/")
         self.assertEqual(r2.status_code, 200)
 
     def test_superuser_assigns_groups(self):

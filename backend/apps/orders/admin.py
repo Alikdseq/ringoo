@@ -81,34 +81,94 @@ class OrderAdmin(admin.ModelAdmin):
     actions = ["action_set_status_confirmed", "action_export_csv"]
 
     def save_model(self, request, obj, form, change):
+        from django.contrib import messages
+
+        from apps.orders.services import OrderCancelError
+        from apps.orders.services.transitions import (
+            OrderTransitionError,
+            transition_order_status,
+        )
+
         old_status = None
         if change and obj.pk:
-            old_status = Order.objects.filter(pk=obj.pk).values_list("status", flat=True).first()
-        super().save_model(request, obj, form, change)
-        if change and old_status is not None and old_status != obj.status:
+            old_status = (
+                Order.objects.filter(pk=obj.pk).values_list("status", flat=True).first()
+            )
+
+        # INT-001/002: любая смена статуса — через FSM (cancel → release + 1С).
+        if change and old_status is not None and obj.status != old_status:
+            desired = obj.status
+            obj.status = old_status
+            super().save_model(request, obj, form, change)
+            try:
+                locked = transition_order_status(
+                    obj,
+                    desired,
+                    reason="django_admin_status",
+                    allow_paid_cancel=False,
+                )
+            except (OrderTransitionError, OrderCancelError) as exc:
+                messages.error(request, getattr(exc, "message", str(exc)))
+                return
+            obj.status = locked.status
             log_admin_action(
                 request,
                 action="order_status_changed",
                 model_name="orders.Order",
                 object_id=str(obj.pk),
                 object_repr=obj.order_number,
-                changes={"status": {"old": old_status, "new": obj.status}},
+                changes={"status": {"old": old_status, "new": locked.status}},
             )
+            return
+
+        super().save_model(request, obj, form, change)
 
     @admin.action(description="Перевести в «Подтверждён»")
     def action_set_status_confirmed(self, request, queryset):
-        ids = list(queryset.values_list("pk", flat=True))
-        updated = queryset.update(status=Order.STATUS_CONFIRMED)
+        from django.contrib import messages
+
+        from apps.orders.services import OrderCancelError
+        from apps.orders.services.transitions import (
+            OrderTransitionError,
+            transition_order_status,
+        )
+
+        ok = 0
+        skipped = 0
+        errors = []
+        for order in queryset.iterator():
+            try:
+                locked = transition_order_status(
+                    order,
+                    Order.STATUS_CONFIRMED,
+                    reason="django_admin_bulk_confirm",
+                )
+                if locked.status == Order.STATUS_CONFIRMED:
+                    ok += 1
+                else:
+                    skipped += 1
+            except (OrderTransitionError, OrderCancelError) as exc:
+                skipped += 1
+                if len(errors) < 5:
+                    errors.append(f"{order.order_number}: {getattr(exc, 'message', exc)}")
+
         log_admin_action(
             request,
             action="order_bulk_status_confirmed",
             model_name="orders.Order",
-            object_id=",".join(str(x) for x in ids[:50]),
-            object_repr=f"{updated} заказов",
-            changes={"status": Order.STATUS_CONFIRMED, "count": updated},
+            object_id="",
+            object_repr=f"ok={ok} skipped={skipped}",
+            changes={
+                "status": Order.STATUS_CONFIRMED,
+                "ok": ok,
+                "skipped": skipped,
+            },
         )
-        self.message_user(request, f"Обновлено заказов: {updated}.")
-
+        msg = f"Подтверждено: {ok}. Пропущено/отклонено: {skipped}."
+        if errors:
+            msg += " " + "; ".join(errors)
+        level = messages.WARNING if skipped else messages.SUCCESS
+        self.message_user(request, msg, level=level)
     @admin.action(description="Экспорт в CSV")
     def action_export_csv(self, request, queryset):
         log_admin_action(

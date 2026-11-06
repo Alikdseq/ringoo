@@ -65,7 +65,9 @@ export function CartItem({ item, onIncrease, onDecrease, onRemove }: CartItemPro
                 {product.title}
               </Link>
               {item.color?.label ? (
-                <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-300">Цвет: {item.color.label}</p>
+                <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-300">
+                  Цвет: {item.color.label}
+                </p>
               ) : null}
               <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
                 Цена за шт.: {item.price_at_add} {CURRENCY_SYMBOL}

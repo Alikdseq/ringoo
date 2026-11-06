@@ -1,0 +1,409 @@
+{
+  "mode": "dry_run",
+  "generated_at": "2026-10-22T11:47:55.813307+00:00",
+  "source_folders_path": "C:\\ringoo\\integration1CandKassa\\Иерархия Папок.xml",
+  "source_products_path": "C:\\ringoo\\integration1CandKassa\\Товары.xml",
+  "folder_count": 252,
+  "product_row_count": 7679,
+  "unique_product_count": 3849,
+  "summary": {
+    "categories_create": 252,
+    "categories_update": 0,
+    "categories_skip": 0,
+    "products_create": 3836,
+    "products_update": 0,
+    "products_skip": 13,
+    "products_ambiguous": 0,
+    "stocks_upsert": 6316,
+    "stocks_skip": 1363,
+    "warehouses": 11,
+    "issues": 871,
+    "series_rows": 858,
+    "missing_category_products": 1
+  },
+  "warehouses": [
+    {
+      "sklad": "БАМ",
+      "sklad_id": "1418e927-cea5-11f0-82e3-00155d01c802",
+      "is_apple_room": false,
+      "row_count": 779
+    },
+    {
+      "sklad": "Ватутина",
+      "sklad_id": "9de5e8ce-cea9-11f0-82e3-00155d01c802",
+      "is_apple_room": false,
+      "row_count": 647
+    },
+    {
+      "sklad": "Коста 288",
+      "sklad_id": "cedfb76d-cea9-11f0-82e3-00155d01c802",
+      "is_apple_room": false,
+      "row_count": 739
+    },
+    {
+      "sklad": "Коста 199",
+      "sklad_id": "bd718455-cea9-11f0-82e3-00155d01c802",
+      "is_apple_room": false,
+      "row_count": 558
+    },
+    {
+      "sklad": "Доватора",
+      "sklad_id": "710472c0-866e-11f0-82e1-00155d01c802",
+      "is_apple_room": false,
+      "row_count": 672
+    },
+    {
+      "sklad": "Ардон",
+      "sklad_id": "7d0745da-cea9-11f0-82e3-00155d01c802",
+      "is_apple_room": false,
+      "row_count": 658
+    },
+    {
+      "sklad": "Беслан",
+      "sklad_id": "8d9cc921-cea9-11f0-82e3-00155d01c802",
+      "is_apple_room": false,
+      "row_count": 889
+    },
+    {
+      "sklad": "Apple Room",
+      "sklad_id": "63f7e17d-cea9-11f0-82e3-00155d01c802",
+      "is_apple_room": true,
+      "row_count": 631
+    },
+    {
+      "sklad": "Кирова",
+      "sklad_id": "ae0d8ae3-cea9-11f0-82e3-00155d01c802",
+      "is_apple_room": false,
+      "row_count": 682
+    },
+    {
+      "sklad": "Сервис",
+      "sklad_id": "7df20a6a-f156-11f0-82e7-00155d01c802",
+      "is_apple_room": false,
+      "row_count": 52
+    },
+    {
+      "sklad": "Офис",
+      "sklad_id": "710472be-866e-11f0-82e1-00155d01c802",
+      "is_apple_room": false,
+      "row_count": 9
+    }
+  ],
+  "issue_type_counts": {
+    "series_present": 858,
+    "product_missing_price": 12,
+    "product_missing_category": 1
+  },
+  "sample_issues": [
+    {
+      "type": "series_present",
+      "onec_code": "00-00036056",
+      "series": "gdf9xh52cw",
+      "series_id": "31c0a135-89b6-11f1-82ee-00155d01c802",
+      "sklad": "БАМ"
+    },
+    {
+      "type": "series_present",
+      "onec_code": "00-00036193",
+      "series": "SH29XJ9DFHV",
+      "series_id": "ce4a71c7-9d58-11f1-82f2-00155d01c802",
+      "sklad": "БАМ"
+    },
+    {
+      "type": "series_present",
+      "onec_code": "00-00000007",
+      "series": "slrywhc4lyY",
+      "series_id": "c2eb5282-9d58-11f1-82f2-00155d01c802",
+      "sklad": "БАМ"
+    },
+    {
+      "type": "series_present",
+      "onec_code": "00-00000007",
+      "series": "SF23P2R33JN",
+      "series_id": "c2eb5283-9d58-11f1-82f2-00155d01c802",
+      "sklad": "Ватутина"
+    },
+    {
+      "type": "series_present",
+      "onec_code": "00-00000007",
+      "series": "SJ9DY71YQ2F",
+      "series_id": "c2eb5281-9d58-11f1-82f2-00155d01c802",
+      "sklad": "Коста 288"
+    },
+    {
+      "type": "series_present",
+      "onec_code": "00-00035875",
+      "series": "sdmpyhfm73v",
+      "series_id": "7ccb1352-9d58-11f1-82f2-00155d01c802",
+      "sklad": "Коста 199"
+    },
+    {
+      "type": "series_present",
+      "onec_code": "00-00000239",
+      "series": "SLWM4MCQL7H",
+      "series_id": "db281b63-9d6f-11f1-82f2-00155d01c802",
+      "sklad": "Доватора"
+    },
+    {
+      "type": "series_present",
+      "onec_code": "00-00000109",
+      "series": "sdmpyhfm73v",
+      "series_id": "7ccb1352-9d58-11f1-82f2-00155d01c802",
+      "sklad": "Ардон"
+    },
+    {
+      "type": "series_present",
+      "onec_code": "00-00000109",
+      "series": "SCN49YP1V77",
+      "series_id": "e88060f8-6322-11f1-82ec-00155d01c802",
+      "sklad": "Беслан"
+    },
+    {
+      "type": "series_present",
+      "onec_code": "00-00001801",
+      "series": "sjgyghy5q69",
+      "series_id": "01b531c2-9d59-11f1-82f2-00155d01c802",
+      "sklad": "БАМ"
+    },
+    {
+      "type": "series_present",
+      "onec_code": "00-00001801",
+      "series": "SHKJH7JCXGF",
+      "series_id": "01b531c3-9d59-11f1-82f2-00155d01c802",
+      "sklad": "Ватутина"
+    },
+    {
+      "type": "series_present",
+      "onec_code": "00-00000112",
+      "series": "SDHVGKL9WTX",
+      "series_id": "d1d62f7e-2d02-11f1-82ea-00155d01c802",
+      "sklad": "Ватутина"
+    },
+    {
+      "type": "series_present",
+      "onec_code": "00-00035596",
+      "series": "SG1037W0CKV",
+      "series_id": "4a254b86-31c8-11f1-82ea-00155d01c802",
+      "sklad": "Ардон"
+    },
+    {
+      "type": "series_present",
+      "onec_code": "00-00035596",
+      "series": "SGJDX000Y7D",
+      "series_id": "23841c7a-94c5-11f1-82f2-00155d01c802",
+      "sklad": "Беслан"
+    },
+    {
+      "type": "series_present",
+      "onec_code": "00-00000064",
+      "series": "357281835355640",
+      "series_id": "af2a4bc1-899c-11f1-82ee-00155d01c802",
+      "sklad": "БАМ"
+    },
+    {
+      "type": "series_present",
+      "onec_code": "00-00035158",
+      "series": "865963086657692",
+      "series_id": "2188ce96-9493-11f1-82f2-00155d01c802",
+      "sklad": "Беслан"
+    },
+    {
+      "type": "series_present",
+      "onec_code": "00-00035158",
+      "series": "865963086650754",
+      "series_id": "f476aff7-8bf0-11f1-82ee-00155d01c802",
+      "sklad": "Ватутина"
+    },
+    {
+      "type": "series_present",
+      "onec_code": "00-00000177",
+      "series": "862297085026978",
+      "series_id": "904934a0-9491-11f1-82f2-00155d01c802",
+      "sklad": "БАМ"
+    },
+    {
+      "type": "series_present",
+      "onec_code": "00-00000177",
+      "series": "862297085026911",
+      "series_id": "abe1e40c-9491-11f1-82f2-00155d01c802",
+      "sklad": "Ватутина"
+    },
+    {
+      "type": "series_present",
+      "onec_code": "00-00035837",
+      "series": "865963088511269",
+      "series_id": "85ce873c-5dab-11f1-82ec-00155d01c802",
+      "sklad": "Кирова"
+    }
+  ],
+  "sample_products_create": [
+    {
+      "onec_code": "00-00031214",
+      "name": "Air power 3в1",
+      "parent_code": "00-00029256",
+      "price": "2200.00",
+      "action": "create",
+      "site_id": null,
+      "site_slug": null,
+      "matched_by": "",
+      "notes": "Новая карточка; один onec_code — один товар"
+    },
+    {
+      "onec_code": "00-00036056",
+      "name": "APPLE Watch S10 42mm silver",
+      "parent_code": "00-00015143",
+      "price": "13990.00",
+      "action": "create",
+      "site_id": null,
+      "site_slug": null,
+      "matched_by": "",
+      "notes": "Новая карточка; один onec_code — один товар"
+    },
+    {
+      "onec_code": "00-00036193",
+      "name": "APPLE Watch S11 42mm Gray",
+      "parent_code": "00-00015143",
+      "price": "34990.00",
+      "action": "create",
+      "site_id": null,
+      "site_slug": null,
+      "matched_by": "",
+      "notes": "Новая карточка; один onec_code — один товар"
+    },
+    {
+      "onec_code": "00-00000007",
+      "name": "APPLE Watch S11 42mm Jet Black",
+      "parent_code": "00-00015143",
+      "price": "34990.00",
+      "action": "create",
+      "site_id": null,
+      "site_slug": null,
+      "matched_by": "",
+      "notes": "Новая карточка; один onec_code — один товар"
+    },
+    {
+      "onec_code": "00-00035444",
+      "name": "APPLE Watch S11 42mm rose gold",
+      "parent_code": "00-00015143",
+      "price": "30990.00",
+      "action": "create",
+      "site_id": null,
+      "site_slug": null,
+      "matched_by": "",
+      "notes": "Новая карточка; один onec_code — один товар"
+    }
+  ],
+  "sample_products_skip": [
+    {
+      "onec_code": "00-00034271",
+      "name": "IPhone 16 Pro 512GB Natural Titanium",
+      "parent_code": "00-00033966",
+      "price": null,
+      "action": "skip",
+      "site_id": null,
+      "site_slug": null,
+      "matched_by": "",
+      "notes": "Пустая цена — не публикуем и не создаём без согласования"
+    },
+    {
+      "onec_code": "00-00036220",
+      "name": "Maxvi B202 duos Black",
+      "parent_code": "00-00012910",
+      "price": null,
+      "action": "skip",
+      "site_id": null,
+      "site_slug": null,
+      "matched_by": "",
+      "notes": "Пустая цена — не публикуем и не создаём без согласования"
+    },
+    {
+      "onec_code": "00-00036222",
+      "name": "Maxvi B241 duos black",
+      "parent_code": "00-00012910",
+      "price": null,
+      "action": "skip",
+      "site_id": null,
+      "site_slug": null,
+      "matched_by": "",
+      "notes": "Пустая цена — не публикуем и не создаём без согласования"
+    },
+    {
+      "onec_code": "00-00036221",
+      "name": "Maxvi B241 duos white",
+      "parent_code": "00-00012910",
+      "price": null,
+      "action": "skip",
+      "site_id": null,
+      "site_slug": null,
+      "matched_by": "",
+      "notes": "Пустая цена — не публикуем и не создаём без согласования"
+    },
+    {
+      "onec_code": "00-00036223",
+      "name": "Maxvi B33 Black",
+      "parent_code": "00-00012910",
+      "price": null,
+      "action": "skip",
+      "site_id": null,
+      "site_slug": null,
+      "matched_by": "",
+      "notes": "Пустая цена — не публикуем и не создаём без согласования"
+    },
+    {
+      "onec_code": "00-00036219",
+      "name": "Maxvi X910 black",
+      "parent_code": "00-00012910",
+      "price": null,
+      "action": "skip",
+      "site_id": null,
+      "site_slug": null,
+      "matched_by": "",
+      "notes": "Пустая цена — не публикуем и не создаём без согласования"
+    },
+    {
+      "onec_code": "00-00036218",
+      "name": "Maxvi X910 blue",
+      "parent_code": "00-00012910",
+      "price": null,
+      "action": "skip",
+      "site_id": null,
+      "site_slug": null,
+      "matched_by": "",
+      "notes": "Пустая цена — не публикуем и не создаём без согласования"
+    },
+    {
+      "onec_code": "00-00036239",
+      "name": "Samsung A176 6/128GB gray",
+      "parent_code": "00-00034435",
+      "price": null,
+      "action": "skip",
+      "site_id": null,
+      "site_slug": null,
+      "matched_by": "",
+      "notes": "Пустая цена — не публикуем и не создаём без согласования"
+    },
+    {
+      "onec_code": "00-00036226",
+      "name": "Xiaomi Redmi Note 14 6/128 GB purple",
+      "parent_code": "00-00029150",
+      "price": null,
+      "action": "skip",
+      "site_id": null,
+      "site_slug": null,
+      "matched_by": "",
+      "notes": "Пустая цена — не публикуем и не создаём без согласования"
+    },
+    {
+      "onec_code": "00-00030516",
+      "name": "Акционный товар",
+      "parent_code": "00-00010097",
+      "price": "700.00",
+      "action": "skip",
+      "site_id": null,
+      "site_slug": null,
+      "matched_by": "",
+      "notes": "Нет папки в выгрузке — не создаём карточку без согласования"
+    }
+  ],
+  "note": "Полный отчёт: python manage.py import_onec_catalog --folders ... --products ... --report path.json"
+}

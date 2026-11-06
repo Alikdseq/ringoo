@@ -25,8 +25,10 @@ export default async function NewsArticlePage({ params }: PageProps) {
       <h1 className="mb-2 text-2xl font-semibold text-foreground">Новость (шаблон)</h1>
       <p className="mb-6 text-sm text-foreground-muted">
         Полная страница новости: подключите публичный{' '}
-        <code className="rounded bg-zinc-100 px-1 text-xs dark:bg-zinc-800">GET /content/news/&lt;slug&gt;/</code> для
-        контента и SEO, по аналогии с карточкой товара.
+        <code className="rounded bg-zinc-100 px-1 text-xs dark:bg-zinc-800">
+          GET /content/news/&lt;slug&gt;/
+        </code>{' '}
+        для контента и SEO, по аналогии с карточкой товара.
       </p>
 
       <div className="grid gap-4">

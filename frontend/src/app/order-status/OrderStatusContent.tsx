@@ -1,23 +1,27 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { isAxiosError } from 'axios';
-import {
-  Clipboard,
-  Loader2,
-  PackageSearch,
-  Phone,
-  RefreshCcw,
-  Truck,
-  XCircle,
-} from 'lucide-react';
+import { Clipboard, Loader2, PackageSearch, Phone, RefreshCcw, Truck, XCircle } from 'lucide-react';
 import type { Order } from '@/types/api';
-import { cancelOrder, checkOrderStatus, reorderOrder } from '@/lib/api/services/orders.service';
+import {
+  cancelOrder,
+  checkOrderStatus,
+  confirmGuestAccessRecovery,
+  reorderOrder,
+  requestGuestAccessRecovery,
+} from '@/lib/api/services/orders.service';
+import {
+  peekGuestTokenByOrderNumber,
+  stashGuestTokenByOrderNumber,
+} from '@/lib/api/services/payments.service';
 import { getStoreDetail } from '@/lib/api/services/stores.service';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { copyToClipboard } from '@/lib/clipboard';
+import { getFriendlyErrorMessage } from '@/lib/errors';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
@@ -34,7 +38,10 @@ function normalizePhoneForApi(raw: string): string {
   return `+${d}`;
 }
 
-function friendlyStatus(status: string): { label: string; tone: 'muted' | 'info' | 'warn' | 'ok' | 'danger' } {
+function friendlyStatus(status: string): {
+  label: string;
+  tone: 'muted' | 'info' | 'warn' | 'ok' | 'danger';
+} {
   switch (status) {
     case 'new':
       return { label: 'В обработке', tone: 'muted' };
@@ -63,7 +70,11 @@ function StatusBadge({ status }: { status: string }) {
           : s.tone === 'info'
             ? 'bg-sky-50 text-sky-700'
             : 'bg-zinc-100 text-zinc-700';
-  return <span className={cn('inline-flex rounded-full px-3 py-1 text-xs font-semibold', cls)}>{s.label}</span>;
+  return (
+    <span className={cn('inline-flex rounded-full px-3 py-1 text-xs font-semibold', cls)}>
+      {s.label}
+    </span>
+  );
 }
 
 function StatusProgress({ status }: { status: string }) {
@@ -74,7 +85,10 @@ function StatusProgress({ status }: { status: string }) {
     { key: 'in_progress', label: 'В доставке' },
     { key: 'completed', label: 'Получен' },
   ];
-  const idx = Math.max(0, steps.findIndex(s => s.key === status));
+  const idx = Math.max(
+    0,
+    steps.findIndex(s => s.key === status)
+  );
   return (
     <div className="mt-4">
       <div className="flex items-center justify-between gap-2">
@@ -90,9 +104,19 @@ function StatusProgress({ status }: { status: string }) {
                   )}
                   aria-hidden
                 />
-                <div className={cn('h-1 flex-1 rounded-full', active ? 'bg-emerald-600/60' : 'bg-zinc-200')} />
+                <div
+                  className={cn(
+                    'h-1 flex-1 rounded-full',
+                    active ? 'bg-emerald-600/60' : 'bg-zinc-200'
+                  )}
+                />
               </div>
-              <div className={cn('mt-2 text-[11px] font-medium', active ? 'text-foreground' : 'text-foreground-muted')}>
+              <div
+                className={cn(
+                  'mt-2 text-[11px] font-medium',
+                  active ? 'text-foreground' : 'text-foreground-muted'
+                )}
+              >
                 {s.label}
               </div>
             </div>
@@ -121,11 +145,17 @@ function formatAddress(addr: Record<string, unknown> | null | undefined): string
   return parts.length ? parts.join(', ') : '—';
 }
 
-export function OrderStatusContent() {
+function OrderStatusInner() {
   const { isAuthenticated, user } = useAuth();
+  const searchParams = useSearchParams();
 
   const [orderNumber, setOrderNumber] = useState('');
   const [phone, setPhone] = useState('');
+  const [guestToken, setGuestToken] = useState('');
+  const [recoverEmail, setRecoverEmail] = useState('');
+  const [recoverMsg, setRecoverMsg] = useState('');
+  const [recoverError, setRecoverError] = useState('');
+  const [tokenRequired, setTokenRequired] = useState(false);
   const [order, setOrder] = useState<Order | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
@@ -134,6 +164,31 @@ export function OrderStatusContent() {
     if (!isAuthenticated || !user?.phone?.trim()) return;
     setPhone(prev => (prev.trim() ? prev : user.phone.trim()));
   }, [isAuthenticated, user?.phone]);
+
+  // SEC-006: ссылка из письма восстановления
+  useEffect(() => {
+    const on = (searchParams.get('order_number') || '').trim();
+    const token = (searchParams.get('token') || '').trim();
+    const recover = searchParams.get('recover') === '1';
+    if (on) setOrderNumber(on);
+    if (!recover || !on || !token) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await confirmGuestAccessRecovery({ order_number: on, token });
+        if (cancelled) return;
+        stashGuestTokenByOrderNumber(res.order_number, res.guest_access_token);
+        setGuestToken(res.guest_access_token);
+        setRecoverMsg('Доступ восстановлен. Нажмите «Проверить», чтобы увидеть заказ.');
+        setRecoverError('');
+      } catch (e) {
+        if (!cancelled) setRecoverError(getFriendlyErrorMessage(e));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [searchParams]);
 
   const canCancel = order?.status === 'new' || order?.status === 'confirmed';
   const canReorder = order?.status === 'completed' || order?.status === 'cancelled';
@@ -145,27 +200,55 @@ export function OrderStatusContent() {
     staleTime: 5 * 60 * 1000,
   });
 
+  const resolveGuestToken = (num: string) =>
+    guestToken.trim() || peekGuestTokenByOrderNumber(num) || undefined;
+
   const checkMutation = useMutation({
     mutationFn: async () => {
       const num = orderNumber.trim();
       const ph = normalizePhoneForApi(phone);
-      return await checkOrderStatus(num, ph);
+      return await checkOrderStatus(num, ph, resolveGuestToken(num));
     },
     retry: false,
     onSuccess: data => {
-      setOrder(data);
+      const limited = Boolean((data as Order & { guest_token_required?: boolean }).guest_token_required);
+      setTokenRequired(limited);
+      setOrder(limited ? null : data);
       setNotFound(false);
+      if (!limited && guestToken.trim()) {
+        stashGuestTokenByOrderNumber(orderNumber.trim(), guestToken.trim());
+      }
     },
     onError: (e: unknown) => {
       setOrder(null);
+      setTokenRequired(false);
       setNotFound(isAxiosError(e) && e.response?.status === 404);
     },
+  });
+
+  const recoverMutation = useMutation({
+    mutationFn: async () =>
+      requestGuestAccessRecovery({
+        order_number: orderNumber.trim(),
+        email: recoverEmail.trim(),
+      }),
+    onSuccess: res => {
+      setRecoverMsg(res.detail);
+      setRecoverError('');
+    },
+    onError: (e: unknown) => setRecoverError(getFriendlyErrorMessage(e)),
   });
 
   const cancelMutation = useMutation({
     mutationFn: async () => {
       if (!order) throw new Error('No order');
-      const payload = isAuthenticated ? undefined : { order_number: order.order_number, phone: normalizePhoneForApi(phone) };
+      const payload = isAuthenticated
+        ? undefined
+        : {
+            order_number: order.order_number,
+            phone: normalizePhoneForApi(phone),
+            guest_token: resolveGuestToken(order.order_number),
+          };
       return await cancelOrder(order.id, payload);
     },
     onSuccess: next => setOrder(next),
@@ -175,6 +258,19 @@ export function OrderStatusContent() {
     mutationFn: async () => {
       if (!order) throw new Error('No order');
       return await reorderOrder(order.id);
+    },
+    onSuccess: result => {
+      if (result.partial && result.skipped?.length) {
+        const names = result.skipped
+          .slice(0, 3)
+          .map(s => s.product_title)
+          .join(', ');
+        window.alert(
+          `В корзину добавлено ${result.added_count} поз. Часть недоступна: ${names}${
+            result.skipped.length > 3 ? '…' : ''
+          }`
+        );
+      }
     },
   });
 
@@ -208,9 +304,12 @@ export function OrderStatusContent() {
             <div className="relative grid gap-6">
               <div>
                 <p className="text-sm font-semibold text-brand">Самообслуживание</p>
-                <h1 className="mt-3 text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">Где мой заказ?</h1>
+                <h1 className="mt-3 text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
+                  Где мой заказ?
+                </h1>
                 <p className="mt-3 text-base text-foreground-muted sm:text-lg">
-                  Введите номер заказа и телефон — покажем статус и детали.
+                  Введите номер заказа и телефон. Полные детали доступны с кодом доступа из
+                  письма или после оформления заказа в этом браузере.
                 </p>
               </div>
 
@@ -223,7 +322,10 @@ export function OrderStatusContent() {
                 className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]"
               >
                 <div>
-                  <label htmlFor="order-number" className="mb-1 block text-sm text-foreground-muted">
+                  <label
+                    htmlFor="order-number"
+                    className="mb-1 block text-sm text-foreground-muted"
+                  >
                     Номер заказа
                   </label>
                   <div className="flex gap-2">
@@ -272,7 +374,11 @@ export function OrderStatusContent() {
                   </div>
                 </div>
                 <div className="flex items-end">
-                  <Button type="submit" disabled={submitDisabled || checkMutation.isPending} className="w-full">
+                  <Button
+                    type="submit"
+                    disabled={submitDisabled || checkMutation.isPending}
+                    className="w-full"
+                  >
                     {checkMutation.isPending ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -286,6 +392,38 @@ export function OrderStatusContent() {
                   </Button>
                 </div>
               </form>
+
+              {(tokenRequired || recoverMsg || recoverError) && (
+                <div className="rounded-2xl border border-border bg-zinc-50 p-4 text-sm">
+                  {tokenRequired ? (
+                    <p className="text-foreground">
+                      Для просмотра деталей и отмены нужен код доступа. Укажите email из заказа —
+                      отправим ссылку восстановления (если заказ найден).
+                    </p>
+                  ) : null}
+                  <form
+                    className="mt-3 flex flex-col gap-2 sm:flex-row"
+                    onSubmit={e => {
+                      e.preventDefault();
+                      if (!orderNumber.trim() || !recoverEmail.trim()) return;
+                      recoverMutation.mutate();
+                    }}
+                  >
+                    <Input
+                      type="email"
+                      autoComplete="email"
+                      placeholder="Email из заказа"
+                      value={recoverEmail}
+                      onChange={e => setRecoverEmail(e.target.value)}
+                    />
+                    <Button type="submit" loading={recoverMutation.isPending} className="shrink-0">
+                      Восстановить доступ
+                    </Button>
+                  </form>
+                  {recoverMsg ? <p className="mt-2 text-foreground">{recoverMsg}</p> : null}
+                  {recoverError ? <p className="mt-2 text-danger">{recoverError}</p> : null}
+                </div>
+              )}
 
               <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-foreground-muted">
                 <button
@@ -342,10 +480,17 @@ export function OrderStatusContent() {
                 <div className="mt-3 overflow-hidden rounded-2xl border border-border">
                   <ul className="divide-y divide-border">
                     {order.items.map(it => (
-                      <li key={it.id} className="grid gap-2 p-4 sm:grid-cols-[1fr_auto] sm:items-center">
+                      <li
+                        key={it.id}
+                        className="grid gap-2 p-4 sm:grid-cols-[1fr_auto] sm:items-center"
+                      >
                         <div className="min-w-0">
-                          <div className="truncate text-sm font-semibold text-foreground">{it.product_title}</div>
-                          <div className="mt-1 text-xs text-foreground-muted">Кол-во: {it.quantity}</div>
+                          <div className="truncate text-sm font-semibold text-foreground">
+                            {it.product_title}
+                          </div>
+                          <div className="mt-1 text-xs text-foreground-muted">
+                            Кол-во: {it.quantity}
+                          </div>
                         </div>
                         <div className="text-sm font-semibold text-foreground">
                           {money(it.item_total)} ₽
@@ -359,7 +504,9 @@ export function OrderStatusContent() {
                 </div>
                 <div className="mt-3 flex items-center justify-between text-sm">
                   <span className="text-foreground-muted">Итого</span>
-                  <span className="text-base font-semibold text-foreground">{money(order.total_amount)} ₽</span>
+                  <span className="text-base font-semibold text-foreground">
+                    {money(order.total_amount)} ₽
+                  </span>
                 </div>
               </div>
 
@@ -370,9 +517,7 @@ export function OrderStatusContent() {
                     <Truck className="h-4 w-4" /> Доставка
                   </div>
                   <div className="mt-2 text-sm text-foreground-muted">
-                    {order.delivery_type === 'pickup'
-                      ? 'Самовывоз'
-                      : 'Курьером по адресу'}
+                    {order.delivery_type === 'pickup' ? 'Самовывоз' : 'Курьером по адресу'}
                   </div>
                   <div className="mt-2 text-sm text-foreground">
                     {order.delivery_type === 'pickup'
@@ -389,7 +534,9 @@ export function OrderStatusContent() {
                   <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
                     <Clipboard className="h-4 w-4" /> Оплата
                   </div>
-                  <div className="mt-2 text-sm text-foreground-muted">Способ: {order.payment_type}</div>
+                  <div className="mt-2 text-sm text-foreground-muted">
+                    Способ: {order.payment_type}
+                  </div>
                   <div className="mt-2 text-sm text-foreground-muted">
                     Доставка: {money(order.delivery_cost)} ₽
                   </div>
@@ -400,14 +547,18 @@ export function OrderStatusContent() {
               <div className="mt-6 grid gap-3 sm:grid-cols-2">
                 <div className="rounded-2xl border border-border bg-white p-4">
                   <div className="text-sm font-semibold text-foreground">Бонусы</div>
-                  <div className="mt-2 text-sm text-foreground-muted">Потрачено: −{money(order.bonus_used)} </div>
-                  <div className="mt-1 text-sm text-foreground-muted">Начислено: +{money(order.bonus_earned)} </div>
+                  <div className="mt-2 text-sm text-foreground-muted">
+                    Потрачено: −{money(order.bonus_used)}{' '}
+                  </div>
+                  <div className="mt-1 text-sm text-foreground-muted">
+                    Начислено: +{money(order.bonus_earned)}{' '}
+                  </div>
                 </div>
                 <div className="rounded-2xl border border-border bg-white p-4">
                   <div className="text-sm font-semibold text-foreground">Действия</div>
                   <div className="mt-3 grid gap-2">
-                    {canReorder && (
-                      isAuthenticated ? (
+                    {canReorder &&
+                      (isAuthenticated ? (
                         <Button
                           type="button"
                           variant="outline"
@@ -425,8 +576,7 @@ export function OrderStatusContent() {
                             Войти, чтобы повторить заказ
                           </Link>
                         </Button>
-                      )
-                    )}
+                      ))}
                     {canCancel && (
                       <Button
                         type="button"
@@ -463,8 +613,8 @@ export function OrderStatusContent() {
               </div>
               <h2 className="text-lg font-semibold text-foreground">Заказ не найден</h2>
               <p className="mt-2 text-sm text-foreground-muted">
-                Проверьте правильность номера и телефона. Если вы оформляли заказ как гость, используйте тот же номер
-                телефона, что указывали при оформлении.
+                Проверьте правильность номера и телефона. Если вы оформляли заказ как гость,
+                используйте тот же номер телефона, что указывали при оформлении.
               </p>
               <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-center">
                 <Button
@@ -492,3 +642,16 @@ export function OrderStatusContent() {
   );
 }
 
+export function OrderStatusContent() {
+  return (
+    <Suspense
+      fallback={
+        <div className="bg-background px-4 py-14">
+          <div className="mx-auto h-64 max-w-4xl animate-pulse rounded-[32px] bg-zinc-100" />
+        </div>
+      }
+    >
+      <OrderStatusInner />
+    </Suspense>
+  );
+}

@@ -37,6 +37,6 @@ def record_consent(
         order=order,
         consent_type=consent_type,
         ip_address=get_client_ip(request),
-        policy_version=getattr(settings, "POLICY_VERSION", "2026-05-01"),
+        policy_version=getattr(settings, "POLICY_VERSION", "2026-11-03"),
         user_agent=get_user_agent(request),
     )

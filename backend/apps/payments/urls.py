@@ -10,4 +10,9 @@ urlpatterns = [
         views.SberCallbackView.as_view(),
         name="sber-callback",
     ),
+    path(
+        "yookassa/webhook/",
+        views.YooKassaWebhookView.as_view(),
+        name="yookassa-webhook",
+    ),
 ]

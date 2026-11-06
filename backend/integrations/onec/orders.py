@@ -250,6 +250,7 @@ def plan_and_reserve_at_store(
     Серийные единицы — отдельные строки quantity=1 с конкретным seriesId.
     Не ищет товар в других магазинах.
     """
+    from apps.stores import stock_ops
     from apps.stores.models import Stock
 
     if quantity <= 0:
@@ -276,7 +277,14 @@ def plan_and_reserve_at_store(
             raise InsufficientStockAtStore()
         lines = []
         for sid in picked:
-            if not Stock.reserve_series_atomic(product.pk, store_id, sid, 1):
+            if not stock_ops.reserve_at_store(
+                product.pk,
+                store_id,
+                1,
+                series_id=sid,
+                reason="checkout_reserve",
+                source="plan_and_reserve_at_store",
+            ):
                 raise InsufficientStockAtStore()
             lines.append(
                 {
@@ -289,7 +297,13 @@ def plan_and_reserve_at_store(
             )
         return lines
 
-    if not Stock.reserve_atomic(product.pk, store_id, quantity):
+    if not stock_ops.reserve_at_store(
+        product.pk,
+        store_id,
+        quantity,
+        reason="checkout_reserve",
+        source="plan_and_reserve_at_store",
+    ):
         raise InsufficientStockAtStore()
     return [
         {
@@ -307,8 +321,8 @@ class InsufficientStockAtStore(Exception):
 
 
 def release_order_item_reservations(order) -> None:
-    """Снимает резерв по позициям в магазине заказа (без подмены склада)."""
-    from apps.stores.models import Stock
+    """Снимает резерв по позициям в магазине заказа (без подмены склада). INT-009 ledger."""
+    from apps.stores import stock_ops
 
     store_id = order.store_id
     if not store_id:
@@ -316,18 +330,22 @@ def release_order_item_reservations(order) -> None:
     for item in order.items.all():
         if not item.product_id:
             continue
-        series = (item.onec_series_id or "").strip()
-        if series:
-            Stock.release_series_atomic(
-                item.product_id, store_id, series, int(item.quantity)
-            )
-        else:
-            Stock.release_at_store(item.product_id, store_id, int(item.quantity))
+        stock_ops.release_at_store(
+            item.product_id,
+            store_id,
+            int(item.quantity),
+            series_id=(item.onec_series_id or "").strip(),
+            idempotency_key=f"release:order:{order.pk}:item:{item.pk}",
+            order_id=order.pk,
+            order_item_id=item.pk,
+            reason="order_cancel_release",
+            source="release_order_item_reservations",
+        )
 
 
 def reserve_order_item_reservations(order) -> bool:
-    """Повторный резерв по уже сохранённым позициям (late payment revive)."""
-    from apps.stores.models import Stock
+    """Повторный резерв по уже сохранённым позициям (late payment revive). INT-009."""
+    from apps.stores import stock_ops
 
     store_id = order.store_id
     if not store_id:
@@ -335,17 +353,19 @@ def reserve_order_item_reservations(order) -> bool:
     for item in order.items.all():
         if not item.product_id:
             continue
-        series = (item.onec_series_id or "").strip()
-        if series:
-            if not Stock.reserve_series_atomic(
-                item.product_id, store_id, series, int(item.quantity)
-            ):
-                return False
-        else:
-            if not Stock.reserve_atomic(
-                item.product_id, store_id, int(item.quantity)
-            ):
-                return False
+        ok = stock_ops.reserve_at_store(
+            item.product_id,
+            store_id,
+            int(item.quantity),
+            series_id=(item.onec_series_id or "").strip(),
+            idempotency_key=f"reserve:order:{order.pk}:item:{item.pk}:revive",
+            order_id=order.pk,
+            order_item_id=item.pk,
+            reason="late_payment_revive",
+            source="reserve_order_item_reservations",
+        )
+        if not ok:
+            return False
     return True
 
 

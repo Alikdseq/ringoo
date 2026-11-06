@@ -3,6 +3,8 @@ API заказов: создание, список, детали (задачи 1
 Создание заказа выполняется в одной транзакции с атомарным резервом остатков.
 """
 
+import hashlib
+import logging
 from decimal import Decimal
 
 from django.conf import settings as django_settings
@@ -19,6 +21,8 @@ from rest_framework.views import APIView
 from apps.users.services import normalize_phone
 
 from config.throttling import (
+    GuestAccessRecoverAnonThrottle,
+    GuestAccessRecoverConfirmAnonThrottle,
     OrderCreateAnonRateThrottle,
     OrderCreateRateThrottle,
     OrderRateAnonThrottle,
@@ -34,10 +38,32 @@ from .serializers import (
 )
 from .tasks import send_order_notifications
 
+logger = logging.getLogger(__name__)
+
 
 class InsufficientStockError(Exception):
     """Недостаточно остатка при атомарном резерве (в рамках транзакции)."""
     pass
+
+
+def _order_idempotency_cache_key(request, raw_key: str) -> str:
+    """
+    SEC-005: namespace идемпотентности привязан к клиенту.
+    Auth → user id; guest → hash(session_key). Не используем IP (NAT).
+    """
+    key_digest = hashlib.sha256(raw_key.encode("utf-8")).hexdigest()[:40]
+    if request.user and request.user.is_authenticated:
+        scope = f"u:{request.user.pk}"
+    else:
+        if not getattr(request, "session", None):
+            scope = "g:nosession"
+        else:
+            if not request.session.session_key:
+                request.session.create()
+            sk = request.session.session_key or ""
+            sk_digest = hashlib.sha256(sk.encode("utf-8")).hexdigest()[:32]
+            scope = f"g:{sk_digest}"
+    return f"order_idempotency:{scope}:{key_digest}"
 
 
 def _build_items_from_cart(cart):
@@ -72,10 +98,11 @@ class OrderListCreateView(APIView):
         return []
 
     def get(self, request):
-        qs = Order.objects.prefetch_related("items", "manager_rating")
-
-        if not request.user.is_staff:
-            qs = qs.filter(user=request.user)
+        # SEC-001: staff не получает «все заказы» через customer API —
+        # чужие заказы только через /api/v1/admin/orders/ (MFA + группа).
+        qs = Order.objects.prefetch_related(
+            "items", "manager_rating", "payments"
+        ).filter(user=request.user)
 
         # Фильтр по статусу
         status_filter = request.query_params.get("status", "").strip()
@@ -130,8 +157,9 @@ class OrderListCreateView(APIView):
 
     def post(self, request):
         idempotency_key = (request.headers.get("X-Idempotency-Key") or "").strip()[:128]
+        cache_key = None
         if idempotency_key:
-            cache_key = f"order_idempotency:{idempotency_key}"
+            cache_key = _order_idempotency_cache_key(request, idempotency_key)
             cached = cache.get(cache_key)
             if cached is not None:
                 return Response(
@@ -170,8 +198,8 @@ class OrderListCreateView(APIView):
                 data["total_amount"] = str(cart.get_total())
                 data.setdefault("delivery_cost", "0")
             else:
-                # SPA прислала снимок позиций — сервер пересчитает цены в OrderCreateSerializer;
-                # корзина по session всё равно очищается после успешного заказа (см. ниже).
+                # SPA прислала снимок позиций — сервер пересчитает цены в OrderCreateSerializer.
+                # Для non-online корзина очищается после заказа; для online — только после оплаты.
                 data.setdefault("delivery_cost", "0")
 
         serializer = OrderCreateSerializer(data=data, context={"request": request})
@@ -182,6 +210,8 @@ class OrderListCreateView(APIView):
         store_id = attrs.get("store")
         delivery_type = attrs.get("delivery_type")
         items_data = attrs["items"]
+        payment_type = attrs["payment_type"]
+        is_online_payment = payment_type == Order.PAYMENT_ONLINE
 
         from apps.products.models import Product
 
@@ -195,12 +225,14 @@ class OrderListCreateView(APIView):
                     delivery_type=delivery_type,
                     delivery_address=attrs.get("delivery_address") or {},
                     store_id=store_id,
-                    payment_type=attrs["payment_type"],
+                    payment_type=payment_type,
                     total_amount=attrs["total_amount"],
                     delivery_cost=attrs.get("delivery_cost", Decimal("0")),
                     bonus_used=attrs.get("bonus_used", Decimal("0")),
                     comment=attrs.get("comment"),
                     consent_personal_data=attrs.get("consent_personal_data", False),
+                    # Online: запомнить корзину, очистим после succeeded.
+                    checkout_cart_id=(cart.id if cart and is_online_payment else None),
                 )
                 order.save()
 
@@ -260,10 +292,27 @@ class OrderListCreateView(APIView):
                             item_total=line["item_total"],
                             onec_product_code=line["onec_product_code"],
                             onec_series_id=line["onec_series_id"],
+                            color_id=it.get("color_id"),
+                            color_label=it.get("color_label") or "",
+                            color_slug=it.get("color_slug") or "",
+                            color_hex=it.get("color_hex") or "",
                         )
 
-                if cart:
+                # Наличные / карта при получении / перевод — заказ принят, корзину чистим.
+                # Online — корзина живёт до подтверждённой оплаты (webhook/sync → paid);
+                # clear вычитает только qty из OrderItem, не всю корзину.
+                if cart and not is_online_payment:
                     cart.items.all().delete()
+
+                logger.info(
+                    "order_created order_id=%s payment_type=%s online=%s "
+                    "checkout_cart_id=%s items=%s",
+                    order.pk,
+                    payment_type,
+                    is_online_payment,
+                    order.checkout_cart_id,
+                    order.items.count(),
+                )
 
         except InsufficientStockError:
             detail = (
@@ -288,9 +337,14 @@ class OrderListCreateView(APIView):
         transaction.on_commit(_enqueue_onec)
 
         response_data = OrderSerializer(order).data
+        # SEC-006: plaintext guest token только в ответе создания (не в БД, не в логах).
+        if order.user_id is None:
+            from .guest_access import issue_guest_access_token
+
+            guest_token = issue_guest_access_token(order)
+            response_data = {**response_data, "guest_access_token": guest_token}
         response = Response(response_data, status=status.HTTP_201_CREATED)
-        if idempotency_key:
-            cache_key = f"order_idempotency:{idempotency_key}"
+        if cache_key:
             cache.set(
                 cache_key,
                 {"data": response_data, "status": status.HTTP_201_CREATED},
@@ -302,18 +356,20 @@ class OrderListCreateView(APIView):
 class OrderDetailView(RetrieveAPIView):
     """
     GET /api/v1/orders/{id}/ — детали заказа.
-    Доступ: владелец или staff.
+    Доступ: только владелец (в т.ч. staff со своим заказом).
+    Админский просмотр чужих заказов — /api/v1/admin/orders/{id}/.
     """
 
     permission_classes = [IsAuthenticated]
     serializer_class = OrderSerializer
-    queryset = Order.objects.prefetch_related("items")
+    queryset = Order.objects.prefetch_related("items", "payments")
 
     def get_queryset(self):
-        qs = Order.objects.prefetch_related("items").all()
-        if not self.request.user.is_staff:
-            qs = qs.filter(user=self.request.user)
-        return qs
+        # SEC-001: без staff-bypass
+        return (
+            Order.objects.prefetch_related("items", "payments")
+            .filter(user=self.request.user)
+        )
 
     def retrieve(self, request, *args, **kwargs):
         instance = self.get_object()
@@ -323,17 +379,20 @@ class OrderDetailView(RetrieveAPIView):
 
 class OrderReorderView(APIView):
     """
-    POST /api/v1/orders/{id}/reorder/ — повтор заказа: добавить все позиции заказа в корзину.
-    Доступ: только владелец заказа (авторизованный пользователь).
+    POST /api/v1/orders/{id}/reorder/ — повтор заказа: добавить позиции в корзину.
+    INT-026: сохраняет color и store заказа; цена — актуальная (не snapshot).
     """
 
     permission_classes = [IsAuthenticated]
 
     def post(self, request, pk):
         from apps.cart.models import Cart, CartItem
+        from apps.products.models import ProductColor
+        from apps.stores.models import Stock, Store
 
         order = (
-            Order.objects.prefetch_related("items__product")
+            Order.objects.select_related("store")
+            .prefetch_related("items__product", "items__color")
             .filter(pk=pk, user=request.user)
             .first()
         )
@@ -345,33 +404,89 @@ class OrderReorderView(APIView):
 
         cart = Cart.get_or_create_cart(request)
         added = 0
+        skipped: list[dict] = []
+        order_store = order.store
+        if order_store_id := order.store_id:
+            # Не подменяем магазин: если точка недоступна — позиции с store пропускаем
+            if not Store.objects.filter(pk=order_store_id, is_active=True).exists():
+                order_store = None
+
         for order_item in order.items.all():
+            title = order_item.product_title or (
+                order_item.product.title if order_item.product_id else "Товар"
+            )
             if not order_item.product_id:
+                skipped.append({"product_title": title, "reason": "product_missing"})
                 continue
             product = order_item.product
             if not product or not product.is_active:
+                skipped.append({"product_title": title, "reason": "product_inactive"})
                 continue
+
+            color = order_item.color
+            if order_item.color_id:
+                color = ProductColor.objects.filter(
+                    pk=order_item.color_id, product_id=product.pk, is_active=True
+                ).first()
+                if color is None:
+                    skipped.append(
+                        {"product_title": title, "reason": "color_unavailable"}
+                    )
+                    continue
+
+            store = order_store
+            if order.store_id and store is None:
+                skipped.append({"product_title": title, "reason": "store_unavailable"})
+                continue
+
+            # Актуальная цена (не snapshot заказа) — checkout всё равно сверит
+            unit_price = (
+                color.effective_price if color is not None else product.price
+            )
+
+            need_qty = int(order_item.quantity)
+            if store is not None:
+                available = Stock.available_quantity_at_store(product.pk, store.pk)
+                if available < need_qty:
+                    skipped.append(
+                        {
+                            "product_title": title,
+                            "reason": "insufficient_stock",
+                            "available": available,
+                        }
+                    )
+                    continue
+
             item, created = CartItem.objects.get_or_create(
                 cart=cart,
                 product=product,
-                store=None,
+                store=store,
+                color=color,
                 defaults={
-                    "quantity": order_item.quantity,
-                    "price_at_add": product.price,
+                    "quantity": need_qty,
+                    "price_at_add": unit_price,
                 },
             )
             if not created:
-                item.quantity += order_item.quantity
-                item.price_at_add = product.price
-                item.save(update_fields=["quantity", "price_at_add", "updated_at"])
+                item.quantity += need_qty
+                item.price_at_add = unit_price
+                item.save(
+                    update_fields=["quantity", "price_at_add", "updated_at"]
+                )
             added += 1
 
         from apps.cart.views import _get_cart_queryset
         from apps.cart.serializers import CartSerializer
 
         cart = _get_cart_queryset().get(pk=cart.pk)
+        cart_data = CartSerializer(cart, context={"request": request}).data
         return Response(
-            CartSerializer(cart).data,
+            {
+                "cart": cart_data,
+                "added_count": added,
+                "skipped": skipped,
+                "partial": bool(skipped),
+            },
             status=status.HTTP_200_OK,
         )
 
@@ -387,10 +502,37 @@ def _phone_matches_order(stored_phone: str, submitted: str) -> bool:
     return bool(ds) and bool(du) and ds == du
 
 
+def _guest_track_response(request, order, *, phone: str, order_number: str):
+    """
+    SEC-006: полные ПДн только при валидном guest_token.
+    Phone+number без токена — урезанный статус (без контактов/адреса/состава).
+    Legacy phone+number полный доступ закрыт.
+    """
+    from .guest_access import guest_may_access_order
+
+    if guest_may_access_order(
+        request, order, phone=phone, order_number=order_number
+    ):
+        return Response(OrderSerializer(order).data)
+
+    if _phone_matches_order(order.phone, phone):
+        return Response(
+            {
+                "order_number": order.order_number,
+                "status": order.status,
+                "created_at": order.created_at,
+                "payment_type": order.payment_type,
+                "delivery_type": order.delivery_type,
+                "guest_token_required": True,
+            }
+        )
+    return None
+
+
 class OrderTrackView(APIView):
     """
-    GET /api/v1/orders/track/?order_number=ORD-xxx&phone=+79...
-    Проверка статуса заказа по номеру и телефону (гостевой заказ). Без авторизации.
+    GET /api/v1/orders/track/?order_number=…&phone=…&guest_token=…
+    SEC-006: полный заказ — с guest_token; без токена — урезанный статус.
     """
 
     permission_classes = [AllowAny]
@@ -414,15 +556,21 @@ class OrderTrackView(APIView):
                 {"detail": "Заказ не найден или телефон не совпадает."},
                 status=status.HTTP_404_NOT_FOUND,
             )
-        serializer = OrderSerializer(order)
-        return Response(serializer.data)
+        resp = _guest_track_response(
+            request, order, phone=phone, order_number=order_number
+        )
+        if resp is None:
+            return Response(
+                {"detail": "Заказ не найден или телефон не совпадает."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        return resp
 
 
 class OrderStatusView(APIView):
     """
     POST /api/v1/orders/status/
-    Тело: {"order_number": "...", "phone": "+7..."}
-    Алиас для /orders/track/ (официальная страница «Проверить заказ»).
+    Тело: order_number, phone, optional guest_token.
     """
 
     permission_classes = [AllowAny]
@@ -448,8 +596,15 @@ class OrderStatusView(APIView):
                 {"detail": "Заказ не найден или телефон не совпадает."},
                 status=status.HTTP_404_NOT_FOUND,
             )
-        serializer = OrderSerializer(order)
-        return Response(serializer.data)
+        resp = _guest_track_response(
+            request, order, phone=phone, order_number=order_number
+        )
+        if resp is None:
+            return Response(
+                {"detail": "Заказ не найден или телефон не совпадает."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        return resp
 
 
 class OrderCancelView(APIView):
@@ -457,7 +612,7 @@ class OrderCancelView(APIView):
     POST /api/v1/orders/{id}/cancel/
 
     Авторизованный: отмена своего заказа.
-    Гость: требуется order_number + phone (как в /orders/track/).
+    Гость: требуется guest_token (SEC-006). Phone+number недостаточно.
     Разрешено только для статусов new и confirmed.
     """
 
@@ -474,34 +629,61 @@ class OrderCancelView(APIView):
         if not order:
             return Response({"detail": "Заказ не найден."}, status=status.HTTP_404_NOT_FOUND)
 
-        # Доступ: владелец (auth) или совпадение телефона (guest).
+        # Доступ: владелец (auth) или guest_token (SEC-006).
+        # SEC-001: is_staff сам по себе не даёт отменять чужие заказы.
         if request.user.is_authenticated:
-            if not request.user.is_staff and order.user_id != request.user.id:
-                return Response({"detail": "Нет прав для отмены этого заказа."}, status=status.HTTP_403_FORBIDDEN)
+            if order.user_id != request.user.id:
+                return Response(
+                    {"detail": "Нет прав для отмены этого заказа."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
         else:
+            from .guest_access import guest_may_access_order
+
             data = request.data or {}
             order_number = str(data.get("order_number") or "").strip()
             phone = str(data.get("phone") or "").strip()
-            if not order_number or not phone:
+            if not guest_may_access_order(
+                request, order, phone=phone, order_number=order_number
+            ):
                 return Response(
-                    {"detail": "Укажите номер заказа и телефон."},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-            if order.order_number != order_number or not _phone_matches_order(order.phone, phone):
-                return Response(
-                    {"detail": "Заказ не найден или телефон не совпадает."},
-                    status=status.HTTP_404_NOT_FOUND,
+                    {"detail": "Нет прав для отмены этого заказа."},
+                    status=status.HTTP_403_FORBIDDEN,
                 )
 
-        if order.status not in (Order.STATUS_NEW, Order.STATUS_CONFIRMED):
+        from .services import (
+            OrderCancelError,
+            cancel_order_and_release_stock,
+            customer_may_cancel_order,
+        )
+
+        if not customer_may_cancel_order(order):
+            # FUNC-009: оплаченный / недопустимый статус
+            from .services import order_has_successful_payment
+
+            if order_has_successful_payment(order):
+                return Response(
+                    {
+                        "detail": (
+                            "Заказ уже оплачен. Для отмены и возврата "
+                            "обратитесь в поддержку."
+                        ),
+                        "code": "paid_order_cancel_forbidden",
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
             return Response(
                 {"detail": "Отмена доступна только для новых или подтверждённых заказов."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        from .services import cancel_order_and_release_stock
-
-        order = cancel_order_and_release_stock(order, reason="user_cancel")
+        try:
+            order = cancel_order_and_release_stock(order, reason="user_cancel")
+        except OrderCancelError as exc:
+            return Response(
+                {"detail": exc.message, "code": exc.code},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         serializer = OrderSerializer(order)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -509,7 +691,8 @@ class OrderCancelView(APIView):
 class OrderRateView(APIView):
     """
     POST /api/v1/orders/rate/ — отправить оценку менеджера по заказу (ТЗ EPIC 2).
-    Гость: order_number + phone. Авторизованный: order_id или order_number + phone.
+    Авторизованный: свой order_id.
+    Гость: guest_token (+ order_number); phone+number недостаточно (SEC-006).
     Один заказ — одна оценка. Заказ не должен быть отменён.
     """
 
@@ -533,9 +716,15 @@ class OrderRateView(APIView):
                 pk=order_id,
                 user=request.user,
             ).first()
-        if order is None and order_number and phone:
-            candidate = Order.objects.filter(order_number=order_number).first()
-            if candidate and _phone_matches_order(candidate.phone, phone):
+        if order is None and order_number:
+            from .guest_access import guest_may_access_order
+
+            candidate = Order.objects.filter(
+                order_number=order_number, user__isnull=True
+            ).first()
+            if candidate and guest_may_access_order(
+                request, candidate, phone=phone, order_number=order_number
+            ):
                 order = candidate
 
         if not order:
@@ -628,3 +817,59 @@ class ManagerRatingSummaryView(APIView):
             "count": agg["count"] or 0,
             "recent": recent,
         })
+
+
+class GuestAccessRecoverRequestView(APIView):
+    """
+    POST /api/v1/orders/guest-access/recover/
+    SEC-006: восстановление гостевого доступа через email OTP.
+    Ответ одинаков независимо от существования заказа.
+    """
+
+    permission_classes = [AllowAny]
+    authentication_classes: list = []
+    throttle_classes = [GuestAccessRecoverAnonThrottle]
+
+    def post(self, request):
+        from .guest_access import PUBLIC_RECOVER_DETAIL, request_guest_access_recovery
+
+        data = request.data or {}
+        order_number = str(data.get("order_number") or "").strip()
+        email = str(data.get("email") or "").strip()
+        request_guest_access_recovery(order_number=order_number, email=email)
+        return Response({"detail": PUBLIC_RECOVER_DETAIL}, status=status.HTTP_200_OK)
+
+
+class GuestAccessRecoverConfirmView(APIView):
+    """
+    POST /api/v1/orders/guest-access/recover/confirm/
+    Тело: order_number, token (recovery). Выдаёт новый guest_access_token.
+    """
+
+    permission_classes = [AllowAny]
+    authentication_classes: list = []
+    throttle_classes = [GuestAccessRecoverConfirmAnonThrottle]
+
+    def post(self, request):
+        from .guest_access import confirm_guest_access_recovery
+
+        data = request.data or {}
+        order_number = str(data.get("order_number") or "").strip()
+        token = str(data.get("token") or data.get("recovery_token") or "").strip()
+        guest_token = confirm_guest_access_recovery(
+            order_number=order_number, recovery_token=token
+        )
+        if not guest_token:
+            return Response(
+                {"detail": "Ссылка восстановления недействительна или устарела."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        order = Order.objects.filter(order_number=order_number, user__isnull=True).first()
+        return Response(
+            {
+                "guest_access_token": guest_token,
+                "order_id": str(order.pk) if order else None,
+                "order_number": order_number,
+            },
+            status=status.HTTP_200_OK,
+        )

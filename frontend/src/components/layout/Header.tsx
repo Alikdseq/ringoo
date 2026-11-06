@@ -121,9 +121,7 @@ export function Header({
                 href="/wishlist"
                 prefetch={LINK_PREFETCH_DEFAULT}
                 className={HEADER_ICON_BUTTON_CLASS}
-                aria-label={
-                  wishlistCount > 0 ? `Избранное, ${wishlistCount} товаров` : 'Избранное'
-                }
+                aria-label={wishlistCount > 0 ? `Избранное, ${wishlistCount} товаров` : 'Избранное'}
               >
                 <Heart className="text-foreground" />
                 {wishlistCount > 0 && (
@@ -141,9 +139,7 @@ export function Header({
               >
                 <ShoppingBag className="text-foreground" />
                 {cartCount > 0 && (
-                  <span className={HEADER_BADGE_CLASS}>
-                    {cartCount > 99 ? '99+' : cartCount}
-                  </span>
+                  <span className={HEADER_BADGE_CLASS}>{cartCount > 99 ? '99+' : cartCount}</span>
                 )}
               </button>
               <button
@@ -159,11 +155,7 @@ export function Header({
         </div>
       </div>
 
-      <MobileMenu
-        isOpen={mobileOpen}
-        onClose={() => setMobileOpen(false)}
-        navItems={navItems}
-      />
+      <MobileMenu isOpen={mobileOpen} onClose={() => setMobileOpen(false)} navItems={navItems} />
     </header>
   );
 }

@@ -13,10 +13,7 @@ import {
   type StockCategoryRow,
   type StockStoreSummary,
 } from '@/lib/api/services/adminStock.service';
-import {
-  updateAdminStock,
-  type AdminStockItem,
-} from '@/lib/api/services/adminProducts.service';
+import { updateAdminStock, type AdminStockItem } from '@/lib/api/services/adminProducts.service';
 
 type Step = 'stores' | 'categories' | 'products';
 
@@ -27,7 +24,11 @@ export default function AdminStockPage() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
 
-  const { data: stores = [], isLoading: storesLoading, refetch: refetchStores } = useQuery({
+  const {
+    data: stores = [],
+    isLoading: storesLoading,
+    refetch: refetchStores,
+  } = useQuery({
     queryKey: ['admin', 'stock', 'stores-summary'],
     queryFn: getStockStoresSummary,
   });

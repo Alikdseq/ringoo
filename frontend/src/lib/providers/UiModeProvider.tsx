@@ -11,11 +11,7 @@ import {
 } from 'react';
 import type { UiMode } from '@/lib/ui-mode/types';
 import { UI_MODE_SVOI_ENABLED } from '@/lib/ui-mode/featureFlags';
-import {
-  applyUiModeToDocument,
-  persistUiMode,
-  readPersistedUiMode,
-} from '@/lib/ui-mode/storage';
+import { applyUiModeToDocument, persistUiMode, readPersistedUiMode } from '@/lib/ui-mode/storage';
 
 type Ctx = {
   mode: UiMode;

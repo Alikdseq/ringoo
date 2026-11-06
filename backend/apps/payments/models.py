@@ -1,5 +1,5 @@
 """
-Платёж через эквайринг (Сбер ecom). Связан с Order; фискализация/1С — позже.
+Платёж через эквайринг (ЮKassa / Сбер ecom). Связан с Order; фискализация/1С — позже.
 """
 
 from __future__ import annotations
@@ -12,8 +12,10 @@ from django.db import models
 
 class Payment(models.Model):
     PROVIDER_SBER = "sber"
+    PROVIDER_YOOKASSA = "yookassa"
     PROVIDER_CHOICES = [
         (PROVIDER_SBER, "Сбербанк ecom"),
+        (PROVIDER_YOOKASSA, "ЮKassa"),
     ]
 
     STATUS_CREATED = "created"
@@ -80,6 +82,40 @@ class Payment(models.Model):
         unique=True,
         db_index=True,
         verbose_name="orderId Сбера",
+    )
+    yookassa_payment_id = models.CharField(
+        max_length=64,
+        blank=True,
+        null=True,
+        unique=True,
+        db_index=True,
+        verbose_name="payment_id ЮKassa",
+    )
+    yookassa_refund_id = models.CharField(
+        max_length=64,
+        blank=True,
+        null=True,
+        unique=True,
+        db_index=True,
+        verbose_name="refund_id ЮKassa",
+        help_text="Последний подтверждённый полный возврат (INT-004)",
+    )
+    refunded_amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        blank=True,
+        null=True,
+        verbose_name="Сумма возврата (руб.)",
+    )
+    refunded_at = models.DateTimeField(
+        blank=True,
+        null=True,
+        verbose_name="Время подтверждённого возврата",
+    )
+    is_test = models.BooleanField(
+        default=False,
+        verbose_name="Тестовый платёж",
+        help_text="True для тестового магазина ЮKassa / тестового контура",
     )
     form_url = models.URLField(
         max_length=2048,

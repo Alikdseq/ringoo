@@ -128,28 +128,11 @@ def _phone_for_sber(phone: str) -> str | None:
 
 def _create_payment_row(order: Order) -> Payment:
     """Короткая транзакция: валидация + запись Payment(created). Без HTTP."""
+    from apps.payments.eligibility import assert_order_payable_or_raise
+
     with transaction.atomic():
         locked = Order.objects.select_for_update().get(pk=order.pk)
-
-        if locked.payment_type != Order.PAYMENT_ONLINE:
-            raise PaymentError(
-                "Онлайн-оплата недоступна для этого способа оплаты",
-                code="not_online",
-            )
-        if locked.status == Order.STATUS_CANCELLED:
-            raise PaymentError("Заказ отменён", code="order_cancelled")
-        if locked.status not in (Order.STATUS_NEW, Order.STATUS_CONFIRMED):
-            raise PaymentError(
-                "Заказ нельзя оплатить в текущем статусе",
-                code="order_status",
-            )
-
-        if (
-            Payment.objects.select_for_update()
-            .filter(order=locked, status=Payment.STATUS_PAID)
-            .exists()
-        ):
-            raise PaymentError("Заказ уже оплачен", code="already_paid")
+        assert_order_payable_or_raise(locked)
 
         active = (
             Payment.objects.select_for_update()
@@ -191,6 +174,52 @@ def _create_payment_row(order: Order) -> Payment:
         )
 
 
+def online_payment_provider() -> str | None:
+    """
+    Активный провайдер онлайн-оплаты. ЮKassa имеет приоритет над Сбером.
+    Одновременный вызов двух шлюзов не допускается.
+    """
+    yk = bool(getattr(settings, "YOOKASSA_ENABLED", False))
+    sber = bool(getattr(settings, "SBER_ECOM_ENABLED", False))
+    if yk and sber:
+        logger.warning(
+            "Both YOOKASSA_ENABLED and SBER_ECOM_ENABLED are set; using YooKassa only"
+        )
+    if yk:
+        return Payment.PROVIDER_YOOKASSA
+    if sber:
+        return Payment.PROVIDER_SBER
+    return None
+
+
+def initiate_online_payment(order: Order) -> InitiateResult:
+    """Единая точка входа: ЮKassa (предпочтительно) или Сбер."""
+    provider = online_payment_provider()
+    if provider == Payment.PROVIDER_YOOKASSA:
+        from .yookassa_service import initiate_yookassa_payment
+
+        return initiate_yookassa_payment(order)
+    if provider == Payment.PROVIDER_SBER:
+        return initiate_sber_payment(order)
+    raise PaymentError(
+        "Онлайн-оплата временно недоступна.",
+        code="payments_disabled",
+    )
+
+
+def sync_payment_status(
+    payment: Payment,
+    *,
+    from_callback: bool = False,
+) -> Payment:
+    """Сверка статуса с активным шлюзом платежа."""
+    if payment.provider == Payment.PROVIDER_YOOKASSA:
+        from .yookassa_service import sync_payment_from_yookassa
+
+        return sync_payment_from_yookassa(payment, from_webhook=from_callback)
+    return sync_payment_from_bank(payment, from_callback=from_callback)
+
+
 def initiate_sber_payment(
     order: Order,
     *,
@@ -199,7 +228,16 @@ def initiate_sber_payment(
     """
     Регистрирует одностадийный платёж в Сбере и возвращает formUrl.
     HTTP register — вне DB-транзакции.
+    Серверный gate: без SBER_ECOM_ENABLED (и без явного test client) — отказ
+    независимо от UI-флага NEXT_PUBLIC_ONLINE_PAYMENT_ENABLED.
     """
+    from django.conf import settings as dj_settings
+
+    if client is None and not bool(getattr(dj_settings, "SBER_ECOM_ENABLED", False)):
+        raise PaymentError(
+            "Онлайн-оплата временно недоступна.",
+            code="payments_disabled",
+        )
     payment = _create_payment_row(order)
     if payment.status in (Payment.STATUS_REGISTERED, Payment.STATUS_PENDING) and payment.form_url:
         return InitiateResult(payment=payment, form_url=payment.form_url, reused=True)
@@ -271,8 +309,8 @@ def apply_late_payment_policy(payment_id, *, client: SberEcomClient | None = Non
     Банк подтвердил оплату, заказ cancelled.
     Политика LATE_ONLINE_PAYMENT_POLICY: revive | reverse | manual.
     HTTP reverse — вне длительной чужой транзакции (вызывается через on_commit).
+    Для ЮKassa reverse через Сбер недоступен → manual.
     """
-    api = client or SberEcomClient()
     policy = _late_payment_policy()
 
     with transaction.atomic():
@@ -284,19 +322,30 @@ def apply_late_payment_policy(payment_id, *, client: SberEcomClient | None = Non
         )
         order = payment.order
         logger.error(
-            "Paid after cancel: order=%s payment=%s policy=%s",
+            "Paid after cancel: order=%s payment=%s policy=%s provider=%s",
             order.order_number,
             payment.pk,
             policy,
+            payment.provider,
         )
 
         if order.status != Order.STATUS_CANCELLED:
             # Уже восстановили / обработали
             return payment
 
+        if payment.provider == Payment.PROVIDER_YOOKASSA and policy == "reverse":
+            policy = "manual"
+
         if policy == "revive":
-            order.status = Order.STATUS_CONFIRMED
-            order.save(update_fields=["status", "updated_at"])
+            from apps.orders.services.transitions import transition_order_status
+
+            # cancelled → confirmed только через явный system override (INT-006)
+            order = transition_order_status(
+                order,
+                Order.STATUS_CONFIRMED,
+                reason="late_payment_revive",
+                allow_system_override=True,
+            )
             from integrations.onec.orders import reserve_order_item_reservations
 
             stock_ok = reserve_order_item_reservations(order)
@@ -322,12 +371,23 @@ def apply_late_payment_policy(payment_id, *, client: SberEcomClient | None = Non
             if payment.status == Payment.STATUS_PAID:
                 order_pk = order.pk
 
-                def _enqueue_onec_paid_revive():
+                def _after_paid_revive():
+                    from apps.cart.checkout_clear import clear_cart_after_successful_payment
+                    from apps.orders.models import Order as OrderModel
                     from apps.orders.tasks import enqueue_order_sync
 
+                    try:
+                        clear_cart_after_successful_payment(
+                            OrderModel.objects.get(pk=order_pk)
+                        )
+                    except Exception:
+                        logger.exception(
+                            "Cart clear failed after late-payment revive order=%s",
+                            order_pk,
+                        )
                     enqueue_order_sync(order_pk, paid=True)
 
-                transaction.on_commit(_enqueue_onec_paid_revive)
+                transaction.on_commit(_after_paid_revive)
             return payment
 
         if policy == "manual":
@@ -339,13 +399,14 @@ def apply_late_payment_policy(payment_id, *, client: SberEcomClient | None = Non
             payment.save(update_fields=["status", "error_message", "updated_at"])
             return payment
 
-        # reverse: HTTP после короткой пометки
+        # reverse: HTTP после короткой пометки (только Сбер)
         sber_id = payment.sber_order_id
         payment.status = Payment.STATUS_NEEDS_REVIEW
         payment.error_message = "Ожидается auto-reverse…"
         payment.save(update_fields=["status", "error_message", "updated_at"])
 
     if policy == "reverse" and sber_id:
+        api = client or SberEcomClient()
         try:
             api.reverse_order(order_id=sber_id)
             with transaction.atomic():
@@ -538,18 +599,29 @@ def sync_payment_from_bank(
                 return Payment.objects.select_related("order").get(pk=locked.pk)
 
             if order.status == Order.STATUS_NEW:
-                order.status = Order.STATUS_CONFIRMED
-                order.save(update_fields=["status", "updated_at"])
+                from apps.orders.services.transitions import transition_order_status
+
+                order = transition_order_status(
+                    order,
+                    Order.STATUS_CONFIRMED,
+                    reason="sber_paid",
+                )
 
             order_pk = order.pk
 
-            def _enqueue_onec_paid():
+            def _after_paid():
+                from apps.cart.checkout_clear import clear_cart_after_successful_payment
+                from apps.orders.models import Order as OrderModel
                 from apps.orders.tasks import enqueue_order_sync
 
+                try:
+                    clear_cart_after_successful_payment(OrderModel.objects.get(pk=order_pk))
+                except Exception:
+                    logger.exception("Cart clear failed after Sber paid order=%s", order_pk)
                 # Переход paid=false → paid=true тем же orderId и составом
                 enqueue_order_sync(order_pk, paid=True)
 
-            transaction.on_commit(_enqueue_onec_paid)
+            transaction.on_commit(_after_paid)
             return locked
 
         if locked.sber_order_status == 3:
@@ -613,37 +685,63 @@ def reconcile_open_payments(
     limit: int = 100,
 ) -> dict[str, Any]:
     """
-    Сверка зависших платежей с банком (пропущенный callback / падение сайта).
+    Сверка зависших платежей со шлюзом (пропущенный webhook / падение сайта).
     """
-    api = client or SberEcomClient()
     cutoff = timezone.now() - timedelta(minutes=max(0, older_than_minutes))
-    qs = (
+    open_statuses = (
+        Payment.STATUS_CREATED,
+        Payment.STATUS_REGISTERED,
+        Payment.STATUS_PENDING,
+    )
+
+    sber_qs = list(
         Payment.objects.filter(
-            status__in=(
-                Payment.STATUS_CREATED,
-                Payment.STATUS_REGISTERED,
-                Payment.STATUS_PENDING,
-            ),
+            provider=Payment.PROVIDER_SBER,
+            status__in=open_statuses,
             created_at__lt=cutoff,
         )
         .exclude(sber_order_id__isnull=True)
         .exclude(sber_order_id="")
         .order_by("created_at")[:limit]
     )
+    yk_qs = list(
+        Payment.objects.filter(
+            provider=Payment.PROVIDER_YOOKASSA,
+            status__in=open_statuses,
+            created_at__lt=cutoff,
+        )
+        .exclude(yookassa_payment_id__isnull=True)
+        .exclude(yookassa_payment_id="")
+        .order_by("created_at")[:limit]
+    )
 
     synced = 0
     paid = 0
     errors = 0
-    for payment in qs:
-        try:
-            updated = sync_payment_from_bank(payment, client=api)
-            synced += 1
-            if updated.status == Payment.STATUS_PAID:
-                paid += 1
-            elif updated.status == Payment.STATUS_NEEDS_REVIEW:
-                paid += 0
-        except PaymentError:
-            errors += 1
+
+    if sber_qs:
+        api = client or SberEcomClient()
+        for payment in sber_qs:
+            try:
+                updated = sync_payment_from_bank(payment, client=api)
+                synced += 1
+                if updated.status == Payment.STATUS_PAID:
+                    paid += 1
+            except PaymentError:
+                errors += 1
+
+    if yk_qs:
+        from .yookassa_service import sync_payment_from_yookassa
+
+        for payment in yk_qs:
+            try:
+                updated = sync_payment_from_yookassa(payment)
+                synced += 1
+                if updated.status == Payment.STATUS_PAID:
+                    paid += 1
+            except PaymentError:
+                errors += 1
+
     return {
         "synced": synced,
         "became_paid_or_terminal": paid,
@@ -700,13 +798,14 @@ def expire_unpaid_online_orders(
     client: SberEcomClient | None = None,
 ) -> dict[str, Any]:
     """
-    Перед отменой — сверка незавершённых платежей с банком.
-    Если оплачен — заказ не отменяем.
+    Перед отменой — сверка незавершённых платежей с активным провайдером
+    (Sber и/или ЮKassa). Если remote PAID — заказ не отменяем.
+    FUNC-001: при недоступности API провайдера заказ НЕ отменяется вслепую.
     """
     now = now or timezone.now()
     minutes = int(getattr(settings, "ONLINE_PAYMENT_TIMEOUT_MINUTES", 20))
     cutoff = now - timedelta(minutes=minutes)
-    api = client  # может быть None → sync создаст клиент; для тестов передаём mock
+    api = client  # Sber mock для тестов; YK использует свой клиент внутри sync
 
     qs = (
         Order.objects.filter(
@@ -714,40 +813,80 @@ def expire_unpaid_online_orders(
             status__in=(Order.STATUS_NEW, Order.STATUS_CONFIRMED),
             created_at__lt=cutoff,
         )
-        .exclude(payments__status=Payment.STATUS_PAID)
+        # INT-005/006: PAID и NEEDS_REVIEW — не истекаем (возможна реальная оплата)
+        .exclude(
+            payments__status__in=(
+                Payment.STATUS_PAID,
+                Payment.STATUS_NEEDS_REVIEW,
+            )
+        )
         .distinct()
     )
 
     cancelled = 0
     rescued = 0
+    skipped_uncertain = 0
     for order in qs.iterator():
-        # 1) Сверка с банком ВНЕ блокировки отмены
-        open_payments = Payment.objects.filter(
-            order_id=order.pk,
-            status__in=(
-                Payment.STATUS_CREATED,
-                Payment.STATUS_REGISTERED,
-                Payment.STATUS_PENDING,
-            ),
-        ).exclude(sber_order_id__isnull=True).exclude(sber_order_id="")
+        # 1) Сверка ВНЕ блокировки отмены — все open payments с remote id
+        open_payments = list(
+            Payment.objects.filter(
+                order_id=order.pk,
+                status__in=(
+                    Payment.STATUS_CREATED,
+                    Payment.STATUS_REGISTERED,
+                    Payment.STATUS_PENDING,
+                ),
+            )
+        )
+        sync_uncertain = False
         for payment in open_payments:
             try:
-                updated = sync_payment_from_bank(payment, client=api)
+                if payment.provider == Payment.PROVIDER_YOOKASSA:
+                    if not payment.yookassa_payment_id:
+                        continue
+                    updated = sync_payment_status(payment, from_callback=False)
+                elif payment.provider == Payment.PROVIDER_SBER:
+                    if not (payment.sber_order_id or payment.merchant_order_number):
+                        continue
+                    updated = sync_payment_from_bank(payment, client=api)
+                else:
+                    continue
                 if updated.status == Payment.STATUS_PAID:
                     rescued += 1
             except PaymentError:
+                sync_uncertain = True
                 logger.warning(
-                    "Expire: bank sync failed payment=%s order=%s",
+                    "Expire: provider sync failed payment=%s order=%s provider=%s",
                     payment.pk,
                     order.order_number,
+                    payment.provider,
                 )
+            except Exception:
+                sync_uncertain = True
+                logger.warning(
+                    "Expire: provider sync unexpected error payment=%s order=%s",
+                    payment.pk,
+                    order.order_number,
+                    exc_info=True,
+                )
+
+        if sync_uncertain:
+            # Не отменяем при неопределённости оплаты (FUNC-001)
+            skipped_uncertain += 1
+            continue
 
         # 2) Отмена если всё ещё не paid
         with transaction.atomic():
             locked = Order.objects.select_for_update().get(pk=order.pk)
             if locked.status == Order.STATUS_CANCELLED:
                 continue
-            if Payment.objects.filter(order=locked, status=Payment.STATUS_PAID).exists():
+            if Payment.objects.filter(
+                order=locked,
+                status__in=(
+                    Payment.STATUS_PAID,
+                    Payment.STATUS_NEEDS_REVIEW,
+                ),
+            ).exists():
                 continue
             if locked.created_at >= cutoff:
                 continue
@@ -772,6 +911,7 @@ def expire_unpaid_online_orders(
     return {
         "cancelled": cancelled,
         "rescued_paid": rescued,
+        "skipped_uncertain": skipped_uncertain,
         "timeout_minutes": minutes,
         "cutoff": cutoff.isoformat(),
     }

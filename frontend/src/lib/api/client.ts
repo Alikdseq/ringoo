@@ -40,8 +40,7 @@ export interface PaginatedResponse<T> {
   results: T[];
 }
 
-const isNgrokApi =
-  typeof API_BASE_URL === 'string' && API_BASE_URL.includes('ngrok-free.dev');
+const isNgrokApi = typeof API_BASE_URL === 'string' && API_BASE_URL.includes('ngrok-free.dev');
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,

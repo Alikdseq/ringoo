@@ -12,10 +12,7 @@ export default async function NewsPage() {
   let initialTags: Awaited<ReturnType<typeof getTags>> = [];
 
   try {
-    const [newsRes, tags] = await Promise.all([
-      getNews({ page: 1, page_size: 12 }),
-      getTags(),
-    ]);
+    const [newsRes, tags] = await Promise.all([getNews({ page: 1, page_size: 12 }), getTags()]);
     initialNews = newsRes;
     initialTags = tags;
   } catch {

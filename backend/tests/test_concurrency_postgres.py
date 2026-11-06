@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import os
 import threading
+import unittest
 from decimal import Decimal
 from unittest.mock import MagicMock
 
@@ -37,8 +38,11 @@ pytestmark = pytest.mark.skipif(
 
 
 def _require_postgres():
+    # unittest.SkipTest — корректно для manage.py test; pytest.skip даёт ERROR в Django runner.
+    if os.getenv("RINGOO_TEST_POSTGRES", "").strip().lower() not in ("1", "true", "yes"):
+        raise unittest.SkipTest("Set RINGOO_TEST_POSTGRES=1 + config.settings.test_postgres")
     if connection.vendor != "postgresql":
-        pytest.skip("Requires PostgreSQL, got %s" % connection.vendor)
+        raise unittest.SkipTest("Requires PostgreSQL, got %s" % connection.vendor)
 
 
 def _base_order(*, qty: int = 1, reserved: int = 0, series_id: str = ""):
@@ -229,6 +233,145 @@ class PostgresPaymentConcurrencyTests(TransactionTestCase):
             )
         elif payment.status == Payment.STATUS_PAID:
             self.assertEqual(order.status, Order.STATUS_CONFIRMED)
+
+
+@override_settings(
+    YOOKASSA_ENABLED=True,
+    YOOKASSA_TEST_MODE=True,
+    YOOKASSA_SHOP_ID="shop-test",
+    YOOKASSA_SECRET_KEY="test_secret_key_value",
+    SBER_ECOM_ENABLED=False,
+    LATE_ONLINE_PAYMENT_POLICY="manual",
+)
+class PostgresYooKassaConcurrencyTests(TransactionTestCase):
+    """Оплата ЮKassa vs expire / параллельный sync (INT closeout)."""
+
+    def setUp(self):
+        _require_postgres()
+
+    def test_two_parallel_yk_sync_single_paid(self):
+        from apps.payments.yookassa_service import sync_payment_from_yookassa
+
+        order, _, _ = _base_order()
+        payment = Payment.objects.create(
+            order=order,
+            provider=Payment.PROVIDER_YOOKASSA,
+            status=Payment.STATUS_PENDING,
+            amount=order.total_amount,
+            amount_kopecks=100000,
+            merchant_order_number="pg-yk-1",
+            yookassa_payment_id="yk-pg-parallel",
+            form_url="https://yoomoney.ru/x",
+            currency="RUB",
+        )
+        payload = {
+            "id": "yk-pg-parallel",
+            "status": "succeeded",
+            "amount": {"value": "1000.00", "currency": "RUB"},
+            "metadata": {
+                "order_id": str(order.id),
+                "payment_id": str(payment.id),
+            },
+            "test": True,
+        }
+        mock = MagicMock()
+        mock.get_payment.return_value = payload
+        errors: list[BaseException] = []
+
+        def worker():
+            try:
+                connections.close_all()
+                sync_payment_from_yookassa(
+                    Payment.objects.get(pk=payment.pk), client=mock
+                )
+            except BaseException as exc:  # noqa: BLE001
+                errors.append(exc)
+
+        threads = [threading.Thread(target=worker) for _ in range(2)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+        self.assertEqual(errors, [])
+        self.assertEqual(
+            Payment.objects.filter(order=order, status=Payment.STATUS_PAID).count(), 1
+        )
+
+    def test_expire_concurrent_with_yk_paid(self):
+        from django.utils import timezone
+        from datetime import timedelta
+
+        from apps.payments.services import expire_unpaid_online_orders
+        from apps.payments.yookassa_service import sync_payment_from_yookassa
+
+        order, product, store = _base_order(qty=1, reserved=1)
+        Order.objects.filter(pk=order.pk).update(
+            created_at=timezone.now() - timedelta(minutes=60)
+        )
+        payment = Payment.objects.create(
+            order=order,
+            provider=Payment.PROVIDER_YOOKASSA,
+            status=Payment.STATUS_PENDING,
+            amount=order.total_amount,
+            amount_kopecks=100000,
+            merchant_order_number="pg-yk-exp",
+            yookassa_payment_id="yk-pg-expire",
+            form_url="https://yoomoney.ru/x",
+            currency="RUB",
+        )
+        payload = {
+            "id": "yk-pg-expire",
+            "status": "succeeded",
+            "amount": {"value": "1000.00", "currency": "RUB"},
+            "metadata": {
+                "order_id": str(order.id),
+                "payment_id": str(payment.id),
+            },
+            "test": True,
+        }
+        mock = MagicMock()
+        mock.get_payment.return_value = payload
+        oid, pid = order.pk, payment.pk
+
+        def do_expire():
+            connections.close_all()
+            with override_settings(
+                YOOKASSA_ENABLED=True,
+                SBER_ECOM_ENABLED=False,
+            ):
+                # sync inside expire uses real YooKassaClient — patch via module
+                from unittest.mock import patch
+
+                with patch(
+                    "apps.payments.yookassa_service.YooKassaClient",
+                    return_value=mock,
+                ):
+                    expire_unpaid_online_orders()
+
+        def do_pay():
+            connections.close_all()
+            sync_payment_from_yookassa(
+                Payment.objects.get(pk=pid), client=mock
+            )
+
+        t1 = threading.Thread(target=do_expire)
+        t2 = threading.Thread(target=do_pay)
+        t1.start()
+        t2.start()
+        t1.join()
+        t2.join()
+        order.refresh_from_db()
+        payment.refresh_from_db()
+        stock = Stock.objects.get(product=product, store=store, onec_series_id="")
+        paid_n = Payment.objects.filter(order_id=oid, status=Payment.STATUS_PAID).count()
+        self.assertLessEqual(paid_n, 1)
+        if payment.status == Payment.STATUS_PAID:
+            # Оплаченный заказ не должен остаться cancelled без needs_review/revive
+            self.assertNotEqual(order.status, Order.STATUS_CANCELLED)
+            self.assertEqual(stock.reserved_quantity, 1)
+        elif order.status == Order.STATUS_CANCELLED:
+            self.assertNotEqual(payment.status, Payment.STATUS_PAID)
+            self.assertEqual(stock.reserved_quantity, 0)
 
 
 @override_settings(SBER_ECOM_ENABLED=True)

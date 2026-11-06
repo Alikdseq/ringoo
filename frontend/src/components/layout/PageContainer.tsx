@@ -17,8 +17,6 @@ export function PageContainer({
   as: Tag = 'div',
 }: PageContainerProps) {
   return (
-    <Tag className={cn(wide ? CONTAINER_WIDE_CLASS : CONTAINER_CLASS, className)}>
-      {children}
-    </Tag>
+    <Tag className={cn(wide ? CONTAINER_WIDE_CLASS : CONTAINER_CLASS, className)}>{children}</Tag>
   );
 }

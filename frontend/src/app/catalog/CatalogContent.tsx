@@ -1,12 +1,6 @@
 ﻿'use client';
 
-import {
-  Suspense,
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useInView } from 'react-intersection-observer';
@@ -294,16 +288,12 @@ function CatalogInner({
 
   const urlSearch = searchParams.get('search') ?? '';
   const category = categorySlugFromPath ?? searchParams.get('category') ?? '';
-  const catalogBasePath = categorySlugFromPath
-    ? categoryPageHref(categorySlugFromPath)
-    : pathname;
+  const catalogBasePath = categorySlugFromPath ? categoryPageHref(categorySlugFromPath) : pathname;
   const brand = searchParams.get('brand') ?? '';
   const model = searchParams.get('model') ?? '';
   const minUrl = searchParams.get('min_price') ?? '';
   const maxUrl = searchParams.get('max_price') ?? '';
-  const inStock = ['1', 'true', 'yes'].includes(
-    (searchParams.get('in_stock') ?? '').toLowerCase()
-  );
+  const inStock = ['1', 'true', 'yes'].includes((searchParams.get('in_stock') ?? '').toLowerCase());
   const ordering = parseOrdering(searchParams.get('ordering'));
   const ratingMinUrl = searchParams.get('rating_min');
   const ratingMin =
@@ -377,10 +367,9 @@ function CatalogInner({
           router.replace(qs ? `/catalog?${qs}` : '/catalog', { scroll: false });
           return;
         }
-        router.replace(
-          qs ? `${categoryPageHref(slug)}?${qs}` : categoryPageHref(slug),
-          { scroll: false }
-        );
+        router.replace(qs ? `${categoryPageHref(slug)}?${qs}` : categoryPageHref(slug), {
+          scroll: false,
+        });
         return;
       }
       replaceQuery(p => {
@@ -473,14 +462,12 @@ function CatalogInner({
     [urlSearch, category, brand, minUrl, maxUrl, inStock, storeSlug, ratingMin]
   );
 
-  const { data: productModels = [], isLoading: modelsLoading } = useProductModels(
-    modelFilterParams
-  );
+  const { data: productModels = [], isLoading: modelsLoading } =
+    useProductModels(modelFilterParams);
 
-  const hasExtraFilters =
-    Boolean(
-      brand || model || minUrl || maxUrl || urlSearch.trim() || inStock || storeSlug || ratingMin
-    );
+  const hasExtraFilters = Boolean(
+    brand || model || minUrl || maxUrl || urlSearch.trim() || inStock || storeSlug || ratingMin
+  );
 
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, isError, error } =
     useProducts(filters, {
@@ -511,10 +498,7 @@ function CatalogInner({
     if (inView && hasNextPage && !isFetchingNextPage) fetchNextPage();
   }, [inView, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
-  const products = useMemo(
-    () => dedupeById(data?.pages.flatMap(p => p.results) ?? []),
-    [data]
-  );
+  const products = useMemo(() => dedupeById(data?.pages.flatMap(p => p.results) ?? []), [data]);
   const totalCount = data?.pages[0]?.count ?? 0;
 
   const trail = useMemo(
@@ -688,7 +672,9 @@ function CatalogInner({
                   }}
                   className={cn(
                     'min-h-[44px] w-full touch-manipulation px-3 py-2 text-left text-sm text-foreground lg:min-h-0',
-                    ordering === key ? 'bg-zinc-100 font-medium' : 'hover:bg-zinc-50 active:bg-zinc-100'
+                    ordering === key
+                      ? 'bg-zinc-100 font-medium'
+                      : 'hover:bg-zinc-50 active:bg-zinc-100'
                   )}
                 >
                   {ORDER_LABELS[key]}
@@ -719,10 +705,7 @@ function CatalogInner({
           {trail.map(c => (
             <span key={c.id} className="flex items-center gap-2">
               <span aria-hidden>/</span>
-              <Link
-                href={categoryPageHref(c.slug)}
-                className="hover:text-foreground"
-              >
+              <Link href={categoryPageHref(c.slug)} className="hover:text-foreground">
                 {c.title}
               </Link>
             </span>
@@ -741,7 +724,10 @@ function CatalogInner({
             <Link href="/" className="block py-1 text-foreground-muted hover:text-foreground">
               Главная
             </Link>
-            <Link href="/catalog" className="block py-1 text-foreground-muted hover:text-foreground">
+            <Link
+              href="/catalog"
+              className="block py-1 text-foreground-muted hover:text-foreground"
+            >
               Каталог
             </Link>
             {trail.map(c => (
@@ -936,11 +922,7 @@ function CatalogInner({
                 )}
                 {hasNextPage && !isFetchingNextPage && (
                   <div className="flex justify-center py-4">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => fetchNextPage()}
-                    >
+                    <Button type="button" variant="outline" onClick={() => fetchNextPage()}>
                       Загрузить ещё
                     </Button>
                   </div>
@@ -1052,7 +1034,12 @@ function CatalogInner({
                 <Button className="w-full" onClick={() => setFiltersOpen(false)}>
                   Применить
                 </Button>
-                <Button type="button" variant="outline" className="w-full" onClick={clearAllFilters}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  onClick={clearAllFilters}
+                >
                   Сбросить все
                 </Button>
               </div>

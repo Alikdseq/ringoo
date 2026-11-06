@@ -100,8 +100,8 @@ export default function AdminProductImportPage() {
             желании HEX (<code className="rounded bg-zinc-100 px-1">#1C1C1E</code>).
           </li>
           <li>
-            Если у цвета своя цена — заполните колонки «Цена цвета» и «Старая цена цвета». Иначе
-            на сайте будет цена товара.
+            Если у цвета своя цена — заполните колонки «Цена цвета» и «Старая цена цвета». Иначе на
+            сайте будет цена товара.
           </li>
         </ol>
 
@@ -127,7 +127,12 @@ export default function AdminProductImportPage() {
 
       <Card className="p-6">
         <div className="mb-4 flex flex-wrap gap-2">
-          <Button type="button" variant="secondary" onClick={handleDownloadTemplate} disabled={downloading}>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={handleDownloadTemplate}
+            disabled={downloading}
+          >
             {downloading ? 'Скачивание…' : 'Скачать шаблон XLSX'}
           </Button>
           <Button asChild variant="secondary">

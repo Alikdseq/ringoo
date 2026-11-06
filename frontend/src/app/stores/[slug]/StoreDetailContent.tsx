@@ -67,10 +67,7 @@ export function StoreDetailContent({ slug, initialStore }: Props) {
   const catalogHref = `/catalog?store=${encodeURIComponent(slug)}`;
   const managers = store.managers ?? [];
 
-  const images = useMemo(
-    () => (store.images ?? []).filter(img => img.image),
-    [store.images]
-  );
+  const images = useMemo(() => (store.images ?? []).filter(img => img.image), [store.images]);
 
   return (
     <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">

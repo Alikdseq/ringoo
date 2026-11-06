@@ -10,7 +10,8 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import {
   initiateOrderPayment,
-  takePayPhone,
+  isOnlinePaymentUiEnabled,
+  takePayAuth,
 } from '@/lib/api/services/payments.service';
 import { getFriendlyErrorMessage } from '@/lib/errors';
 
@@ -20,19 +21,22 @@ export default function PaymentFailPage(): ReactElement {
   const orderId = String(params?.id ?? '');
   const [retrying, setRetrying] = useState(false);
   const [retryError, setRetryError] = useState<string | null>(null);
+  const onlineEnabled = isOnlinePaymentUiEnabled();
 
   async function handleRetryPay(): Promise<void> {
-    if (!orderId || retrying) return;
+    if (!orderId || retrying || !onlineEnabled) return;
     setRetrying(true);
     setRetryError(null);
     try {
-      const phone = takePayPhone(orderId);
-      const result = await initiateOrderPayment(
-        orderId,
-        phone ? { phone } : undefined
-      );
-      if (result.form_url) {
-        window.location.href = result.form_url;
+      const auth = takePayAuth(orderId);
+      if (!auth?.phone || !auth?.order_number) {
+        setRetryError('Недостаточно данных для повторной оплаты. Откройте заказ по номеру и телефону.');
+        return;
+      }
+      const result = await initiateOrderPayment(orderId, auth);
+      const redirectUrl = result.confirmation_url || result.form_url;
+      if (redirectUrl) {
+        window.location.href = redirectUrl;
         return;
       }
       setRetryError('Банк не вернул ссылку на оплату. Попробуйте позже.');
@@ -60,7 +64,7 @@ export default function PaymentFailPage(): ReactElement {
           </p>
         )}
         <div className="flex flex-wrap justify-center gap-2 pt-2">
-          {orderId && (
+          {orderId && onlineEnabled && (
             <Button
               type="button"
               disabled={retrying}
@@ -78,7 +82,7 @@ export default function PaymentFailPage(): ReactElement {
               )}
             </Button>
           )}
-          {orderId && (
+          {orderId && onlineEnabled && (
             <Button asChild variant="outline">
               <Link href={`/orders/${orderId}/payment/return`}>Проверить статус</Link>
             </Button>

@@ -32,10 +32,7 @@ export function BrandLogo({
 
   const image = (
     <span
-      className={cn(
-        'relative inline-block shrink-0',
-        boxClassName ?? undefined
-      )}
+      className={cn('relative inline-block shrink-0', boxClassName ?? undefined)}
       style={boxClassName ? undefined : { width, height }}
     >
       <Image

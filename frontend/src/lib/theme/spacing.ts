@@ -34,8 +34,7 @@ export const CONTAINER_MAX_WIDTH = '1280px';
 export const CONTAINER_CLASS = 'mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8';
 
 /** Каталог, акции — 1280px + чуть шире на xl */
-export const CONTAINER_WIDE_CLASS =
-  'mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8';
+export const CONTAINER_WIDE_CLASS = 'mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8';
 
 /** Фиксированный хедер — без подложки, только «таблетка» */
 export const HEADER_FIXED_CLASS =
@@ -97,8 +96,7 @@ export const HEADER_BADGE_CLASS =
 export const HEADER_ICON_BUTTON_MOBILE_CLASS = HEADER_ICON_BUTTON_CLASS;
 
 /** Mobile-first: единый фон секций без «блоков в блоках» (откат: NEXT_PUBLIC_MOBILE_FLAT_SECTIONS=0) */
-export const MOBILE_FLAT_SECTIONS =
-  process.env.NEXT_PUBLIC_MOBILE_FLAT_SECTIONS !== '0';
+export const MOBILE_FLAT_SECTIONS = process.env.NEXT_PUBLIC_MOBILE_FLAT_SECTIONS !== '0';
 
 /** Оболочка home-секций */
 export const HOME_SECTION_CLASS = MOBILE_FLAT_SECTIONS
@@ -115,8 +113,7 @@ export const TOUCH_TARGET_MOBILE_CLASS =
   'min-h-[44px] min-w-[44px] touch-manipulation lg:min-h-0 lg:min-w-0';
 
 /** Обёртка таблиц admin на узких экранах */
-export const ADMIN_TABLE_SCROLL_CLASS =
-  '-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0';
+export const ADMIN_TABLE_SCROLL_CLASS = '-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0';
 
 /** Секция с px-4: контент на всю ширину экрана на mobile */
 export const MOBILE_SECTION_BLEED_CLASS =

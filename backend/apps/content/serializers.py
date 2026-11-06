@@ -133,7 +133,10 @@ class NewsListSerializer(serializers.ModelSerializer):
 
 
 class ReviewSerializer(serializers.ModelSerializer):
-    """Отзыв: все поля (чтение)."""
+    """
+    Публичное чтение отзыва (SEC-002): без email.
+    Email принимается только при create через ReviewCreateSerializer.
+    """
 
     class Meta:
         model = Review
@@ -142,7 +145,6 @@ class ReviewSerializer(serializers.ModelSerializer):
             "product",
             "user",
             "name",
-            "email",
             "rating",
             "comment",
             "is_approved",
@@ -150,14 +152,7 @@ class ReviewSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         )
-        read_only_fields = (
-            "id",
-            "user",
-            "is_approved",
-            "is_verified_purchase",
-            "created_at",
-            "updated_at",
-        )
+        read_only_fields = fields
 
 
 class PageGalleryImageSerializer(serializers.ModelSerializer):

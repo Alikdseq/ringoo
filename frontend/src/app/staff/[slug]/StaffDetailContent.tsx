@@ -102,9 +102,7 @@ export function StaffDetailContent({ slug }: Props) {
     return (
       <div className="mx-auto w-full max-w-3xl px-4 py-12 sm:px-6 lg:px-8 text-center">
         <h1 className="text-xl font-semibold text-foreground">Консультант не найден</h1>
-        <p className="mt-2 text-sm text-foreground-muted">
-          {getFriendlyErrorMessage(error)}
-        </p>
+        <p className="mt-2 text-sm text-foreground-muted">{getFriendlyErrorMessage(error)}</p>
         <Button asChild className="mt-6" variant="outline">
           <Link href="/about">Вернуться к команде</Link>
         </Button>
@@ -121,7 +119,7 @@ export function StaffDetailContent({ slug }: Props) {
   const photoSlides: { src: string; alt: string }[] = [];
   const pushSlide = (src: string | null | undefined, alt: string) => {
     if (!src?.trim()) return;
-    const resolved = src.startsWith('/') ? src : getMediaUrl(src) ?? src;
+    const resolved = src.startsWith('/') ? src : (getMediaUrl(src) ?? src);
     if (seen.has(resolved)) return;
     seen.add(resolved);
     photoSlides.push({ src: resolved, alt });
@@ -163,7 +161,10 @@ export function StaffDetailContent({ slug }: Props) {
             <p className="mt-3 flex items-center justify-center gap-2 text-sm text-foreground-muted sm:justify-start">
               <MapPin className="size-4 shrink-0" />
               {storeSlug ? (
-                <Link href={`/stores/${encodeURIComponent(storeSlug)}`} className="text-info hover:underline">
+                <Link
+                  href={`/stores/${encodeURIComponent(storeSlug)}`}
+                  className="text-info hover:underline"
+                >
                   {manager.store.name}
                   {manager.store.city ? `, ${manager.store.city}` : ''}
                 </Link>
@@ -191,7 +192,6 @@ export function StaffDetailContent({ slug }: Props) {
             {stripDescriptionHtml(manager.bio)}
           </p>
         )}
-
       </Card>
 
       <section className="mt-8">

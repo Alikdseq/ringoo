@@ -53,10 +53,20 @@ export function BenefitsSection() {
                     <Icon className="h-6 w-6" aria-hidden />
                   </div>
                   <div className="min-w-0">
-                    <p className={cn('text-base font-semibold', isDelivery ? 'text-emerald-900' : 'text-foreground')}>
+                    <p
+                      className={cn(
+                        'text-base font-semibold',
+                        isDelivery ? 'text-emerald-900' : 'text-foreground'
+                      )}
+                    >
                       {title}
                     </p>
-                    <p className={cn('mt-1 text-sm', isDelivery ? 'text-emerald-800/85' : 'text-foreground-muted')}>
+                    <p
+                      className={cn(
+                        'mt-1 text-sm',
+                        isDelivery ? 'text-emerald-800/85' : 'text-foreground-muted'
+                      )}
+                    >
                       {subtitle}
                     </p>
                   </div>
@@ -69,4 +79,3 @@ export function BenefitsSection() {
     </section>
   );
 }
-

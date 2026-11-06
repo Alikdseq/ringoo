@@ -57,6 +57,14 @@ CSRF_COOKIE_SECURE = False
 # Callback без секрета в unit-тестах; prod fail-closed проверяется отдельно override_settings.
 SBER_ECOM_CALLBACK_TOKEN_REQUIRED = False
 SBER_ECOM_CALLBACK_TOKEN = ''
+SBER_ECOM_ENABLED = False
+# ЮKassa выкл. по умолчанию в тестах (не подхватывать YOOKASSA_* из shell/.env).
+# Тесты ЮKassa включают через @override_settings.
+YOOKASSA_ENABLED = False
+YOOKASSA_TEST_MODE = True
+YOOKASSA_SHOP_ID = ''
+YOOKASSA_SECRET_KEY = ''
+
 
 # CORS (allow all for tests)
 CORS_ALLOW_ALL_ORIGINS = True
@@ -72,9 +80,32 @@ _rates['payment_pay_user'] = '10000/minute'
 _rates['payment_callback'] = '10000/minute'
 _rates['payment_status_anon'] = '10000/minute'
 _rates['payment_status_user'] = '10000/minute'
+_rates['order_track'] = '10000/minute'
+_rates['order_rate'] = '10000/minute'
+_rates['order_create'] = '10000/minute'
+_rates['order_create_anon'] = '10000/minute'
+_rates['review_create'] = '10000/minute'
+_rates['review_create_anon'] = '10000/minute'
+_rates['yookassa_webhook'] = '10000/minute'
+_rates['password_reset'] = '10000/minute'
+_rates['password_reset_confirm'] = '10000/minute'
+_rates['guest_access_recover'] = '10000/minute'
+_rates['guest_access_recover_confirm'] = '10000/minute'
 _REST_FW['DEFAULT_THROTTLE_RATES'] = _rates
 REST_FRAMEWORK = _REST_FW
+
+# FUNC-007: по умолчанию выкл.; тесты бонусного начисления включают явно.
+BONUS_ENABLED = False
 
 # django-axes: без миграций axes в быстрых тестах (MIGRATION_MODULES отключены)
 AXES_ENABLED = False
 ADMIN_OTP_ENABLED = False
+# OTP apps available for MFA unit-tests (flag still False by default).
+_INSTALLED = list(INSTALLED_APPS)
+for _otp_app in ('django_otp', 'django_otp.plugins.otp_totp'):
+    if _otp_app not in _INSTALLED:
+        _INSTALLED.append(_otp_app)
+INSTALLED_APPS = _INSTALLED
+_rates['auth_mfa_verify'] = '10000/minute'
+_REST_FW['DEFAULT_THROTTLE_RATES'] = _rates
+REST_FRAMEWORK = _REST_FW

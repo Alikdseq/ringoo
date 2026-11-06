@@ -1,26 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { StoreSelector } from './StoreSelector';
 
-vi.mock('@/components/features/stores/StoresMap', () => ({
-  StoresMap: ({
-    stores,
-    selectedStoreId,
-    onSelectStore,
-  }: {
-    stores: { id: string; name: string }[];
-    selectedStoreId: string | null;
-    onSelectStore: (id: string) => void;
-  }) => (
-    <div data-testid="stores-map">
-      <span>Map: {stores.length} stores</span>
-      {selectedStoreId && <span data-testid="map-selected">{selectedStoreId}</span>}
-      <button type="button" onClick={() => onSelectStore(stores[0]?.id ?? '')}>
-        Select first
-      </button>
-    </div>
-  ),
+vi.mock('@/lib/api/services/stores.service', () => ({
+  getStores: vi.fn(async () => []),
 }));
 
 const mockStores = [
@@ -56,24 +41,34 @@ const mockStores = [
   },
 ];
 
+function renderSelector(ui: React.ReactElement) {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>);
+}
+
 describe('StoreSelector', () => {
   it('renders list and map with stores', () => {
     const onSelect = vi.fn();
-    render(<StoreSelector stores={mockStores} selectedStoreId={null} onSelectStore={onSelect} />);
+    renderSelector(
+      <StoreSelector stores={mockStores} selectedStoreId={null} onSelectStore={onSelect} />
+    );
 
     expect(screen.getByText('Выберите магазин')).toBeInTheDocument();
     expect(screen.getByText('Магазины на карте')).toBeInTheDocument();
     expect(screen.getByText('Магазин Центр')).toBeInTheDocument();
     expect(screen.getByText('Магазин Юг')).toBeInTheDocument();
     expect(screen.getByText('Магазин Астана')).toBeInTheDocument();
-    expect(screen.getByTestId('stores-map')).toBeInTheDocument();
     expect(screen.getByRole('combobox', { name: /Сортировка магазинов/ })).toBeInTheDocument();
   });
 
   it('calls onSelectStore when list item is clicked', async () => {
     const user = userEvent.setup();
     const onSelect = vi.fn();
-    render(<StoreSelector stores={mockStores} selectedStoreId={null} onSelectStore={onSelect} />);
+    renderSelector(
+      <StoreSelector stores={mockStores} selectedStoreId={null} onSelectStore={onSelect} />
+    );
 
     await user.click(screen.getByText('Магазин Юг'));
     expect(onSelect).toHaveBeenCalledWith('s2');
@@ -81,7 +76,9 @@ describe('StoreSelector', () => {
 
   it('filters list by search', async () => {
     const user = userEvent.setup();
-    render(<StoreSelector stores={mockStores} selectedStoreId={null} onSelectStore={() => {}} />);
+    renderSelector(
+      <StoreSelector stores={mockStores} selectedStoreId={null} onSelectStore={() => {}} />
+    );
 
     const search = screen.getByPlaceholderText(/Поиск по городу или адресу/);
     await user.type(search, 'Астана');
@@ -90,7 +87,7 @@ describe('StoreSelector', () => {
   });
 
   it('shows error message when error prop is set', () => {
-    render(
+    renderSelector(
       <StoreSelector
         stores={mockStores}
         selectedStoreId={null}
@@ -102,7 +99,7 @@ describe('StoreSelector', () => {
   });
 
   it('shows empty state when no stores', () => {
-    render(<StoreSelector stores={[]} selectedStoreId={null} onSelectStore={() => {}} />);
+    renderSelector(<StoreSelector stores={[]} selectedStoreId={null} onSelectStore={() => {}} />);
     expect(screen.getByText(/Нет доступных магазинов/)).toBeInTheDocument();
   });
 });

@@ -11,14 +11,18 @@ import { Ringik, useRingikIntersectionTrigger } from '@/components/ringik/Ringik
 import { useHomePageCopy } from '@/lib/locales/useHomePageCopy';
 import { dedupeById } from '@/lib/dedupe-by-id';
 import { cn } from '@/lib/theme/utils';
-import { HOME_SECTION_CLASS, HOME_SECTION_INNER_CLASS, PRODUCT_CARD_GRID_CLASS } from '@/lib/theme/spacing';
+import {
+  HOME_SECTION_CLASS,
+  HOME_SECTION_INNER_CLASS,
+  PRODUCT_CARD_GRID_CLASS,
+} from '@/lib/theme/spacing';
 
 const MOBILE_IPHONE_COUNT = 3;
 const MOBILE_SAMSUNG_COUNT = 1;
 
 function ProductCardSkeleton() {
   return (
-        <div className="h-full overflow-hidden rounded-[28px] border border-border bg-white">
+    <div className="h-full overflow-hidden rounded-[28px] border border-border bg-white">
       <div className="p-5 sm:p-6">
         <div className="relative aspect-square w-full overflow-hidden rounded-[22px] bg-zinc-100" />
       </div>

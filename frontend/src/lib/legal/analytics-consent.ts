@@ -42,3 +42,25 @@ export function setAnalyticsConsent(accepted: boolean): void {
     /* ignore */
   }
 }
+
+/** Сброс выбора — снова показать баннер (отзыв согласия на аналитику). */
+export function clearAnalyticsConsent(): void {
+  if (typeof document !== 'undefined') {
+    const secure = window.location.protocol === 'https:' ? '; Secure' : '';
+    document.cookie = `${ANALYTICS_CONSENT_COOKIE}=; path=/; max-age=0; SameSite=Lax${secure}`;
+  }
+  try {
+    localStorage.removeItem(ANALYTICS_CONSENT_STORAGE_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+export const ANALYTICS_CONSENT_RESET_EVENT = 'ringoo:analytics-consent-reset';
+
+export function requestAnalyticsConsentReset(): void {
+  clearAnalyticsConsent();
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event(ANALYTICS_CONSENT_RESET_EVENT));
+  }
+}

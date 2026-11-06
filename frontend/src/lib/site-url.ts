@@ -3,7 +3,10 @@
  * Приоритет: NEXT_PUBLIC_SITE_URL → NEXT_PUBLIC_APP_URL → публичный домен Vercel → localhost.
  */
 function vercelHost(raw: string | undefined): string | null {
-  const host = raw?.trim().replace(/^https?:\/\//, '').replace(/\/+$/, '');
+  const host = raw
+    ?.trim()
+    .replace(/^https?:\/\//, '')
+    .replace(/\/+$/, '');
   return host || null;
 }
 

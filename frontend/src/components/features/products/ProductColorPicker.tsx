@@ -1,7 +1,11 @@
 'use client';
 
 import { cn } from '@/lib/theme/utils';
-import { mergeColorGroups, resolveColorSwatchHex, type MergedColorGroup } from '@/lib/product-colors';
+import {
+  mergeColorGroups,
+  resolveColorSwatchHex,
+  type MergedColorGroup,
+} from '@/lib/product-colors';
 import type { ProductDetail } from '@/types';
 import { useMemo } from 'react';
 
@@ -16,10 +20,7 @@ export function ProductColorPicker({
   selectedGroupKey,
   onSelectGroupKey,
 }: ProductColorPickerProps) {
-  const colorGroups = useMemo(
-    () => mergeColorGroups(product.colors ?? []),
-    [product.colors]
-  );
+  const colorGroups = useMemo(() => mergeColorGroups(product.colors ?? []), [product.colors]);
 
   if (colorGroups.length === 0) return null;
 

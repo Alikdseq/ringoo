@@ -797,14 +797,18 @@ def apply_catalog_import(plan: CatalogImportPlan) -> dict[str, Any]:
             continue
         series_id = (getattr(st, "series_id", None) or "").strip()
         series_name = (getattr(st, "series", None) or "").strip()
-        Stock.objects.update_or_create(
-            product=product,
-            store=store,
-            onec_series_id=series_id,
-            defaults={
-                "quantity": max(0, qty),
-                "onec_series_name": series_name,
-            },
+        from apps.stores.stock_ops import apply_onec_stock_upsert
+
+        apply_onec_stock_upsert(
+            product_id=product.pk,
+            store_id=store.pk,
+            series_id=series_id,
+            series_name=series_name,
+            quantity=max(0, qty),
+            # batch import: key includes qty so re-import with same qty is idempotent
+            idempotency_key=(
+                f"onec_import:{product.pk}:{store.pk}:{series_id}:q{max(0, qty)}"
+            ),
         )
         stock_upserts += 1
 

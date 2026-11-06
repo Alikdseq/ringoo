@@ -1,6 +1,7 @@
 import { describe, expect, it, beforeEach } from 'vitest';
 import {
   ANALYTICS_CONSENT_COOKIE,
+  clearAnalyticsConsent,
   readAnalyticsConsent,
   setAnalyticsConsent,
 } from './analytics-consent';
@@ -24,5 +25,11 @@ describe('analytics-consent', () => {
   it('persists reject choice', () => {
     setAnalyticsConsent(false);
     expect(readAnalyticsConsent()).toBe(false);
+  });
+
+  it('clears choice so banner can show again', () => {
+    setAnalyticsConsent(true);
+    clearAnalyticsConsent();
+    expect(readAnalyticsConsent()).toBeNull();
   });
 });

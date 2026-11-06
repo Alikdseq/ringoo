@@ -27,7 +27,15 @@ const StoresMapDynamic = dynamic(
 
 type LatLon = { lat: number; lon: number };
 
-const DAY_KEYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'] as const;
+const DAY_KEYS = [
+  'sunday',
+  'monday',
+  'tuesday',
+  'wednesday',
+  'thursday',
+  'friday',
+  'saturday',
+] as const;
 
 function parseCoords(store: Store): LatLon | null {
   if (!store.coordinates) return null;
@@ -187,7 +195,12 @@ export function NearbyStoresSection() {
               <Navigation className="mr-2 h-4 w-4 shrink-0" />
               {ns.detectLocation}
             </Button>
-            <Button asChild variant="secondary" size="sm" className="max-md:flex-1 sm:max-md:flex-none">
+            <Button
+              asChild
+              variant="secondary"
+              size="sm"
+              className="max-md:flex-1 sm:max-md:flex-none"
+            >
               <Link href="/stores">{ns.allStores}</Link>
             </Button>
           </div>
@@ -284,4 +297,3 @@ export function NearbyStoresSection() {
     </section>
   );
 }
-

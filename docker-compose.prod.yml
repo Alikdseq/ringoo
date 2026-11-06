@@ -1,27 +1,216 @@
-# Production override: собранный Next.js + gunicorn-ready backend (без dev runserver).
-# Запуск: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+# Production stack (безопасный профиль).
 #
-# Перед первым запуском задайте в корневом .env:
-#   NEXT_PUBLIC_API_V1_URL=https://api.example.com/api/v1
-#   NEXT_PUBLIC_SITE_URL=https://example.com
+# Запуск (пример):
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+#
+# Требования:
+#   - файл .env.production (см. .env.production.example) ИЛИ переменные в окружении;
+#   - НЕ использовать backend/.env.development;
+#   - DB_PASSWORD / REDIS_PASSWORD / SECRET_KEY — сильные уникальные значения;
+#   - DB_USER — роль приложения (не postgres).
+#
+# Миграции и collectstatic — вручную после бэкапа, см. docs/PRODUCTION_DEPLOYMENT_CHECKLIST.md:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml exec web \
+#     python manage.py migrate --noinput
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml exec web \
+#     python manage.py collectstatic --noinput
+
+x-backend-prod-env: &backend-prod-env
+  DJANGO_SETTINGS_MODULE: config.settings.production
+  USE_SQLITE: "False"
+  DB_HOST: db
+  DB_PORT: "5432"
+  # Пароли и URL — только из env_file / host env (без слабых default)
+  DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL}
+  REDIS_URL: ${REDIS_URL:?set REDIS_URL}
+  CELERY_BROKER_URL: ${CELERY_BROKER_URL:-${REDIS_URL}}
+  CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-${REDIS_URL}}
+  SECRET_KEY: ${SECRET_KEY:?set SECRET_KEY}
+  ALLOWED_HOSTS: ${ALLOWED_HOSTS:?set ALLOWED_HOSTS}
+  CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:?set CORS_ALLOWED_ORIGINS}
+  CSRF_TRUSTED_ORIGINS: ${CSRF_TRUSTED_ORIGINS:?set CSRF_TRUSTED_ORIGINS}
+  DEBUG: "False"
+  ADMIN_OTP_ENABLED: "1"
+  TRUST_PROXY: ${TRUST_PROXY:-1}
+  AXES_IPWARE_PROXY_COUNT: ${AXES_IPWARE_PROXY_COUNT:-1}
+  SBER_ECOM_ENABLED: ${SBER_ECOM_ENABLED:-false}
+  YOOKASSA_ENABLED: ${YOOKASSA_ENABLED:-0}
+  YOOKASSA_TEST_MODE: ${YOOKASSA_TEST_MODE:-1}
+  YOOKASSA_SHOP_ID: ${YOOKASSA_SHOP_ID:-}
+  YOOKASSA_SECRET_KEY: ${YOOKASSA_SECRET_KEY:-}
+  YOOKASSA_API_URL: ${YOOKASSA_API_URL:-https://api.yookassa.ru/v3}
+  YOOKASSA_RETURN_URL: ${YOOKASSA_RETURN_URL:-}
+  YOOKASSA_WEBHOOK_URL: ${YOOKASSA_WEBHOOK_URL:-}
+  ONE_C_API_ENABLED: ${ONE_C_API_ENABLED:-false}
+  ONE_C_ORDER_SYNC_ENABLED: ${ONE_C_ORDER_SYNC_ENABLED:-false}
+  JWT_COOKIE_ENABLED: ${JWT_COOKIE_ENABLED:-True}
+  JWT_COOKIE_SECURE: ${JWT_COOKIE_SECURE:-True}
 
 services:
+  db:
+    # Compose merge appends ports — must reset, not ports: []
+    ports: !reset []
+    environment: !override
+      POSTGRES_DB: ${DB_NAME:?set DB_NAME}
+      # Роль владельца тома (bootstrap). Приложение подключается как ringoo_app (DATABASE_URL).
+      POSTGRES_USER: ${POSTGRES_BOOTSTRAP_USER:-ringoo_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_BOOTSTRAP_PASSWORD:?set POSTGRES_BOOTSTRAP_PASSWORD}
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_BOOTSTRAP_USER:-ringoo_admin} -d ${DB_NAME}",
+        ]
+
+  redis:
+    ports: !reset []
+    environment: !override
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?set REDIS_PASSWORD}
+    command:
+      - sh
+      - -c
+      - |
+        exec redis-server --appendonly yes --requirepass "$$REDIS_PASSWORD"
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - redis-cli -a "$$REDIS_PASSWORD" ping | grep -q PONG
+
   web:
-    command: gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 2 --timeout 120
-    environment:
-      - DJANGO_SETTINGS_MODULE=config.settings.production
+    # !override — Compose ≥2.24: не наследовать env_file/volumes/build из docker-compose.yml
+    build: !override
+      context: ./backend
+      dockerfile: Dockerfile
+      args:
+        PIP_INDEX_URL: ${PIP_INDEX_URL:-}
+        PIP_TRUSTED_HOST: ${PIP_TRUSTED_HOST:-}
+        HTTP_PROXY: ${HTTP_PROXY:-}
+        HTTPS_PROXY: ${HTTPS_PROXY:-}
+        NO_PROXY: ${NO_PROXY:-}
+    image: ringoo-web:prod
+    command: >
+      gunicorn config.wsgi:application
+      --bind 0.0.0.0:8000
+      --workers ${GUNICORN_WORKERS:-3}
+      --timeout 120
+    volumes: !override
+      - static_volume:/app/staticfiles
+      - media_volume:/app/media
+      - logs_volume:/app/logs
+    env_file: !override
+      - path: ./.env.production
+        required: false
+      - path: ./backend/.env.production
+        required: false
+    environment: !override
+      <<: *backend-prod-env
+    # Не публиковать 8000 наружу: reverse proxy → 127.0.0.1 или Docker DNS.
+    # Для host-proxy: BACKEND_PUBLISH=127.0.0.1:8000:8000
+    ports: !override
+      - "${BACKEND_PUBLISH:-127.0.0.1:8000}:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1536M
+    networks:
+      - ringoo_network
 
   frontend:
-    build:
+    build: !override
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        NEXT_PUBLIC_API_V1_URL: ${NEXT_PUBLIC_API_V1_URL:-http://localhost:8000/api/v1}
-        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
+        NEXT_PUBLIC_API_V1_URL: ${NEXT_PUBLIC_API_V1_URL:?set NEXT_PUBLIC_API_V1_URL}
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:?set NEXT_PUBLIC_SITE_URL}
         NEXT_PUBLIC_USE_AUTH_COOKIES: ${NEXT_PUBLIC_USE_AUTH_COOKIES:-1}
+        NEXT_PUBLIC_ONLINE_PAYMENT_ENABLED: ${NEXT_PUBLIC_ONLINE_PAYMENT_ENABLED:-0}
+    image: ringoo-frontend:prod
     command: node server.js
-    volumes: []
-    environment:
-      - NODE_ENV=production
-      - API_INTERNAL_V1_URL=http://web:8000/api/v1
-    env_file: []
+    volumes: !override []
+    env_file: !override []
+    environment: !override
+      NODE_ENV: production
+      API_INTERNAL_V1_URL: http://web:8000/api/v1
+      RINGOO_API_PROXY_TARGET: http://web:8000
+      NEXT_PUBLIC_ONLINE_PAYMENT_ENABLED: ${NEXT_PUBLIC_ONLINE_PAYMENT_ENABLED:-0}
+    # Не публиковать 3000 наружу: только localhost для host Caddy/Nginx.
+    # FRONTEND_PUBLISH=127.0.0.1:3000:3000 (default). Пустое значение недопустимо —
+    # для полного unpublish задайте в overlay без ports и proxy в той же Docker-сети.
+    ports: !override
+      - "${FRONTEND_PUBLISH:-127.0.0.1:3000}:3000"
+    depends_on:
+      web:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: "1.5"
+          memory: 1024M
+    networks:
+      - ringoo_network
+
+  celery:
+    build: !override
+      context: ./backend
+      dockerfile: Dockerfile
+    image: ringoo-celery:prod
+    command: celery -A config.celery worker --loglevel=info
+    volumes: !override
+      - media_volume:/app/media
+      - logs_volume:/app/logs
+    env_file: !override
+      - path: ./.env.production
+        required: false
+      - path: ./backend/.env.production
+        required: false
+    environment: !override
+      <<: *backend-prod-env
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      web:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1024M
+    networks:
+      - ringoo_network
+
+  celery-beat:
+    build: !override
+      context: ./backend
+      dockerfile: Dockerfile
+    image: ringoo-celery-beat:prod
+    command: celery -A config.celery beat --loglevel=info
+    volumes: !override
+      - logs_volume:/app/logs
+    env_file: !override
+      - path: ./.env.production
+        required: false
+      - path: ./backend/.env.production
+        required: false
+    environment: !override
+      <<: *backend-prod-env
+    depends_on:
+      - celery
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+    networks:
+      - ringoo_network
+
+volumes:
+  logs_volume:
+    driver: local

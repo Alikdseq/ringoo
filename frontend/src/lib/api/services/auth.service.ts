@@ -12,6 +12,17 @@ function notifyAuthSessionChanged(): void {
 export interface TokenResponse {
   access: string;
   refresh: string;
+  admin_mfa_required?: boolean;
+  mfa_enrolled?: boolean;
+  admin_mfa?: boolean;
+}
+
+export interface AdminMfaStatus {
+  otp_enabled: boolean;
+  staff: boolean;
+  mfa_required: boolean;
+  mfa_enrolled: boolean;
+  admin_mfa_verified: boolean;
 }
 
 /** Вход по телефону и паролю. POST /api/v1/auth/token/ (username=phone) */
@@ -137,4 +148,41 @@ export async function fetchStaffAccess(): Promise<StaffAccessInfo | null> {
 export async function checkStaffAccess(): Promise<boolean> {
   const access = await fetchStaffAccess();
   return Boolean(access?.staff);
+}
+
+/** GET /api/v1/auth/mfa/status/ */
+export async function getAdminMfaStatus(): Promise<AdminMfaStatus> {
+  const { data } = await apiClient.get<AdminMfaStatus>('/auth/mfa/status/');
+  return data;
+}
+
+/** POST /api/v1/auth/mfa/verify/ — выдаёт JWT с claim admin_mfa. */
+export async function verifyAdminMfa(totp: string): Promise<TokenResponse> {
+  const { data } = await apiClient.post<TokenResponse>('/auth/mfa/verify/', { totp });
+  if (!authCookiesMode() && data.access && data.refresh) {
+    setAuthTokens(data.access, data.refresh);
+  }
+  notifyAuthSessionChanged();
+  return data;
+}
+
+/** SEC-009: запрос письма восстановления. Ответ одинаков для любого email. */
+export async function requestPasswordReset(email: string): Promise<{ detail: string }> {
+  const { data } = await apiClient.post<{ detail: string }>('/auth/password-reset/', {
+    email: email.trim(),
+  });
+  return data;
+}
+
+/** SEC-009: установка нового пароля по uid+token из письма. */
+export async function confirmPasswordReset(params: {
+  uid: string;
+  token: string;
+  new_password: string;
+}): Promise<{ detail: string }> {
+  const { data } = await apiClient.post<{ detail: string }>(
+    '/auth/password-reset/confirm/',
+    params
+  );
+  return data;
 }

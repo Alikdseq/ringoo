@@ -151,7 +151,9 @@ export function InstallmentZeroSection() {
                   <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr] lg:items-start">
                     <div className="space-y-6">
                       <div className="space-y-2">
-                        <label className="text-sm font-medium text-foreground">{i.priceLabel}</label>
+                        <label className="text-sm font-medium text-foreground">
+                          {i.priceLabel}
+                        </label>
                         <div className="flex items-center gap-3">
                           <Input
                             type="number"
@@ -215,8 +217,6 @@ export function InstallmentZeroSection() {
           </AnimatePresence>
         </motion.div>
       </div>
-
     </section>
   );
 }
-

@@ -21,4 +21,3 @@ export const metadata: Metadata = {
 export default function OrderStatusPage() {
   return <OrderStatusContent />;
 }
-

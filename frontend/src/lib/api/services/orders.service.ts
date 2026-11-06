@@ -15,13 +15,20 @@ export interface CreateOrderPayload {
   delivery_address?: Record<string, string | null>;
   store?: string | null;
   payment_type: string;
-  items: { product_id: string; quantity: number }[];
+  items: {
+    product_id: string;
+    quantity: number;
+    color_id?: string | null;
+    expected_unit_price?: string | null;
+  }[];
   total_amount: string;
   delivery_cost: string;
   bonus_used: string;
   comment?: string | null;
   consent_personal_data: boolean;
   consent_marketing?: boolean;
+  /** FUNC-003: подтверждение новых цен после price_changed. */
+  accept_price_changes?: boolean;
 }
 
 export interface CreateOrderOptions {
@@ -48,9 +55,22 @@ export async function getOrder(id: string): Promise<Order> {
   return data;
 }
 
-/** Повтор заказа: добавить все позиции заказа в корзину. Только для авторизованных. */
-export async function reorderOrder(orderId: string): Promise<Cart> {
-  const { data } = await apiClient.post<Cart>(`/orders/${orderId}/reorder/`);
+export type ReorderSkippedItem = {
+  product_title: string;
+  reason: string;
+  available?: number;
+};
+
+export type ReorderResult = {
+  cart: Cart;
+  added_count: number;
+  skipped: ReorderSkippedItem[];
+  partial: boolean;
+};
+
+/** Повтор заказа: color+store из заказа; актуальная цена. Только для авторизованных. */
+export async function reorderOrder(orderId: string): Promise<ReorderResult> {
+  const { data } = await apiClient.post<ReorderResult>(`/orders/${orderId}/reorder/`);
   return data;
 }
 
@@ -68,6 +88,22 @@ export async function getOrders(params: OrderListParams = {}): Promise<Paginated
   const { data } = await apiClient.get<PaginatedResponse<Order>>('/orders/', {
     params,
   });
+  return data;
+}
+
+/** Админ: список всех заказов через admin_api (SEC-001, MFA + группа). */
+export async function getAdminOrders(
+  params: OrderListParams = {}
+): Promise<PaginatedResponse<Order>> {
+  const { data } = await apiClient.get<PaginatedResponse<Order>>('/admin/orders/', {
+    params,
+  });
+  return data;
+}
+
+/** Админ: детали заказа через admin_api. */
+export async function getAdminOrder(id: string): Promise<Order> {
+  const { data } = await apiClient.get<Order>(`/admin/orders/${id}/`);
   return data;
 }
 
@@ -132,9 +168,17 @@ export async function submitOrderRating(
 /**
  * Проверка статуса заказа по номеру и телефону (гостевой заказ). Без авторизации.
  */
-export async function trackOrder(orderNumber: string, phone: string): Promise<Order> {
+export async function trackOrder(
+  orderNumber: string,
+  phone: string,
+  guestToken?: string
+): Promise<Order> {
   const { data } = await apiClient.get<Order>('/orders/track/', {
-    params: { order_number: orderNumber, phone },
+    params: {
+      order_number: orderNumber,
+      phone,
+      ...(guestToken ? { guest_token: guestToken } : {}),
+    },
   });
   return data;
 }
@@ -143,21 +187,57 @@ export async function trackOrder(orderNumber: string, phone: string): Promise<Or
  * Официальная форма «Проверить заказ»: POST /orders/status/
  * (Алиас к /orders/track/, чтобы не светить параметры в URL и следовать ТЗ.)
  */
-export async function checkOrderStatus(orderNumber: string, phone: string): Promise<Order> {
+export async function checkOrderStatus(
+  orderNumber: string,
+  phone: string,
+  guestToken?: string
+): Promise<Order> {
   const { data } = await apiClient.post<Order>('/orders/status/', {
     order_number: orderNumber,
     phone,
+    ...(guestToken ? { guest_token: guestToken } : {}),
   });
   return data;
 }
 
 /**
- * Отмена заказа. Для гостя нужны order_number + phone, для авторизованного — достаточно id.
+ * Отмена заказа. Гость: обязателен guest_token (SEC-006).
  */
 export async function cancelOrder(
   orderId: string,
-  payload?: { order_number?: string; phone?: string }
+  payload?: { order_number?: string; phone?: string; guest_token?: string }
 ): Promise<Order> {
   const { data } = await apiClient.post<Order>(`/orders/${orderId}/cancel/`, payload ?? {});
+  return data;
+}
+
+/** SEC-006: запрос письма восстановления гостевого доступа (anti-enumeration). */
+export async function requestGuestAccessRecovery(params: {
+  order_number: string;
+  email: string;
+}): Promise<{ detail: string }> {
+  const { data } = await apiClient.post<{ detail: string }>(
+    '/orders/guest-access/recover/',
+    {
+      order_number: params.order_number.trim(),
+      email: params.email.trim(),
+    }
+  );
+  return data;
+}
+
+/** SEC-006: обмен recovery-токена на guest_access_token. */
+export async function confirmGuestAccessRecovery(params: {
+  order_number: string;
+  token: string;
+}): Promise<{ guest_access_token: string; order_id: string | null; order_number: string }> {
+  const { data } = await apiClient.post<{
+    guest_access_token: string;
+    order_id: string | null;
+    order_number: string;
+  }>('/orders/guest-access/recover/confirm/', {
+    order_number: params.order_number.trim(),
+    token: params.token.trim(),
+  });
   return data;
 }

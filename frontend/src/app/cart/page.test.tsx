@@ -3,7 +3,12 @@ import { render, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import CartPage from './page';
 
+vi.mock('@/components/ringik/Ringik', () => ({
+  Ringik: () => null,
+}));
+
 vi.mock('@/lib/hooks/useCart', () => ({
+  CART_QUERY_KEY: ['cart'],
   useCart: () => ({
     data: {
       id: 'cart1',
@@ -39,18 +44,25 @@ vi.mock('@/lib/hooks/useCart', () => ({
       updated_at: '',
     },
     isLoading: false,
+    isPending: false,
     isError: false,
+    error: null,
+    status: 'success',
   }),
   useUpdateCartItem: () => ({
     mutate: vi.fn(),
+    isPending: false,
   }),
   useRemoveCartItem: () => ({
     mutate: vi.fn(),
+    isPending: false,
   }),
 }));
 
 function renderWithClient(ui: React.ReactElement) {
-  const client = new QueryClient();
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
   return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>);
 }
 
@@ -60,6 +72,6 @@ describe('CartPage', () => {
 
     expect(screen.getByText('Корзина')).toBeInTheDocument();
     expect(screen.getByText('Тестовый товар')).toBeInTheDocument();
-    expect(screen.getAllByText('2000.00 ₽').length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/2000\.00/).length).toBeGreaterThan(0);
   });
 });

@@ -33,9 +33,12 @@ export async function getAdminManagers(params?: {
   search?: string;
   is_active?: boolean;
 }): Promise<PaginatedResponse<AdminManagerListItem>> {
-  const { data } = await apiClient.get<PaginatedResponse<AdminManagerListItem>>('/admin/managers/', {
-    params,
-  });
+  const { data } = await apiClient.get<PaginatedResponse<AdminManagerListItem>>(
+    '/admin/managers/',
+    {
+      params,
+    }
+  );
   return data;
 }
 

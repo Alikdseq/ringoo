@@ -70,8 +70,6 @@ export function recentSnapshotToProduct(s: RecentProductSnapshot): Product {
       parent: null,
       description: null,
     },
-    images: s.image
-      ? [{ id: '', image: s.image, is_main: true, alt_text: s.title }]
-      : [],
+    images: s.image ? [{ id: '', image: s.image, is_main: true, alt_text: s.title }] : [],
   };
 }

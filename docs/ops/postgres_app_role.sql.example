@@ -1,0 +1,26 @@
+-- Пример least-privilege роли приложения Ringoo (выполнять от bootstrap/admin).
+-- НЕ запускать на production без бэкапа и проверки.
+-- Подставьте имена БД/ролей/пароля из .env.production.
+
+-- 1) Роль приложения (без SUPERUSER / CREATEDB / CREATEROLE)
+-- CREATE ROLE ringoo_app WITH LOGIN PASSWORD 'REPLACE_STRONG_PASSWORD' NOSUPERUSER NOCREATEDB NOCREATEROLE;
+
+-- 2) Права на БД и схему
+-- GRANT CONNECT ON DATABASE ringoo TO ringoo_app;
+-- \c ringoo
+-- GRANT USAGE ON SCHEMA public TO ringoo_app;
+-- GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO ringoo_app;
+-- GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO ringoo_app;
+-- ALTER DEFAULT PRIVILEGES IN SCHEMA public
+--   GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO ringoo_app;
+-- ALTER DEFAULT PRIVILEGES IN SCHEMA public
+--   GRANT USAGE, SELECT ON SEQUENCES TO ringoo_app;
+
+-- 3) Миграции: отдельная роль ringoo_migrate с CREATE на schema (опционально)
+-- CREATE ROLE ringoo_migrate WITH LOGIN PASSWORD 'REPLACE_MIGRATE_PASSWORD' NOSUPERUSER NOCREATEDB NOCREATEROLE;
+-- GRANT CONNECT ON DATABASE ringoo TO ringoo_migrate;
+-- GRANT USAGE, CREATE ON SCHEMA public TO ringoo_migrate;
+-- После migrate приложение продолжает работать под ringoo_app.
+
+-- 4) DATABASE_URL для web/celery:
+-- postgresql://ringoo_app:REPLACE_STRONG_PASSWORD@db:5432/ringoo

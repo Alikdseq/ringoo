@@ -53,7 +53,9 @@ function LoginContent() {
       let msg = 'Неверный телефон или пароль.';
       if (status === 429) {
         const d =
-          data && typeof data === 'object' && typeof (data as { detail?: string }).detail === 'string'
+          data &&
+          typeof data === 'object' &&
+          typeof (data as { detail?: string }).detail === 'string'
             ? (data as { detail: string }).detail
             : '';
         msg =
@@ -128,7 +130,13 @@ function LoginContent() {
           </Button>
         </form>
 
-        <p className="mt-6 text-center text-sm text-foreground-muted">
+        <p className="mt-4 text-center text-sm text-foreground-muted">
+          <Link href="/forgot-password" className="text-foreground underline hover:no-underline">
+            Забыли пароль?
+          </Link>
+        </p>
+
+        <p className="mt-4 text-center text-sm text-foreground-muted">
           Нет аккаунта?{' '}
           <Link href="/register" className="text-foreground underline hover:no-underline">
             Зарегистрироваться

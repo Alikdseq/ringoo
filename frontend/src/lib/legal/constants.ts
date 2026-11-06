@@ -1,17 +1,30 @@
 import { ORGANIZATION_CONTACT } from '@/lib/seo/constants';
 
 /** Версия юридических документов (синхронизировать с backend POLICY_VERSION). */
-export const POLICY_VERSION =
-  process.env.NEXT_PUBLIC_POLICY_VERSION?.trim() || '2026-05-16';
+/** Дата редакции юридических текстов сайта (YYYY-MM-DD). */
+export const POLICY_VERSION = process.env.NEXT_PUBLIC_POLICY_VERSION?.trim() || '2026-11-03';
 
+/**
+ * Реквизиты оператора. Env перекрывает значения по умолчанию
+ * (удобно для staging/prod без правки кода).
+ */
 export const LEGAL_ORG = {
   ...ORGANIZATION_CONTACT,
-  inn: process.env.NEXT_PUBLIC_ORG_INN?.trim() || '',
-  ogrn: process.env.NEXT_PUBLIC_ORG_OGRN?.trim() || '',
+  inn: process.env.NEXT_PUBLIC_ORG_INN?.trim() || '151502153141',
+  /** Для ИП — ОГРНИП */
+  ogrn: process.env.NEXT_PUBLIC_ORG_OGRN?.trim() || '308151508700014',
+  ogrnIssuedAt: process.env.NEXT_PUBLIC_ORG_OGRN_ISSUED_AT?.trim() || '27.03.2008',
+  /** У ИП КПП нет */
   kpp: process.env.NEXT_PUBLIC_ORG_KPP?.trim() || '',
-  /** Ответственный за обработку ПДн / контакт для субъектов */
-  privacyEmail:
-    process.env.NEXT_PUBLIC_PRIVACY_EMAIL?.trim() || ORGANIZATION_CONTACT.email,
+  sfrRegNumber: process.env.NEXT_PUBLIC_ORG_SFR?.trim() || '1210189435',
+  okved: process.env.NEXT_PUBLIC_ORG_OKVED?.trim() || '47.78',
+  okpo: process.env.NEXT_PUBLIC_ORG_OKPO?.trim() || '0156586320',
+  /** Фактические адреса точек / магазинов */
+  actualAddresses: [
+    'РСО-Алания, г. Владикавказ, ул. Доватора, д. 5',
+    'РСО-Алания, г. Владикавказ, ул. Кирова, д. 41',
+  ] as const,
+  privacyEmail: process.env.NEXT_PUBLIC_PRIVACY_EMAIL?.trim() || ORGANIZATION_CONTACT.email,
 } as const;
 
 export const LEGAL_DOC_LINKS = {

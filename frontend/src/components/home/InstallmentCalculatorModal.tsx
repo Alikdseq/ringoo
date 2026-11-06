@@ -90,7 +90,9 @@ export function InstallmentCalculatorModal({ isOpen, onClose }: InstallmentCalcu
                         className="w-full"
                         aria-label="Стоимость покупки"
                       />
-                      <span className="shrink-0 text-sm text-foreground-muted">{CURRENCY_SYMBOL}</span>
+                      <span className="shrink-0 text-sm text-foreground-muted">
+                        {CURRENCY_SYMBOL}
+                      </span>
                     </div>
                   </div>
 
@@ -144,4 +146,3 @@ export function InstallmentCalculatorModal({ isOpen, onClose }: InstallmentCalcu
     </AnimatePresence>
   );
 }
-

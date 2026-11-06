@@ -46,7 +46,6 @@ class TestSendOrderConfirmation(TestCase):
 
         user = CustomUser.objects.create_user(
             phone="+79990000000",
-            username="+79990000000",
             email="user@example.com",
             password="pass",
         )

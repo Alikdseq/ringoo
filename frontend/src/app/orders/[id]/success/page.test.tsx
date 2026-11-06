@@ -36,7 +36,9 @@ vi.mock('@/lib/api/services/orders.service', () => ({
 }));
 
 function renderWithClient(ui: React.ReactElement) {
-  const client = new QueryClient();
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
   return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>);
 }
 

@@ -80,15 +80,16 @@ class StockAdminUpdateView(UpdateAPIView):
         quantity = request.data.get("quantity")
         reserved = request.data.get("reserved_quantity")
 
+        new_q = None
+        new_r = None
         if quantity is not None:
             try:
-                q = int(quantity)
-                if q < 0:
+                new_q = int(quantity)
+                if new_q < 0:
                     return Response(
                         {"quantity": ["Не может быть отрицательным."]},
                         status=status.HTTP_400_BAD_REQUEST,
                     )
-                instance.quantity = q
             except (TypeError, ValueError):
                 return Response(
                     {"quantity": ["Некорректное значение."]},
@@ -96,24 +97,44 @@ class StockAdminUpdateView(UpdateAPIView):
                 )
         if reserved is not None:
             try:
-                r = int(reserved)
-                if r < 0:
+                new_r = int(reserved)
+                if new_r < 0:
                     return Response(
                         {"reserved_quantity": ["Не может быть отрицательным."]},
                         status=status.HTTP_400_BAD_REQUEST,
                     )
-                if instance.quantity < r:
-                    return Response(
-                        {"reserved_quantity": ["Не может превышать quantity."]},
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-                instance.reserved_quantity = r
             except (TypeError, ValueError):
                 return Response(
                     {"reserved_quantity": ["Некорректное значение."]},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-        instance.save()
+
+        qty_check = new_q if new_q is not None else instance.quantity
+        res_check = new_r if new_r is not None else instance.reserved_quantity
+        if qty_check < res_check:
+            return Response(
+                {"reserved_quantity": ["Не может превышать quantity."]},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if new_q is None and new_r is None:
+            return Response(StockListSerializer.to_representation(instance))
+
+        from apps.stores.stock_ops import apply_quantity_correction
+
+        try:
+            instance = apply_quantity_correction(
+                instance,
+                new_quantity=new_q,
+                new_reserved=new_r,
+                reason="admin_stock_patch",
+                source="admin_api.stock",
+            )
+        except ValueError as exc:
+            return Response(
+                {"detail": str(exc)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         after = {"quantity": instance.quantity, "reserved_quantity": instance.reserved_quantity}
         if before != after:
             log_admin_action(

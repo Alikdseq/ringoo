@@ -143,6 +143,29 @@ class Order(models.Model):
         null=True,
         verbose_name="Обезличен (удаление аккаунта)",
     )
+    checkout_cart_id = models.UUIDField(
+        blank=True,
+        null=True,
+        db_index=True,
+        verbose_name="Корзина checkout (online)",
+        help_text=(
+            "Для online: id корзины сохраняется при создании заказа; "
+            "позиции корзины удаляются только после подтверждённой оплаты."
+        ),
+    )
+    # SEC-006: гостевой доступ (в БД только хеш; plaintext не хранится)
+    guest_access_token_hash = models.CharField(
+        max_length=64,
+        blank=True,
+        default="",
+        db_index=True,
+        verbose_name="Хеш guest access token",
+    )
+    guest_access_token_expires_at = models.DateTimeField(
+        blank=True,
+        null=True,
+        verbose_name="Срок действия guest access token",
+    )
 
     # --- Синхронизация с 1С (SiteOrders) ---
     ONEC_SYNC_PENDING = "pending"
@@ -308,6 +331,32 @@ class OrderItem(models.Model):
         blank=True,
         null=True,
         verbose_name="Артикул",
+    )
+    color = models.ForeignKey(
+        "products.ProductColor",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="order_items",
+        verbose_name="Цвет (ссылка)",
+    )
+    color_label = models.CharField(
+        max_length=255,
+        blank=True,
+        default="",
+        verbose_name="Название цвета (снимок)",
+    )
+    color_slug = models.SlugField(
+        max_length=100,
+        blank=True,
+        default="",
+        verbose_name="Slug цвета (снимок)",
+    )
+    color_hex = models.CharField(
+        max_length=12,
+        blank=True,
+        default="",
+        verbose_name="HEX цвета (снимок)",
     )
     onec_product_code = models.CharField(
         max_length=64,

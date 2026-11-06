@@ -25,19 +25,23 @@ interface ProductDetailRecommendationsProps {
 export function ProductDetailRecommendations({ product }: ProductDetailRecommendationsProps) {
   const categorySlug = product.category?.slug ?? '';
 
-  const { data: similarPage, isLoading: similarLoading, isError: similarError, error: similarErr } =
-    useQuery({
-      queryKey: ['products', 'similar', categorySlug, product.id],
-      queryFn: () =>
-        getProducts({
-          category: categorySlug,
-          page_size: SIMILAR_PAGE_SIZE,
-          ordering: 'popular',
-          page: 1,
-        }),
-      enabled: Boolean(categorySlug),
-      staleTime: 5 * 60 * 1000,
-    });
+  const {
+    data: similarPage,
+    isLoading: similarLoading,
+    isError: similarError,
+    error: similarErr,
+  } = useQuery({
+    queryKey: ['products', 'similar', categorySlug, product.id],
+    queryFn: () =>
+      getProducts({
+        category: categorySlug,
+        page_size: SIMILAR_PAGE_SIZE,
+        ordering: 'popular',
+        page: 1,
+      }),
+    enabled: Boolean(categorySlug),
+    staleTime: 5 * 60 * 1000,
+  });
 
   const similarProducts = useMemo(() => {
     if (!similarPage?.results) return [];
@@ -80,7 +84,9 @@ export function ProductDetailRecommendations({ product }: ProductDetailRecommend
         </div>
 
         {!categorySlug ? (
-          <p className="text-sm text-foreground-muted">Категория не указана — подборку показать нельзя.</p>
+          <p className="text-sm text-foreground-muted">
+            Категория не указана — подборку показать нельзя.
+          </p>
         ) : similarLoading ? (
           <div className={PRODUCT_CARD_GRID_CLASS}>
             {Array.from({ length: 4 }).map((_, i) => (
@@ -119,10 +125,14 @@ export function ProductDetailRecommendations({ product }: ProductDetailRecommend
                 Вы смотрели ранее
               </h2>
               <p className="mt-1 text-sm text-foreground-muted">
-                Недавние просмотры с этого устройства — можно быстро вернуться к интересным позициям.
+                Недавние просмотры с этого устройства — можно быстро вернуться к интересным
+                позициям.
               </p>
             </div>
-            <Link href="/catalog" className="shrink-0 text-sm font-medium text-brand hover:underline">
+            <Link
+              href="/catalog"
+              className="shrink-0 text-sm font-medium text-brand hover:underline"
+            >
               В каталог
             </Link>
           </div>
