@@ -21,5 +21,6 @@ urlpatterns = [
     path("crm/", include("apps.crm.urls")),
     path("legal/", include("apps.users.legal_urls")),
     path("wishlist/", include("apps.wishlist.urls")),
+    path("returns/", include("apps.returns.urls")),
     path("admin/", include("apps.admin_api.urls")),
 ]

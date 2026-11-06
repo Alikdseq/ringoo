@@ -31,6 +31,7 @@ export const ADMIN_NAV_REQUIRED_GROUPS: Record<string, AdminGroupName[]> = {
   '/admin/promotions': [ADMIN_GROUP.catalog],
   '/admin/crm': [ADMIN_GROUP.crm],
   '/admin/analytics': [ADMIN_GROUP.reports],
+  '/admin/returns': [ADMIN_GROUP.orders],
   // Только суперпользователь (canAccessAdminNav → is_superuser)
   '/admin/backup': [],
 };

@@ -10,7 +10,23 @@ from apps.backups.views import (
     BackupCreateView,
     BackupDownloadView,
     BackupLatestView,
+    BackupOffsiteProbeView,
+    BackupOffsiteStatusView,
+    BackupOffsiteUploadView,
+    BackupOffsiteVerifyView,
     BackupStatusView,
+)
+
+from apps.products.mapping_views import (
+    ProductColorMappingListView,
+    ProductColorMappingUpdateView,
+)
+from apps.returns.views import (
+    AdminReturnDetailView,
+    AdminReturnInspectView,
+    AdminReturnListView,
+    AdminReturnRefundView,
+    AdminReturnTransitionView,
 )
 
 from .views import content, crm, dashboard, managers, orders, products, promotions, reports, stock, stores, users
@@ -19,8 +35,38 @@ app_name = "admin_api"
 
 urlpatterns = [
     path("dashboard/stats/", dashboard.DashboardStatsView.as_view(), name="dashboard-stats"),
+    path("returns/", AdminReturnListView.as_view(), name="return-list"),
+    path("returns/<uuid:pk>/", AdminReturnDetailView.as_view(), name="return-detail"),
+    path(
+        "returns/<uuid:pk>/transition/",
+        AdminReturnTransitionView.as_view(),
+        name="return-transition",
+    ),
+    path(
+        "returns/<uuid:pk>/refund/",
+        AdminReturnRefundView.as_view(),
+        name="return-refund",
+    ),
+    path(
+        "returns/<uuid:pk>/inspect/",
+        AdminReturnInspectView.as_view(),
+        name="return-inspect",
+    ),
     path("backups/create/", BackupCreateView.as_view(), name="backup-create"),
     path("backups/latest/", BackupLatestView.as_view(), name="backup-latest"),
+    path("backups/offsite/status/", BackupOffsiteStatusView.as_view(), name="backup-offsite-status"),
+    path("backups/offsite/probe/", BackupOffsiteProbeView.as_view(), name="backup-offsite-probe"),
+    path("backups/offsite/upload/", BackupOffsiteUploadView.as_view(), name="backup-offsite-upload"),
+    path(
+        "backups/offsite/verify/",
+        BackupOffsiteVerifyView.as_view(),
+        name="backup-offsite-verify",
+    ),
+    path(
+        "backups/<uuid:backup_id>/offsite/upload/",
+        BackupOffsiteUploadView.as_view(),
+        name="backup-offsite-upload-id",
+    ),
     path("backups/<uuid:backup_id>/", BackupStatusView.as_view(), name="backup-status"),
     path(
         "backups/<uuid:backup_id>/download/",
@@ -71,6 +117,16 @@ urlpatterns = [
         name="product-import-template",
     ),
     path("products/import/", products.ProductBulkImportView.as_view(), name="product-bulk-import"),
+    path(
+        "products/color-mappings/",
+        ProductColorMappingListView.as_view(),
+        name="product-color-mapping-list",
+    ),
+    path(
+        "products/color-mappings/<uuid:pk>/",
+        ProductColorMappingUpdateView.as_view(),
+        name="product-color-mapping-update",
+    ),
     path("products/categories/", products.CategoryAdminListView.as_view(), name="category-list"),
     path("products/categories/create/", products.CategoryAdminCreateView.as_view(), name="category-create"),
     path("products/categories/<uuid:pk>/patch/", products.CategoryAdminUpdateView.as_view(), name="category-update"),

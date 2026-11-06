@@ -240,6 +240,65 @@ def apply_quantity_correction(
 
 
 @transaction.atomic
+def restock_at_store(
+    product_id,
+    store_id,
+    amount: int,
+    *,
+    series_id: str = "",
+    idempotency_key: str | None = None,
+    order_id=None,
+    order_item_id=None,
+    reason: str = "",
+    source: str = "stock_ops.restock_at_store",
+) -> bool:
+    """Увеличение доступного quantity после приёмки возврата (sellable only)."""
+    amount = int(amount)
+    if amount < 1:
+        return False
+    key = (idempotency_key or _auto_key("restock"))[:128]
+    if StockMovement.objects.filter(idempotency_key=key, success=True).exists():
+        return True
+    series = (series_id or "").strip()
+    qs = Stock.objects.select_for_update().filter(
+        product_id=product_id, store_id=store_id, onec_series_id=series
+    )
+    stock = qs.first()
+    qty_before = int(stock.quantity) if stock else 0
+    res_before = int(stock.reserved_quantity) if stock else 0
+    if stock is None:
+        stock = Stock.objects.create(
+            product_id=product_id,
+            store_id=store_id,
+            onec_series_id=series,
+            quantity=amount,
+            reserved_quantity=0,
+        )
+    else:
+        stock.quantity = int(stock.quantity) + amount
+        stock.updated_at = timezone.now()
+        stock.save(update_fields=["quantity", "updated_at"])
+    record_stock_movement(
+        operation=StockMovement.OP_RESTOCK,
+        idempotency_key=key,
+        quantity=amount,
+        product_id=product_id,
+        store_id=store_id,
+        order_id=order_id,
+        order_item_id=order_item_id,
+        reserved_before=res_before,
+        reserved_after=int(stock.reserved_quantity),
+        stock_quantity_before=qty_before,
+        stock_quantity_after=int(stock.quantity),
+        onec_series_id=series,
+        reason=reason,
+        source=source,
+        success=True,
+    )
+    return True
+
+
+@transaction.atomic
 def apply_onec_stock_upsert(
     *,
     product_id,
