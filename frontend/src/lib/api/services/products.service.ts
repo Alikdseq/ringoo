@@ -1,4 +1,5 @@
 import { apiClient } from '@/lib/api/client';
+import { fetchInternalJson } from '@/lib/api/server-fetch';
 import { getApiV1BaseUrl } from '@/lib/site-url';
 import type { Category, PaginatedResponse, Product, ProductDetail } from '@/types';
 
@@ -84,13 +85,7 @@ const EMPTY_PRODUCTS: PaginatedResponse<Product> = {
 };
 
 async function fetchServerJson<T>(url: string, fallback: T): Promise<T> {
-  try {
-    const res = await fetch(url, { next: { revalidate: SERVER_REVALIDATE } });
-    if (!res.ok) return fallback;
-    return (await res.json()) as T;
-  } catch {
-    return fallback;
-  }
+  return fetchInternalJson(url, fallback, { next: { revalidate: SERVER_REVALIDATE } });
 }
 
 export async function fetchProductDetailServer(slug: string): Promise<ProductDetail | null> {

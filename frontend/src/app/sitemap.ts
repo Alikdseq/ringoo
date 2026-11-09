@@ -1,4 +1,5 @@
 import type { MetadataRoute } from 'next';
+import { buildInternalDjangoFetchInit } from '@/lib/api/server-fetch';
 import { getApiV1BaseUrl, getSiteUrl } from '@/lib/site-url';
 
 const REVALIDATE = 3600;
@@ -34,7 +35,7 @@ async function fetchAllPages<T>(
   let url: string | null = `${api}${initialPath}`;
   try {
     while (url) {
-      const res = await fetch(url, { next: { revalidate: REVALIDATE } });
+      const res = await fetch(url, buildInternalDjangoFetchInit({ next: { revalidate: REVALIDATE } }));
       if (!res.ok) break;
       const data = (await res.json()) as Paginated<T>;
       for (const row of data.results ?? []) {

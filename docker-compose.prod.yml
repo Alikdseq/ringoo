@@ -176,16 +176,16 @@ services:
     depends_on:
       web:
         condition: service_healthy
-    # Prod-образ уже собран: не нужен start_period 600s из docker-compose.yml (локальный npm build).
+    # Лёгкий /api/health — готовность Next, не SSR главной.
     healthcheck:
       test:
         [
           "CMD-SHELL",
-          "node -e \"fetch('http://127.0.0.1:3000').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\"",
+          "node -e \"fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\"",
         ]
       interval: 30s
-      timeout: 10s
-      start_period: 60s
+      timeout: 5s
+      start_period: 40s
       retries: 3
     deploy:
       resources:

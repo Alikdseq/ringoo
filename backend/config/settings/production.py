@@ -240,6 +240,8 @@ elif not CSRF_TRUSTED_ORIGINS:
 
 # Trust X-Forwarded-Proto only when explicitly enabled (reverse proxy).
 # Do NOT enable unless the proxy strips client-supplied X-Forwarded-* .
+# Docker: Next SSR/proxy ставит X-Forwarded-Proto: https на hop к http://web:8000
+# (см. frontend server-fetch + proxy.ts). Порт 8000 не должен быть открыт в WAN.
 _trust_proxy = os.getenv('TRUST_PROXY', '1' if ON_VERCEL else '0').strip().lower() in (
     '1',
     'true',

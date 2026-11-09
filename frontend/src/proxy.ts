@@ -35,13 +35,19 @@ export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (API_PROXY_TARGET) {
+    // Внутренний hop Next → Django по HTTP; edge уже HTTPS.
+    // TRUST_PROXY + SECURE_SSL_REDIRECT на Django требуют X-Forwarded-Proto: https.
+    const proxyHeaders = new Headers(request.headers);
+    proxyHeaders.set('x-forwarded-proto', 'https');
+    const rewriteInit = { request: { headers: proxyHeaders } };
+
     if (pathname.startsWith('/api/v1/') || pathname === '/api/v1') {
       const target = new URL(`${pathname}${request.nextUrl.search}`, API_PROXY_TARGET);
-      return NextResponse.rewrite(target);
+      return NextResponse.rewrite(target, rewriteInit);
     }
     if (pathname.startsWith('/media/')) {
       const target = new URL(`${pathname}${request.nextUrl.search}`, API_PROXY_TARGET);
-      return NextResponse.rewrite(target);
+      return NextResponse.rewrite(target, rewriteInit);
     }
   }
 
