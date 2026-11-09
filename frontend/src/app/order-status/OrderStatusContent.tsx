@@ -38,19 +38,35 @@ function normalizePhoneForApi(raw: string): string {
   return `+${d}`;
 }
 
-function friendlyStatus(status: string): {
+function friendlyStatus(
+  status: string,
+  opts?: { closureResult?: string | null; deliveryType?: string | null }
+): {
   label: string;
   tone: 'muted' | 'info' | 'warn' | 'ok' | 'danger';
 } {
-  switch (status) {
+  const code =
+    status === 'closed'
+      ? opts?.closureResult || status
+      : status === 'confirmed'
+        ? 'processing'
+        : status === 'in_progress'
+          ? 'processing'
+          : status === 'completed'
+            ? 'completed'
+            : status;
+  switch (code) {
     case 'new':
-      return { label: 'В обработке', tone: 'muted' };
-    case 'confirmed':
-      return { label: 'Подтверждён', tone: 'info' };
-    case 'in_progress':
-      return { label: 'В доставке', tone: 'warn' };
+      return { label: 'Новый заказ', tone: 'muted' };
+    case 'processing':
+      return { label: 'В обработке', tone: 'info' };
+    case 'ready':
+      return {
+        label: opts?.deliveryType === 'delivery' ? 'Готов к отправке' : 'Готов к выдаче',
+        tone: 'warn',
+      };
     case 'completed':
-      return { label: 'Выполнен', tone: 'ok' };
+      return { label: 'Получен', tone: 'ok' };
     case 'cancelled':
       return { label: 'Отменён', tone: 'danger' };
     default:
@@ -58,8 +74,16 @@ function friendlyStatus(status: string): {
   }
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const s = friendlyStatus(status);
+function StatusBadge({
+  status,
+  closureResult,
+  deliveryType,
+}: {
+  status: string;
+  closureResult?: string | null;
+  deliveryType?: string | null;
+}) {
+  const s = friendlyStatus(status, { closureResult, deliveryType });
   const cls =
     s.tone === 'ok'
       ? 'bg-emerald-50 text-emerald-700'
@@ -77,17 +101,32 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-function StatusProgress({ status }: { status: string }) {
-  if (status === 'cancelled') return null;
+function StatusProgress({
+  status,
+  closureResult,
+  deliveryType,
+}: {
+  status: string;
+  closureResult?: string | null;
+  deliveryType?: string | null;
+}) {
+  if (status === 'cancelled' || closureResult === 'cancelled') return null;
+  const readyLabel = deliveryType === 'delivery' ? 'К отправке' : 'К выдаче';
   const steps: { key: string; label: string }[] = [
     { key: 'new', label: 'Оформлен' },
-    { key: 'confirmed', label: 'Подтверждён' },
-    { key: 'in_progress', label: 'В доставке' },
+    { key: 'processing', label: 'В обработке' },
+    { key: 'ready', label: readyLabel },
     { key: 'completed', label: 'Получен' },
   ];
+  const normalized =
+    status === 'closed' && closureResult === 'completed'
+      ? 'completed'
+      : status === 'confirmed' || status === 'in_progress'
+        ? 'processing'
+        : status;
   const idx = Math.max(
     0,
-    steps.findIndex(s => s.key === status)
+    steps.findIndex(s => s.key === normalized)
   );
   return (
     <div className="mt-4">
@@ -190,8 +229,17 @@ function OrderStatusInner() {
     };
   }, [searchParams]);
 
-  const canCancel = order?.status === 'new' || order?.status === 'confirmed';
-  const canReorder = order?.status === 'completed' || order?.status === 'cancelled';
+  const canCancel =
+    typeof order?.can_cancel === 'boolean'
+      ? order.can_cancel
+      : order?.status === 'new' ||
+        order?.status === 'processing' ||
+        order?.status === 'confirmed';
+  const canReorder =
+    order?.status === 'completed' ||
+    order?.status === 'cancelled' ||
+    (order?.status === 'closed' &&
+      (order.closure_result === 'completed' || order.closure_result === 'cancelled'));
 
   const storeDetailQuery = useQuery({
     queryKey: ['stores', 'detail', order?.store],
@@ -469,10 +517,18 @@ function OrderStatusInner() {
                     {new Date(order.created_at).toLocaleString('ru-RU')}
                   </div>
                 </div>
-                <StatusBadge status={order.status} />
+                <StatusBadge
+                  status={order.status}
+                  closureResult={order.closure_result}
+                  deliveryType={order.delivery_type}
+                />
               </div>
 
-              <StatusProgress status={order.status} />
+              <StatusProgress
+                status={order.status}
+                closureResult={order.closure_result}
+                deliveryType={order.delivery_type}
+              />
 
               {/* Товары */}
               <div className="mt-8">

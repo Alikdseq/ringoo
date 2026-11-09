@@ -58,23 +58,8 @@ export function canAccessAdminNav(
   return required.some(g => set.has(g));
 }
 
-/** Допустимые переходы статуса заказа (зеркало BE OrderAdminUpdateSerializer). */
-export const ORDER_STATUS_TRANSITIONS: Record<string, string[]> = {
-  new: ['confirmed', 'cancelled'],
-  confirmed: ['in_progress', 'cancelled'],
-  in_progress: ['completed', 'cancelled'],
-  completed: [],
-  cancelled: [],
-};
-
-export function allowedOrderStatusOptions(
-  current: string,
-  labels: Record<string, string>
-): { value: string; label: string }[] {
-  const next = ORDER_STATUS_TRANSITIONS[current] ?? [];
-  const values = [current, ...next.filter(s => s !== current)];
-  return values.map(value => ({
-    value,
-    label: labels[value] ?? value,
-  }));
-}
+/** Допустимые переходы статуса заказа (зеркало BE FSM). */
+export {
+  ORDER_STATUS_TRANSITIONS,
+  allowedOrderStatusOptions,
+} from '@/lib/orders/status-labels';

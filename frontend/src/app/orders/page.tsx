@@ -14,13 +14,7 @@ import { Loading } from '@/components/ui/Loading';
 import { CURRENCY_SYMBOL } from '@/lib/constants';
 import { formatRuDateShort } from '@/lib/format-date';
 
-const STATUS_LABELS: Record<string, string> = {
-  new: 'Новый',
-  confirmed: 'Подтверждён',
-  in_progress: 'В работе',
-  completed: 'Выполнен',
-  cancelled: 'Отменён',
-};
+import { orderStatusLabel } from '@/lib/orders/status-labels';
 
 export default function OrdersPage() {
   const router = useRouter();
@@ -140,7 +134,10 @@ export default function OrdersPage() {
                       {order.total_amount} {CURRENCY_SYMBOL}
                     </p>
                     <span className="inline-flex rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-foreground-muted">
-                      {STATUS_LABELS[order.status] ?? order.status}
+                      {orderStatusLabel(order.status, {
+                        closureResult: order.closure_result,
+                        deliveryType: order.delivery_type,
+                      })}
                     </span>
                   </div>
                 </div>

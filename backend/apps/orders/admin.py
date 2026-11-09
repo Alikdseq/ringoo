@@ -10,7 +10,7 @@ from django.http import HttpResponse
 
 from apps.audit.services import log_admin_action
 
-from .models import ManagerRating, Order, OrderItem
+from .models import ManagerRating, OneCInboundEvent, Order, OrderItem
 
 
 class OrderItemInline(admin.TabularInline):
@@ -123,7 +123,7 @@ class OrderAdmin(admin.ModelAdmin):
 
         super().save_model(request, obj, form, change)
 
-    @admin.action(description="Перевести в «Подтверждён»")
+    @admin.action(description="Перевести в «В обработке»")
     def action_set_status_confirmed(self, request, queryset):
         from django.contrib import messages
 
@@ -140,10 +140,10 @@ class OrderAdmin(admin.ModelAdmin):
             try:
                 locked = transition_order_status(
                     order,
-                    Order.STATUS_CONFIRMED,
-                    reason="django_admin_bulk_confirm",
+                    Order.STATUS_PROCESSING,
+                    reason="django_admin_bulk_processing",
                 )
-                if locked.status == Order.STATUS_CONFIRMED:
+                if locked.status == Order.STATUS_PROCESSING:
                     ok += 1
                 else:
                     skipped += 1
@@ -154,17 +154,17 @@ class OrderAdmin(admin.ModelAdmin):
 
         log_admin_action(
             request,
-            action="order_bulk_status_confirmed",
+            action="order_bulk_status_processing",
             model_name="orders.Order",
             object_id="",
             object_repr=f"ok={ok} skipped={skipped}",
             changes={
-                "status": Order.STATUS_CONFIRMED,
+                "status": Order.STATUS_PROCESSING,
                 "ok": ok,
                 "skipped": skipped,
             },
         )
-        msg = f"Подтверждено: {ok}. Пропущено/отклонено: {skipped}."
+        msg = f"В обработке: {ok}. Пропущено/отклонено: {skipped}."
         if errors:
             msg += " " + "; ".join(errors)
         level = messages.WARNING if skipped else messages.SUCCESS
@@ -229,3 +229,34 @@ class ManagerRatingAdmin(admin.ModelAdmin):
     search_fields = ("order__order_number", "comment")
     raw_id_fields = ("order",)
     readonly_fields = ("created_at",)
+
+
+@admin.register(OneCInboundEvent)
+class OneCInboundEventAdmin(admin.ModelAdmin):
+    list_display = (
+        "event_id",
+        "order_number",
+        "event_type",
+        "status_received",
+        "processing_result",
+        "created_at",
+    )
+    list_filter = ("processing_result", "event_type", "created_at")
+    search_fields = ("event_id", "order_number", "error_code")
+    readonly_fields = (
+        "id",
+        "event_id",
+        "order",
+        "order_number",
+        "event_type",
+        "status_received",
+        "result_received",
+        "payment_status_received",
+        "processing_result",
+        "error_code",
+        "error_message",
+        "payload_summary",
+        "occurred_at",
+        "created_at",
+    )
+    ordering = ("-created_at",)

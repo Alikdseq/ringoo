@@ -1,8 +1,8 @@
 """
 Допустимость онлайн-оплаты заказа (единый источник для API и initiate).
 
-Статус заказа (Order.status) ≠ статус платежа (Payment.status).
-Оплата разрешена только для payment_type=online и статусов new/confirmed,
+Статус заказа (Order.status) ≠ статус платежа (Order.payment_status / Payment.status).
+Оплата разрешена только для payment_type=online и статусов new/processing,
 если нет успешного/блокирующего платежа.
 """
 
@@ -24,10 +24,8 @@ class PaymentEligibility:
     latest_payment_status: str | None = None
 
 
-# Заказ ещё ждёт онлайн-оплату (не путать с Payment.STATUS_*).
-PAYABLE_ORDER_STATUSES = frozenset({"new", "confirmed"})
+PAYABLE_ORDER_STATUSES = frozenset({"new", "processing", "confirmed"})  # confirmed=legacy
 
-# Эти статусы платежа запрещают новый/повторный initiate.
 BLOCKING_PAYMENT_STATUSES = frozenset(
     {
         "paid",
@@ -37,16 +35,12 @@ BLOCKING_PAYMENT_STATUSES = frozenset(
     }
 )
 
-# Активный платёж можно продолжить (тот же confirmation_url).
 RESUMABLE_PAYMENT_STATUSES = frozenset({"registered", "pending", "created"})
 
 
 def evaluate_order_payment_eligibility(order: "Order") -> PaymentEligibility:
-    """
-    Чистая проверка без HTTP к ЮKassa.
-    Используется в OrderSerializer.can_pay и как предварительный фильтр.
-    """
     from apps.orders.models import Order
+    from apps.orders.services.transitions import normalize_status
     from apps.payments.models import Payment
     from apps.payments.services import online_payment_provider
 
@@ -61,17 +55,22 @@ def evaluate_order_payment_eligibility(order: "Order") -> PaymentEligibility:
             latest_status,
         )
 
-    if order.status == Order.STATUS_CANCELLED:
+    if order.is_cancelled():
         return PaymentEligibility(
             False, "order_cancelled", "Заказ отменён", latest_status
         )
 
-    if order.status == Order.STATUS_COMPLETED:
+    if order.is_fulfilled() or normalize_status(order.status) == Order.STATUS_CLOSED:
         return PaymentEligibility(
-            False, "order_completed", "Заказ уже выполнен", latest_status
+            False, "order_completed", "Заказ уже завершён", latest_status
         )
 
-    if order.status == Order.STATUS_IN_PROGRESS:
+    if order.payment_status == Order.PAYMENT_STATUS_PAID:
+        return PaymentEligibility(
+            False, "already_paid", "Заказ уже оплачен", latest_status
+        )
+
+    if normalize_status(order.status) == Order.STATUS_READY:
         return PaymentEligibility(
             False,
             "order_status",
@@ -79,7 +78,9 @@ def evaluate_order_payment_eligibility(order: "Order") -> PaymentEligibility:
             latest_status,
         )
 
-    if order.status not in PAYABLE_ORDER_STATUSES:
+    if order.status not in PAYABLE_ORDER_STATUSES and normalize_status(
+        order.status
+    ) not in (Order.STATUS_NEW, Order.STATUS_PROCESSING):
         return PaymentEligibility(
             False,
             "order_status",
@@ -95,7 +96,6 @@ def evaluate_order_payment_eligibility(order: "Order") -> PaymentEligibility:
             latest_status,
         )
 
-    # Успешный / блокирующий платёж
     blocking = (
         order.payments.filter(status__in=BLOCKING_PAYMENT_STATUSES)
         .order_by("-created_at")
@@ -118,12 +118,10 @@ def evaluate_order_payment_eligibility(order: "Order") -> PaymentEligibility:
             True, "ok", "Можно продолжить оплату", latest.status
         )
 
-    # failed / expired / нет платежа — можно создать новый
     return PaymentEligibility(True, "ok", "Можно оплатить", latest_status)
 
 
 def assert_order_payable_or_raise(order: "Order") -> None:
-    """Жёсткая проверка перед create/reuse платежа (без HTTP)."""
     from apps.payments.services import PaymentError
 
     elig = evaluate_order_payment_eligibility(order)

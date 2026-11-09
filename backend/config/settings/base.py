@@ -336,6 +336,7 @@ REST_FRAMEWORK = {
         'cart_read': '600/hour',         # GET корзины
         'cart_write': '600/hour',        # PATCH/DELETE корзины (user)
         'cart_write_anon': '300/hour',   # POST в корзину (guest)
+        'onec_inbound': '120/minute',    # входящие статусы/оплаты от 1С
         'payment_pay_anon': '20/hour',   # инициация оплаты (гость)
         'payment_pay_user': '60/hour',   # инициация оплаты (user)
         'payment_callback': '120/minute',  # callback Сбера (по IP шлюза)
@@ -522,6 +523,12 @@ ONE_C_ORDER_SYNC_ENABLED = os.getenv(
 ONE_C_DEFAULT_WAREHOUSE_ID = os.getenv('ONE_C_DEFAULT_WAREHOUSE_ID', '').strip()
 # Ограниченные повторы при сети/500 (не для 400/409/422).
 ONE_C_ORDER_SYNC_MAX_ATTEMPTS = int(os.getenv('ONE_C_ORDER_SYNC_MAX_ATTEMPTS', '5'))
+# Входящий webhook 1С → сайт (X-OneC-Token). Пусто = endpoint закрыт (503).
+# Синоним env: ONEC_INCOMING_TOKEN.
+ONE_C_INCOMING_TOKEN = (
+    os.getenv('ONE_C_INCOMING_TOKEN', '').strip()
+    or os.getenv('ONEC_INCOMING_TOKEN', '').strip()
+)
 # Периодический apply каталога (Celery Beat). По умолчанию ВЫКЛ — согласовать с владельцем 1С.
 _onec_cat_sync = os.getenv('ONE_C_CATALOG_SYNC_ENABLED', '').strip().lower()
 ONE_C_CATALOG_SYNC_ENABLED = _onec_cat_sync in ('1', 'true', 'yes')

@@ -71,26 +71,44 @@ def _admin_orders_queryset(request):
 
 
 class OrderAdminUpdateSerializer(serializers.ModelSerializer):
-    """Только поля, разрешённые для изменения в админке: status."""
+    """Админка: status (+ closure_result для closed)."""
 
     class Meta:
         model = Order
-        fields = ("status",)
+        fields = ("status", "closure_result")
 
-    def validate_status(self, value):
+    def validate(self, attrs):
         instance = getattr(self, "instance", None)
         if not instance:
-            return value
-
-        current = instance.status
-        if value == current:
-            return value
-
+            return attrs
+        new_status = attrs.get("status", instance.status)
+        closure = attrs.get("closure_result", instance.closure_result)
+        if new_status in ("cancelled", "completed"):
+            # Совместимость со старым UI
+            attrs["status"] = Order.STATUS_CLOSED
+            attrs["closure_result"] = (
+                Order.CLOSURE_CANCELLED
+                if new_status == "cancelled"
+                else Order.CLOSURE_COMPLETED
+            )
+            new_status = Order.STATUS_CLOSED
+            closure = attrs["closure_result"]
+        if new_status == Order.STATUS_CLOSED and not closure:
+            raise serializers.ValidationError(
+                {"closure_result": "Обязателен для status=closed."}
+            )
+        if new_status == instance.status and (
+            new_status != Order.STATUS_CLOSED
+            or closure == instance.closure_result
+        ):
+            return attrs
         from apps.orders.services.transitions import allowed_targets
 
-        if value not in allowed_targets(current):
-            raise serializers.ValidationError("Недопустимый переход статуса.")
-        return value
+        if new_status not in allowed_targets(instance.status) and new_status != instance.status:
+            raise serializers.ValidationError(
+                {"status": "Недопустимый переход статуса."}
+            )
+        return attrs
 
 class OrderAdminListView(ListAPIView):
     """
@@ -135,6 +153,9 @@ class OrderAdminUpdateView(RetrieveUpdateAPIView):
         )
         serializer.is_valid(raise_exception=True)
         new_status = serializer.validated_data.get("status", old_status)
+        closure_result = serializer.validated_data.get(
+            "closure_result", instance.closure_result
+        )
 
         from apps.orders.services import OrderCancelError
         from apps.orders.services.transitions import (
@@ -146,6 +167,7 @@ class OrderAdminUpdateView(RetrieveUpdateAPIView):
             instance = transition_order_status(
                 instance,
                 new_status,
+                closure_result=closure_result,
                 reason="admin_api_status",
                 allow_paid_cancel=False,
             )
@@ -181,11 +203,14 @@ class OrderAdminExportView(APIView):
         qs = _admin_orders_queryset(request)
 
         status_labels = {
-            Order.STATUS_NEW: "Новый",
-            Order.STATUS_CONFIRMED: "Подтверждён",
-            Order.STATUS_IN_PROGRESS: "В работе",
-            Order.STATUS_COMPLETED: "Выполнен",
-            Order.STATUS_CANCELLED: "Отменён",
+            "new": "Новый заказ",
+            "processing": "В обработке",
+            "ready": "Готов",
+            "closed": "Завершён",
+            "confirmed": "В обработке",
+            "in_progress": "В обработке",
+            "completed": "Получен",
+            "cancelled": "Отменён",
         }
         delivery_labels = {
             Order.DELIVERY_PICKUP: "Самовывоз",

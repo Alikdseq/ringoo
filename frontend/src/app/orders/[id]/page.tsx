@@ -147,7 +147,16 @@ function OrderDetail({
           <div className="space-y-1 text-sm text-zinc-600 dark:text-zinc-300">
             <p>Способ оплаты: {order.payment_type}</p>
             {order.payment_status && (
-              <p>Статус платежа: {order.payment_status}</p>
+              <p>
+                Статус оплаты:{' '}
+                {order.payment_status === 'paid'
+                  ? 'Оплачен'
+                  : order.payment_status === 'unpaid'
+                    ? 'Не оплачен'
+                    : order.payment_status === 'refunded'
+                      ? 'Возвращён'
+                      : order.payment_status}
+              </p>
             )}
             {showPay && (
               <div className="pt-3">

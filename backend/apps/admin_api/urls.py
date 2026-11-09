@@ -37,6 +37,16 @@ app_name = "admin_api"
 urlpatterns = [
     path("dashboard/stats/", dashboard.DashboardStatsView.as_view(), name="dashboard-stats"),
     path("onec/sync/status/", onec_sync.OneCSyncStatusView.as_view(), name="onec-sync-status"),
+    path(
+        "onec/inbound/status/",
+        onec_sync.OneCInboundStatusView.as_view(),
+        name="onec-inbound-status",
+    ),
+    path(
+        "onec/inbound/events/",
+        onec_sync.OneCInboundEventListView.as_view(),
+        name="onec-inbound-events",
+    ),
     path("onec/sync/logs/", onec_sync.OneCSyncLogListView.as_view(), name="onec-sync-logs"),
     path(
         "onec/sync/logs/<uuid:pk>/",

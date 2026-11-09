@@ -329,7 +329,7 @@ def apply_late_payment_policy(payment_id, *, client: SberEcomClient | None = Non
             payment.provider,
         )
 
-        if order.status != Order.STATUS_CANCELLED:
+        if not order.is_cancelled():
             # Уже восстановили / обработали
             return payment
 
@@ -339,13 +339,16 @@ def apply_late_payment_policy(payment_id, *, client: SberEcomClient | None = Non
         if policy == "revive":
             from apps.orders.services.transitions import transition_order_status
 
-            # cancelled → confirmed только через явный system override (INT-006)
+            # cancelled → processing только через явный system override (INT-006)
             order = transition_order_status(
                 order,
-                Order.STATUS_CONFIRMED,
+                Order.STATUS_PROCESSING,
                 reason="late_payment_revive",
                 allow_system_override=True,
             )
+            order.closure_result = None
+            order.payment_status = Order.PAYMENT_STATUS_PAID
+            order.save(update_fields=["closure_result", "payment_status", "updated_at"])
             from integrations.onec.orders import reserve_order_item_reservations
 
             stock_ok = reserve_order_item_reservations(order)
@@ -556,7 +559,7 @@ def sync_payment_from_bank(
                 locked.save()
                 return locked
 
-            if order.status == Order.STATUS_CANCELLED:
+            if order.is_cancelled():
                 locked.status = Payment.STATUS_NEEDS_REVIEW
                 locked.error_message = "Оплата после отмены — обработка политики…"
                 locked.save()
@@ -598,12 +601,16 @@ def sync_payment_from_bank(
                 )
                 return Payment.objects.select_related("order").get(pk=locked.pk)
 
+            if order.payment_status != Order.PAYMENT_STATUS_PAID:
+                order.payment_status = Order.PAYMENT_STATUS_PAID
+                order.save(update_fields=["payment_status", "updated_at"])
+
             if order.status == Order.STATUS_NEW:
                 from apps.orders.services.transitions import transition_order_status
 
                 order = transition_order_status(
                     order,
-                    Order.STATUS_CONFIRMED,
+                    Order.STATUS_PROCESSING,
                     reason="sber_paid",
                 )
 
@@ -878,7 +885,7 @@ def expire_unpaid_online_orders(
         # 2) Отмена если всё ещё не paid
         with transaction.atomic():
             locked = Order.objects.select_for_update().get(pk=order.pk)
-            if locked.status == Order.STATUS_CANCELLED:
+            if locked.is_cancelled():
                 continue
             if Payment.objects.filter(
                 order=locked,

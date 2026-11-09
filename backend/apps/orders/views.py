@@ -613,7 +613,7 @@ class OrderCancelView(APIView):
 
     Авторизованный: отмена своего заказа.
     Гость: требуется guest_token (SEC-006). Phone+number недостаточно.
-    Разрешено только для статусов new и confirmed.
+    Разрешено только для статусов new и processing.
     """
 
     permission_classes = [AllowAny]
@@ -732,7 +732,7 @@ class OrderRateView(APIView):
                 {"detail": "Заказ не найден или нет прав для оценки."},
                 status=status.HTTP_404_NOT_FOUND,
             )
-        if order.status == Order.STATUS_CANCELLED:
+        if order.is_cancelled():
             return Response(
                 {"detail": "Нельзя оценить отменённый заказ."},
                 status=status.HTTP_400_BAD_REQUEST,

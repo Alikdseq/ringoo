@@ -41,6 +41,7 @@ class OrderSerializer(serializers.ModelSerializer):
     can_pay = serializers.SerializerMethodField()
     can_cancel = serializers.SerializerMethodField()
     payment_status = serializers.SerializerMethodField()
+    display_status = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
@@ -55,6 +56,8 @@ class OrderSerializer(serializers.ModelSerializer):
             "store",
             "payment_type",
             "status",
+            "closure_result",
+            "display_status",
             "total_amount",
             "delivery_cost",
             "bonus_used",
@@ -85,8 +88,14 @@ class OrderSerializer(serializers.ModelSerializer):
         return customer_may_cancel_order(obj)
 
     def get_payment_status(self, obj) -> str | None:
+        # Каноническое поле заказа; онлайн дополнительно сверяем с Payment.
+        if obj.payment_status:
+            return obj.payment_status
         latest = obj.payments.order_by("-created_at").only("status").first()
-        return latest.status if latest else None
+        return latest.status if latest else Order.PAYMENT_STATUS_UNPAID
+
+    def get_display_status(self, obj) -> str:
+        return obj.display_status_code()
 
 
 class ManagerRatingSerializer(serializers.ModelSerializer):

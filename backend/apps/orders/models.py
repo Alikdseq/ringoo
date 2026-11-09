@@ -39,17 +39,37 @@ class Order(models.Model):
         (PAYMENT_ONLINE, "Онлайн"),
     ]
 
+    # Fulfillment lifecycle (отдельно от payment_status).
     STATUS_NEW = "new"
-    STATUS_CONFIRMED = "confirmed"
-    STATUS_IN_PROGRESS = "in_progress"
-    STATUS_COMPLETED = "completed"
-    STATUS_CANCELLED = "cancelled"
+    STATUS_PROCESSING = "processing"
+    STATUS_READY = "ready"
+    STATUS_CLOSED = "closed"
     STATUS_CHOICES = [
-        (STATUS_NEW, "Новый"),
-        (STATUS_CONFIRMED, "Подтверждён"),
-        (STATUS_IN_PROGRESS, "В работе"),
-        (STATUS_COMPLETED, "Выполнен"),
-        (STATUS_CANCELLED, "Отменён"),
+        (STATUS_NEW, "Новый заказ"),
+        (STATUS_PROCESSING, "В обработке"),
+        (STATUS_READY, "Готов"),
+        (STATUS_CLOSED, "Завершён"),
+    ]
+    # Устаревшие коды (до миграции 0012); оставлены как алиасы для чтения старых тестов/логов.
+    STATUS_CONFIRMED = STATUS_PROCESSING
+    STATUS_IN_PROGRESS = STATUS_PROCESSING
+    STATUS_COMPLETED = STATUS_CLOSED
+    STATUS_CANCELLED = "cancelled"  # legacy DB value → мигрируется в closed+cancelled
+
+    CLOSURE_COMPLETED = "completed"
+    CLOSURE_CANCELLED = "cancelled"
+    CLOSURE_RESULT_CHOICES = [
+        (CLOSURE_COMPLETED, "Получен"),
+        (CLOSURE_CANCELLED, "Отменён"),
+    ]
+
+    PAYMENT_STATUS_UNPAID = "unpaid"
+    PAYMENT_STATUS_PAID = "paid"
+    PAYMENT_STATUS_REFUNDED = "refunded"
+    PAYMENT_STATUS_CHOICES = [
+        (PAYMENT_STATUS_UNPAID, "Не оплачен"),
+        (PAYMENT_STATUS_PAID, "Оплачен"),
+        (PAYMENT_STATUS_REFUNDED, "Возвращён"),
     ]
 
     id = models.UUIDField(
@@ -102,7 +122,24 @@ class Order(models.Model):
         max_length=20,
         choices=STATUS_CHOICES,
         default=STATUS_NEW,
-        verbose_name="Статус",
+        verbose_name="Статус выполнения",
+        db_index=True,
+    )
+    closure_result = models.CharField(
+        max_length=20,
+        choices=CLOSURE_RESULT_CHOICES,
+        blank=True,
+        null=True,
+        verbose_name="Результат закрытия",
+        help_text="Заполняется только при status=closed: completed|cancelled",
+    )
+    payment_status = models.CharField(
+        max_length=20,
+        choices=PAYMENT_STATUS_CHOICES,
+        default=PAYMENT_STATUS_UNPAID,
+        db_index=True,
+        verbose_name="Статус оплаты",
+        help_text="Независимо от статуса выполнения. Online: ЮKassa; cash/card: 1С.",
     )
     total_amount = models.DecimalField(
         max_digits=12,
@@ -292,6 +329,29 @@ class Order(models.Model):
     def __str__(self):
         return f"{self.order_number} ({self.get_status_display()})"
 
+    def is_cancelled(self) -> bool:
+        if self.status == self.STATUS_CANCELLED:  # legacy pre-migrate
+            return True
+        return (
+            self.status == self.STATUS_CLOSED
+            and self.closure_result == self.CLOSURE_CANCELLED
+        )
+
+    def is_fulfilled(self) -> bool:
+        return (
+            self.status == self.STATUS_CLOSED
+            and self.closure_result == self.CLOSURE_COMPLETED
+        )
+
+    def is_terminal(self) -> bool:
+        return self.status == self.STATUS_CLOSED or self.is_cancelled()
+
+    def display_status_code(self) -> str:
+        """Код для UI: closed+result → completed|cancelled, иначе status."""
+        if self.status == self.STATUS_CLOSED:
+            return self.closure_result or self.STATUS_CLOSED
+        return self.status
+
     def save(self, *args, **kwargs):
         if not self.order_number:
             while True:
@@ -452,3 +512,102 @@ class ManagerRating(models.Model):
 
     def __str__(self):
         return f"{self.order.order_number} — {self.manager_id or '?'} — {self.rating}"
+
+
+class OneCInboundEvent(models.Model):
+    """
+    Журнал входящих событий 1С → сайт (статус заказа / оплата в магазине).
+    event_id уникален — идемпотентность повторных доставок.
+    """
+
+    EVENT_STATUS = "status"
+    EVENT_PAYMENT = "payment"
+    EVENT_COMBINED = "combined"
+    EVENT_TYPE_CHOICES = [
+        (EVENT_STATUS, "Статус заказа"),
+        (EVENT_PAYMENT, "Оплата"),
+        (EVENT_COMBINED, "Статус и оплата"),
+    ]
+
+    RESULT_SUCCESS = "success"
+    RESULT_DUPLICATE = "duplicate"
+    RESULT_ERROR = "error"
+    RESULT_CHOICES = [
+        (RESULT_SUCCESS, "Успех"),
+        (RESULT_DUPLICATE, "Дубликат"),
+        (RESULT_ERROR, "Ошибка"),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    event_id = models.CharField(
+        max_length=128,
+        unique=True,
+        db_index=True,
+        verbose_name="ID события 1С",
+    )
+    order = models.ForeignKey(
+        Order,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="onec_inbound_events",
+        verbose_name="Заказ",
+    )
+    order_number = models.CharField(
+        max_length=32,
+        blank=True,
+        default="",
+        db_index=True,
+        verbose_name="Номер заказа",
+    )
+    event_type = models.CharField(
+        max_length=20,
+        choices=EVENT_TYPE_CHOICES,
+        verbose_name="Тип события",
+    )
+    status_received = models.CharField(
+        max_length=32,
+        blank=True,
+        default="",
+        verbose_name="Полученный status",
+    )
+    result_received = models.CharField(
+        max_length=32,
+        blank=True,
+        default="",
+        verbose_name="Полученный result",
+    )
+    payment_status_received = models.CharField(
+        max_length=32,
+        blank=True,
+        default="",
+        verbose_name="Полученный payment.status",
+    )
+    processing_result = models.CharField(
+        max_length=20,
+        choices=RESULT_CHOICES,
+        default=RESULT_SUCCESS,
+        db_index=True,
+        verbose_name="Результат обработки",
+    )
+    error_code = models.CharField(max_length=64, blank=True, default="")
+    error_message = models.CharField(max_length=512, blank=True, default="")
+    payload_summary = models.JSONField(
+        default=dict,
+        blank=True,
+        verbose_name="Краткое тело (без секретов)",
+    )
+    occurred_at = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        db_table = "orders_onec_inbound_event"
+        verbose_name = "Входящее событие 1С"
+        verbose_name_plural = "Входящие события 1С"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["processing_result", "created_at"]),
+        ]
+
+    def __str__(self):
+        return f"{self.event_id} ({self.processing_result})"

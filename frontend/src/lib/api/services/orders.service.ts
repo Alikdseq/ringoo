@@ -108,7 +108,12 @@ export async function getAdminOrder(id: string): Promise<Order> {
 }
 
 export async function updateOrderStatus(id: string, status: string): Promise<Order> {
-  const { data } = await apiClient.patch<Order>(`/admin/orders/${id}/`, { status });
+  // Админ-UI шлёт completed/cancelled как ярлыки закрытия.
+  const payload: { status: string; closure_result?: string } =
+    status === 'completed' || status === 'cancelled'
+      ? { status: 'closed', closure_result: status }
+      : { status };
+  const { data } = await apiClient.patch<Order>(`/admin/orders/${id}/`, payload);
   return data;
 }
 

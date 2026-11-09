@@ -35,22 +35,19 @@ import type { Order } from '@/types/api';
 import { cn } from '@/lib/theme/utils';
 import { formatRuDateShort } from '@/lib/format-date';
 
-const STATUS_LABELS: Record<string, string> = {
-  new: 'Новый',
-  confirmed: 'Подтверждён',
-  in_progress: 'В работе',
-  completed: 'Выполнен',
-  cancelled: 'Отменён',
-};
+import { orderStatusLabel } from '@/lib/orders/status-labels';
 
 function statusBadgeClass(status: string): string {
   switch (status) {
     case 'new':
       return 'bg-zinc-100 text-zinc-700';
+    case 'processing':
     case 'confirmed':
       return 'bg-sky-50 text-sky-700';
+    case 'ready':
     case 'in_progress':
       return 'bg-amber-50 text-amber-800';
+    case 'closed':
     case 'completed':
       return 'bg-emerald-50 text-emerald-700';
     case 'cancelled':
@@ -152,7 +149,9 @@ export function ProfileContent() {
 
   const orders = ordersData?.results ?? [];
   const lastOrder: Order | undefined = orders[0];
-  const ordersToRate = orders.filter(o => !o.has_rating && o.status !== 'cancelled');
+  const ordersToRate = orders.filter(
+    o => !o.has_rating && o.status !== 'cancelled' && o.closure_result !== 'cancelled'
+  );
 
   const defaultAddress = useMemo(() => {
     const def = addresses.find(a => a.is_default);
@@ -365,7 +364,10 @@ export function ProfileContent() {
                     statusBadgeClass(lastOrder.status)
                   )}
                 >
-                  {STATUS_LABELS[lastOrder.status] ?? lastOrder.status}
+                  {orderStatusLabel(lastOrder.status, {
+                    closureResult: lastOrder.closure_result,
+                    deliveryType: lastOrder.delivery_type,
+                  })}
                 </span>
               </div>
               {lastOrder.items?.length > 0 && (

@@ -23,4 +23,5 @@ urlpatterns = [
     path("wishlist/", include("apps.wishlist.urls")),
     path("returns/", include("apps.returns.urls")),
     path("admin/", include("apps.admin_api.urls")),
+    path("integrations/", include("integrations.urls")),
 ]

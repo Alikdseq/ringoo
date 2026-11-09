@@ -1,13 +1,15 @@
-"""Admin API: журнал и запуск синхронизации каталога 1С."""
+"""Admin API: журнал и запуск синхронизации каталога 1С + входящие события заказов."""
 
 from __future__ import annotations
 
 from django.conf import settings
+from django.db.models import Count, Max, Q
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.admin_api.permissions import RINGOO_GROUP_CATALOG, admin_permissions
+from apps.admin_api.permissions import RINGOO_GROUP_CATALOG, RINGOO_GROUP_ORDERS, admin_permissions
+from apps.orders.models import OneCInboundEvent
 from apps.products.sync_models import OneCCatalogSyncLog
 from integrations.onec.catalog_sync import (
     has_running_apply,
@@ -158,3 +160,57 @@ class OneCSyncApplyView(APIView):
             },
             status=status.HTTP_202_ACCEPTED,
         )
+
+
+class OneCInboundStatusView(APIView):
+    """Состояние входящей интеграции статусов/оплат (без значения токена)."""
+
+    permission_classes = admin_permissions(RINGOO_GROUP_ORDERS)
+
+    def get(self, request):
+        token_set = bool((getattr(settings, "ONE_C_INCOMING_TOKEN", None) or "").strip())
+        qs = OneCInboundEvent.objects.all()
+        agg = qs.aggregate(
+            last_any=Max("created_at"),
+            last_ok=Max("created_at", filter=Q(processing_result=OneCInboundEvent.RESULT_SUCCESS)),
+            ok_count=Count("id", filter=Q(processing_result=OneCInboundEvent.RESULT_SUCCESS)),
+            err_count=Count("id", filter=Q(processing_result=OneCInboundEvent.RESULT_ERROR)),
+        )
+        return Response(
+            {
+                "token_configured": token_set,
+                "last_inbound_at": agg["last_any"],
+                "last_success_at": agg["last_ok"],
+                "success_count": agg["ok_count"] or 0,
+                "error_count": agg["err_count"] or 0,
+                "endpoint": "/api/v1/integrations/1c/orders/status/",
+            }
+        )
+
+
+class OneCInboundEventListView(APIView):
+    """Журнал входящих событий 1С (без секретов)."""
+
+    permission_classes = admin_permissions(RINGOO_GROUP_ORDERS)
+
+    def get(self, request):
+        qs = OneCInboundEvent.objects.select_related("order").order_by("-created_at")[:100]
+        rows = []
+        for ev in qs:
+            rows.append(
+                {
+                    "id": str(ev.id),
+                    "event_id": ev.event_id,
+                    "order_number": ev.order_number,
+                    "event_type": ev.event_type,
+                    "status_received": ev.status_received,
+                    "result_received": ev.result_received,
+                    "payment_status_received": ev.payment_status_received,
+                    "processing_result": ev.processing_result,
+                    "error_code": ev.error_code,
+                    "error_message": ev.error_message,
+                    "occurred_at": ev.occurred_at,
+                    "created_at": ev.created_at,
+                }
+            )
+        return Response(rows)

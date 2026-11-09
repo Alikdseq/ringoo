@@ -37,9 +37,18 @@ def order_has_successful_payment(order: Order) -> bool:
 
 def customer_may_cancel_order(order: Order) -> bool:
     """Статусы + отсутствие успешной оплаты."""
-    if order.status not in (Order.STATUS_NEW, Order.STATUS_CONFIRMED):
+    from apps.orders.services.transitions import normalize_status
+
+    if normalize_status(order.status) not in (
+        Order.STATUS_NEW,
+        Order.STATUS_PROCESSING,
+    ):
+        return False
+    if order.is_cancelled():
         return False
     if order_has_successful_payment(order):
+        return False
+    if order.payment_status == Order.PAYMENT_STATUS_PAID:
         return False
     return True
 
@@ -50,50 +59,53 @@ def cancel_order_and_release_stock(
     *,
     reason: str = "",
     allow_paid: bool = False,
+    skip_onec_cancel: bool = False,
 ) -> Order:
     """
     Единый путь отмены заказа (FUNC-002 / SEC-003):
-    статус → release резерва → enqueue 1С cancel.
+    status=closed + result=cancelled → release резерва → enqueue 1С cancel.
 
-    Идемпотентно для уже cancelled.
-    FUNC-009: оплаченные (PAID/NEEDS_REVIEW) нельзя отменить без allow_paid
-    (refund flow отсутствует — allow_paid не использовать из customer/admin UI).
+    Идемпотентно для уже отменённых.
+    skip_onec_cancel: отмена пришла из 1С — не слать SiteOrders/cancel обратно.
     """
     locked = (
         Order.objects.select_for_update()
         .prefetch_related("items", "payments")
         .get(pk=order.pk)
     )
-    was_active = locked.status != Order.STATUS_CANCELLED
+    was_active = not locked.is_cancelled()
 
-    if was_active and not allow_paid and order_has_successful_payment(locked):
+    if was_active and not allow_paid and (
+        order_has_successful_payment(locked)
+        or locked.payment_status == Order.PAYMENT_STATUS_PAID
+    ):
         raise OrderCancelError(
             "Заказ уже оплачен. Для отмены и возврата обратитесь в поддержку.",
             code="paid_order_cancel_forbidden",
         )
 
     if was_active:
-        locked.status = Order.STATUS_CANCELLED
-        locked.save(update_fields=["status", "updated_at"])
+        locked.status = Order.STATUS_CLOSED
+        locked.closure_result = Order.CLOSURE_CANCELLED
+        locked.save(update_fields=["status", "closure_result", "updated_at"])
         logger.info(
             "Order %s cancelled%s",
             locked.order_number,
             f" ({reason})" if reason else "",
         )
 
-    # Снимаем резерв только при первой отмене.
-    if was_active:
         from integrations.onec.orders import release_order_item_reservations
 
         release_order_item_reservations(locked)
 
-        order_pk = locked.pk
+        if not skip_onec_cancel:
+            order_pk = locked.pk
 
-        def _enqueue_onec_cancel():
-            from apps.orders.tasks import enqueue_order_cancel
+            def _enqueue_onec_cancel():
+                from apps.orders.tasks import enqueue_order_cancel
 
-            enqueue_order_cancel(order_pk)
+                enqueue_order_cancel(order_pk)
 
-        transaction.on_commit(_enqueue_onec_cancel)
+            transaction.on_commit(_enqueue_onec_cancel)
 
     return locked

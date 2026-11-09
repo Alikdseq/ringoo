@@ -222,6 +222,10 @@ export interface Order {
   store: string | null;
   payment_type: string;
   status: string;
+  /** Для status=closed: completed | cancelled */
+  closure_result?: string | null;
+  /** Удобный код для UI: completed/cancelled/ready/... */
+  display_status?: string;
   total_amount: string;
   delivery_cost: string;
   bonus_used: string;

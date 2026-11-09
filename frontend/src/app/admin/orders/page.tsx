@@ -16,26 +16,21 @@ import { Button } from '@/components/ui/Button';
 import { Loading } from '@/components/ui/Loading';
 import { CURRENCY_SYMBOL } from '@/lib/constants';
 import { allowedOrderStatusOptions } from '@/lib/admin/nav-access';
+import {
+  ORDER_STATUS_LABELS,
+  PAYMENT_TYPE_LABELS,
+  orderStatusLabel,
+  paymentStatusLabel,
+} from '@/lib/orders/status-labels';
 
-const STATUS_LABELS: Record<string, string> = {
-  new: 'Новый',
-  confirmed: 'Подтверждён',
-  in_progress: 'В работе',
-  completed: 'Выполнен',
-  cancelled: 'Отменён',
-};
+const STATUS_LABELS = ORDER_STATUS_LABELS;
 
 const DELIVERY_LABELS: Record<string, string> = {
   pickup: 'Самовывоз',
   delivery: 'Доставка',
 };
 
-const PAYMENT_LABELS: Record<string, string> = {
-  cash: 'Наличными',
-  card_on_delivery: 'Картой при получении',
-  bank_transfer: 'Банковский перевод',
-  online: 'Онлайн',
-};
+const PAYMENT_LABELS = PAYMENT_TYPE_LABELS;
 
 export default function AdminOrdersPage() {
   const [page, setPage] = useState(1);
@@ -136,7 +131,12 @@ export default function AdminOrdersPage() {
               className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm"
             >
               <option value="">Все</option>
-              {Object.entries(STATUS_LABELS).map(([value, label]) => (
+              {Object.entries({
+                new: 'Новый заказ',
+                processing: 'В обработке',
+                ready: 'Готов',
+                closed: 'Завершён',
+              }).map(([value, label]) => (
                 <option key={value} value={value}>
                   {label}
                 </option>

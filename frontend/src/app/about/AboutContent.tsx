@@ -114,7 +114,12 @@ function useAutoScrollRail(
 }
 
 function ordersEligibleForStore(orders: Order[], storeId: string) {
-  return orders.filter(o => o.store === storeId && o.status !== 'cancelled');
+  return orders.filter(
+    o =>
+      o.store === storeId &&
+      o.status !== 'cancelled' &&
+      o.closure_result !== 'cancelled'
+  );
 }
 
 function ManagerCard({
