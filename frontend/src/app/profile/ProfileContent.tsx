@@ -7,7 +7,6 @@ import Link from 'next/link';
 import {
   Bell,
   Copy,
-  Download,
   Heart,
   LayoutDashboard,
   LogOut,
@@ -19,7 +18,7 @@ import {
 } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getOrders, getRatingsSummary } from '@/lib/api/services/orders.service';
-import { deleteAccount, exportMyData, updateMarketingOptIn } from '@/lib/api/services/auth.service';
+import { deleteAccount, updateMarketingOptIn } from '@/lib/api/services/auth.service';
 import { getAddresses } from '@/lib/api/services/addresses.service';
 import { getWishlist } from '@/lib/api/services/wishlist.service';
 import { addToCart } from '@/lib/api/services/cart.service';
@@ -95,25 +94,6 @@ export function ProfileContent() {
     },
     onError: () => {
       setPrivacyError('Не удалось сохранить настройки рассылки.');
-    },
-  });
-
-  const exportMutation = useMutation({
-    mutationFn: exportMyData,
-    onSuccess: data => {
-      setPrivacyError('');
-      const blob = new Blob([JSON.stringify(data, null, 2)], {
-        type: 'application/json;charset=utf-8',
-      });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `ringoo-data-export-${new Date().toISOString().slice(0, 10)}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
-    },
-    onError: () => {
-      setPrivacyError('Не удалось выгрузить данные.');
     },
   });
 
@@ -235,12 +215,6 @@ export function ProfileContent() {
       icon: MapPin,
     },
     {
-      href: '#bonuses',
-      label: 'Бонусы',
-      desc: 'Баланс и правила (скоро)',
-      icon: Star,
-    },
-    {
       href: '#notifications',
       label: 'Уведомления',
       desc: 'Email и рассылка',
@@ -302,18 +276,6 @@ export function ProfileContent() {
                   <Link href="#privacy">Управление данными</Link>
                 </Button>
               </div>
-            </div>
-            <div
-              id="bonuses"
-              className="w-full shrink-0 rounded-2xl border border-amber-200 bg-amber-50/60 p-4 sm:w-56"
-            >
-              <p className="text-xs font-semibold uppercase tracking-wide text-amber-900/80">
-                Бонусы
-              </p>
-              <p className="mt-1 text-sm text-amber-950/90">
-                Программа лояльности подключается на стороне сервера. Следите за новостями — скоро
-                здесь появится баланс и история начислений.
-              </p>
             </div>
           </div>
         </Card>
@@ -662,17 +624,6 @@ export function ProfileContent() {
             .
           </p>
           <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="inline-flex items-center gap-2"
-              loading={exportMutation.isPending}
-              onClick={() => exportMutation.mutate()}
-            >
-              <Download className="h-4 w-4" />
-              Скачать копию моих данных (JSON)
-            </Button>
             <Button
               type="button"
               variant="outline"

@@ -118,6 +118,8 @@ services:
       - YOOKASSA_RETURN_URL=${YOOKASSA_RETURN_URL:-}
       - YOOKASSA_WEBHOOK_URL=${YOOKASSA_WEBHOOK_URL:-}
       - SBER_ECOM_ENABLED=${SBER_ECOM_ENABLED:-false}
+      # Возвраты временно выкл. (модели/сервисы сохранены)
+      - RETURNS_ENABLED=${RETURNS_ENABLED:-0}
     depends_on:
       db:
         condition: service_healthy
@@ -182,6 +184,7 @@ services:
       - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:${BACKEND_PORT:-8000}}
       - NEXT_PUBLIC_SITE_URL=${NEXT_PUBLIC_SITE_URL:-http://localhost:${FRONTEND_PORT:-3000}}
       - NEXT_PUBLIC_ONLINE_PAYMENT_ENABLED=${NEXT_PUBLIC_ONLINE_PAYMENT_ENABLED:-0}
+      - NEXT_PUBLIC_RETURNS_ENABLED=${NEXT_PUBLIC_RETURNS_ENABLED:-0}
       - API_INTERNAL_V1_URL=http://web:8000/api/v1
       - RINGOO_API_PROXY_TARGET=http://web:8000
       - RINGOO_DISABLE_HMR=${RINGOO_DISABLE_HMR:-0}

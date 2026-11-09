@@ -80,6 +80,23 @@ if _is_production_settings:
 else:
     ADMIN_OTP_ENABLED = _otp_raw in ('1', 'true', 'yes')
 
+# Возвраты (customer + admin API / Next UI). По умолчанию ВЫКЛ — только явное включение.
+# Модели, миграции и сервисы остаются в кодовой базе. См. docs/audit/REFUNDS_TEMPORARILY_DISABLED.md
+_returns_raw = os.getenv('RETURNS_ENABLED', '').strip().lower()
+RETURNS_ENABLED = _returns_raw in ('1', 'true', 'yes')
+
+# Массовый XLSX-импорт товаров в Admin API. Каталог — из 1С. Код импорта сохранён.
+_xlsx_raw = os.getenv('PRODUCT_XLSX_IMPORT_ENABLED', '').strip().lower()
+PRODUCT_XLSX_IMPORT_ENABLED = _xlsx_raw in ('1', 'true', 'yes')
+
+# Ручное создание/удаление категорий в Admin API (иерархия из 1С).
+_cat_mut_raw = os.getenv('CATEGORY_MANUAL_MUTATIONS_ENABLED', '').strip().lower()
+CATEGORY_MANUAL_MUTATIONS_ENABLED = _cat_mut_raw in ('1', 'true', 'yes')
+
+# Применение промокодов к заказам / validate API. Раздел «Акции» не затрагивается.
+_promo_raw = os.getenv('PROMOCODES_ENABLED', '').strip().lower()
+PROMOCODES_ENABLED = _promo_raw in ('1', 'true', 'yes')
+
 # Application definition
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -341,6 +358,22 @@ YOOKASSA_WEBHOOK_MAX_BODY_BYTES = int(
 YOOKASSA_WEBHOOK_SYNC_DEBOUNCE_SECONDS = int(
     os.getenv('YOOKASSA_WEBHOOK_SYNC_DEBOUNCE_SECONDS', '2') or '2'
 )
+# Опциональный allowlist IP (через запятую).
+# Пустой список не включает фильтрацию: источник не проверяется, оплата всё равно
+# подтверждается только повторным GET к API ЮKassa.
+# YOOKASSA_WEBHOOK_IP_FILTER_ENABLED=1 при пустом списке отклоняет все webhook
+# (фильтр «включён», но адресов нет — это не «пускать всех»).
+# Адреса в репозиторий не зашиты: их берёт оператор из актуальной документации ЮKassa.
+_yk_wh_ips = os.getenv('YOOKASSA_WEBHOOK_IP_ALLOWLIST', '').strip()
+YOOKASSA_WEBHOOK_IP_ALLOWLIST = [
+    p.strip() for p in _yk_wh_ips.split(',') if p.strip()
+]
+YOOKASSA_WEBHOOK_IP_FILTER_ENABLED = os.getenv(
+    'YOOKASSA_WEBHOOK_IP_FILTER_ENABLED', ''
+).strip().lower() in ('1', 'true', 'yes', 'on')
+# Идентификация релиза (Docker build / deploy).
+RINGOO_GIT_SHA = os.getenv('RINGOO_GIT_SHA', '').strip() or 'unknown'
+RINGOO_RELEASE = os.getenv('RINGOO_RELEASE', '').strip()
 
 # SEC-006: срок жизни guest access token (дни)
 ORDER_GUEST_ACCESS_TOKEN_TTL_DAYS = int(
@@ -489,6 +522,18 @@ ONE_C_ORDER_SYNC_ENABLED = os.getenv(
 ONE_C_DEFAULT_WAREHOUSE_ID = os.getenv('ONE_C_DEFAULT_WAREHOUSE_ID', '').strip()
 # Ограниченные повторы при сети/500 (не для 400/409/422).
 ONE_C_ORDER_SYNC_MAX_ATTEMPTS = int(os.getenv('ONE_C_ORDER_SYNC_MAX_ATTEMPTS', '5'))
+# Периодический apply каталога (Celery Beat). По умолчанию ВЫКЛ — согласовать с владельцем 1С.
+_onec_cat_sync = os.getenv('ONE_C_CATALOG_SYNC_ENABLED', '').strip().lower()
+ONE_C_CATALOG_SYNC_ENABLED = _onec_cat_sync in ('1', 'true', 'yes')
+ONE_C_CATALOG_SYNC_INTERVAL_SECONDS = int(
+    os.getenv('ONE_C_CATALOG_SYNC_INTERVAL_SECONDS', str(60 * 60))  # 1 час
+)
+ONE_C_CATALOG_STALE_HOURS = int(os.getenv('ONE_C_CATALOG_STALE_HOURS', '24'))
+if ONE_C_CATALOG_SYNC_ENABLED:
+    CELERY_BEAT_SCHEDULE['onec-catalog-sync'] = {
+        'task': 'apps.products.tasks.scheduled_onec_catalog_sync_task',
+        'schedule': float(ONE_C_CATALOG_SYNC_INTERVAL_SECONDS),
+    }
 
 # --- Сбербанк ecom (интернет-эквайринг). По умолчанию тест, выключен. ---
 # Бой: https://epay.sberbank.ru — только после явного подтверждения, не переключать автоматически.

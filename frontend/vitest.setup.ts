@@ -1,5 +1,15 @@
 import "@testing-library/jest-dom";
+import * as React from "react";
+import { act } from "react";
 import { vi } from "vitest";
+
+// React 19: act живёт в 'react'; Testing Library / react-dom/test-utils
+// ожидают React.act — иначе cleanup падает с "React.act is not a function".
+const reactMutable = React as typeof React & { act?: typeof act };
+if (typeof reactMutable.act !== "function") {
+  reactMutable.act = act;
+}
+(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 vi.mock("next/font/google", () => ({
   Geist: () => ({ variable: "--font-geist-sans" }),

@@ -36,10 +36,11 @@ class CategoryAdminSerializer(serializers.ModelSerializer):
             "sort_order",
             "meta_title",
             "meta_description",
+            "onec_code",
             "created_at",
             "updated_at",
         )
-        read_only_fields = ("id", "created_at", "updated_at")
+        read_only_fields = ("id", "onec_code", "created_at", "updated_at")
 
 
 class ProductAdminListSerializer(serializers.ModelSerializer):
@@ -50,7 +51,8 @@ class ProductAdminListSerializer(serializers.ModelSerializer):
         model = Product
         fields = (
             "id", "title", "slug", "sku", "category", "price", "old_price",
-            "is_active", "is_featured", "brand", "created_at", "available_quantity_total",
+            "is_active", "is_featured", "brand", "onec_code", "onec_type",
+            "created_at", "updated_at", "available_quantity_total",
         )
         read_only_fields = fields
 
@@ -72,6 +74,14 @@ class ProductAdminListSerializer(serializers.ModelSerializer):
 
 
 class ProductAdminUpdateSerializer(serializers.ModelSerializer):
+    """
+    PATCH товара. При наличии onec_code поля 1С (цена, title, sku, category…)
+    отклоняются; локальные SEO/описания/публикация остаются доступны.
+    """
+
+    onec_code = serializers.CharField(read_only=True)
+    onec_type = serializers.CharField(read_only=True)
+
     class Meta:
         model = Product
         fields = (
@@ -88,7 +98,45 @@ class ProductAdminUpdateSerializer(serializers.ModelSerializer):
             "meta_description",
             "is_active",
             "is_featured",
+            "onec_code",
+            "onec_type",
         )
+        read_only_fields = ("onec_code", "onec_type")
+
+    def validate(self, attrs):
+        from apps.products.onec_protection import (
+            ONEC_MANAGED_PRODUCT_FIELDS,
+            product_is_onec_managed,
+            reject_onec_managed_writes,
+        )
+
+        instance = self.instance
+        if instance is None or not product_is_onec_managed(instance):
+            return attrs
+
+        # Разрешаем no-op (то же значение), запрещаем реальное изменение.
+        changed = []
+        for field in attrs:
+            if field not in ONEC_MANAGED_PRODUCT_FIELDS:
+                continue
+            new_val = attrs[field]
+            old_val = getattr(instance, field, None)
+            if field == "category":
+                old_val = getattr(instance, "category_id", None)
+                new_cmp = getattr(new_val, "pk", new_val)
+                old_cmp = old_val
+            else:
+                new_cmp = new_val
+                old_cmp = old_val
+            if str(new_cmp) != str(old_cmp):
+                changed.append(field)
+        if changed:
+            reject_onec_managed_writes(instance, changed)
+        # Не записываем 1С-поля даже при no-op — только локальные.
+        for field in list(attrs.keys()):
+            if field in ONEC_MANAGED_PRODUCT_FIELDS:
+                attrs.pop(field, None)
+        return attrs
 
 
 class ProductAdminCreateSerializer(serializers.ModelSerializer):
@@ -321,10 +369,14 @@ class ProductAdminBulkUpdatePricesView(APIView):
 
         sign = Decimal("1") if direction == "increase" else Decimal("-1")
 
-        qs = Product.objects.filter(id__in=product_ids).only("id", field)
+        qs = Product.objects.filter(id__in=product_ids).only("id", field, "onec_code")
         to_update = []
+        skipped_onec = []
 
         for product in qs:
+            if product.onec_code:
+                skipped_onec.append(str(product.pk))
+                continue
             current = getattr(product, field)
             if current is None:
                 continue
@@ -345,7 +397,16 @@ class ProductAdminBulkUpdatePricesView(APIView):
         if to_update:
             Product.objects.bulk_update(to_update, [field])
 
-        return Response({"updated": len(to_update)})
+        return Response(
+            {
+                "updated": len(to_update),
+                "skipped_onec_managed": len(skipped_onec),
+                "skipped_onec_ids": skipped_onec[:50],
+                "code": (
+                    "onec_managed_prices_skipped" if skipped_onec else None
+                ),
+            }
+        )
 
 
 class ProductAdminExportView(APIView):
@@ -414,19 +475,25 @@ class CategoryAdminListView(ListAPIView):
 
 
 class CategoryAdminUpdateSerializer(serializers.ModelSerializer):
+    """
+    Локальный контент категории. Поля иерархии/названия из 1С (onec_code)
+    не принимаются через PATCH — обновляются импортом каталога.
+    """
+
+    onec_code = serializers.CharField(read_only=True)
+
     class Meta:
         model = Category
         fields = (
-            "title",
-            "slug",
-            "parent",
             "description",
             "image",
             "is_active",
             "sort_order",
             "meta_title",
             "meta_description",
+            "onec_code",
         )
+        read_only_fields = ("onec_code",)
 
 
 class CategoryAdminUpdateView(UpdateAPIView):
@@ -438,6 +505,18 @@ class CategoryAdminUpdateView(UpdateAPIView):
     lookup_field = "pk"
 
     def delete(self, request, *args, **kwargs):
+        from django.conf import settings
+
+        if not getattr(settings, "CATEGORY_MANUAL_MUTATIONS_ENABLED", False):
+            return Response(
+                {
+                    "detail": (
+                        "Ручное удаление категорий отключено: иерархия управляется из 1С."
+                    ),
+                    "code": "category_manual_mutations_disabled",
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
         instance = self.get_object()
         instance.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
@@ -463,6 +542,21 @@ class CategoryAdminCreateView(CreateAPIView):
     permission_classes = admin_permissions(RINGOO_GROUP_CATALOG)
     queryset = Category.objects.all()
     serializer_class = CategoryAdminCreateSerializer
+
+    def create(self, request, *args, **kwargs):
+        from django.conf import settings
+
+        if not getattr(settings, "CATEGORY_MANUAL_MUTATIONS_ENABLED", False):
+            return Response(
+                {
+                    "detail": (
+                        "Ручное создание категорий отключено: иерархия управляется из 1С."
+                    ),
+                    "code": "category_manual_mutations_disabled",
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return super().create(request, *args, **kwargs)
 
 
 class ProductImageAdminSerializer(serializers.ModelSerializer):
@@ -572,12 +666,29 @@ class ProductSpecAdminUpdateDeleteView(UpdateAPIView):
     lookup_field = "pk"
 
 
+def _xlsx_import_disabled_response():
+    return Response(
+        {
+            "detail": (
+                "Импорт товаров из XLSX временно отключён. "
+                "Каталог синхронизируется из 1С."
+            ),
+            "code": "xlsx_import_temporarily_disabled",
+        },
+        status=status.HTTP_403_FORBIDDEN,
+    )
+
+
 class ProductImportTemplateDownloadView(APIView):
     """GET — скачать шаблон XLSX для массового импорта товаров."""
 
     permission_classes = admin_permissions(RINGOO_GROUP_CATALOG)
 
     def get(self, request):
+        from django.conf import settings
+
+        if not getattr(settings, "PRODUCT_XLSX_IMPORT_ENABLED", False):
+            return _xlsx_import_disabled_response()
         data = build_import_template_xlsx()
         response = HttpResponse(
             data,
@@ -599,6 +710,10 @@ class ProductBulkImportView(APIView):
     parser_classes = [MultiPartParser, FormParser]
 
     def post(self, request):
+        from django.conf import settings
+
+        if not getattr(settings, "PRODUCT_XLSX_IMPORT_ENABLED", False):
+            return _xlsx_import_disabled_response()
         upload = request.FILES.get("file")
         if not upload:
             return Response(

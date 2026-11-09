@@ -42,12 +42,20 @@ db.sqlite3-journal
 backend/tmp
 backend/pgconfig/
 
-# Environment variables
+# Environment variables (keep *.example templates tracked)
 .env
-.env.local
-.env.development
-.env.production
-.env.test
+.env.*
+!.env.example
+!.env.*.example
+!.env.backup.example
+!.env.production.example
+backend/.env
+backend/.env.*
+!backend/.env.example
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
+!frontend/.env.*.example
 *.env
 
 # IDE
@@ -73,6 +81,8 @@ build/
 # Testing
 .coverage
 .pytest_cache/
+.mypy_cache/
+.ruff_cache/
 htmlcov/
 .tox/
 .hypothesis/
@@ -103,14 +113,25 @@ Thumbs.db
 *.temp
 .cache/
 
-# Database
+# Database dumps / local DBs (never commit)
 *.db
 *.sqlite
+*.sqlite3
+*.dump
+*.sql
+!docs/ops/postgres_*.sql
 
-# Secrets
+# Archives (runtime artifacts)
+*.tar
+*.tar.gz
+*.zip
+
+# Secrets / certs
 secrets/
 *.pem
 *.key
+*.p12
+*.pfx
 .pgpass
 backend/.pgpass
 
@@ -121,8 +142,13 @@ backend/coverage.xml
 
 # Runtime backup archives (см. docs/BACKUP.md) — не игнорировать apps/backups
 /backups/
+/backup/
 backend/var/backups/
 **/var/backups/
+
+# Local vendor mirrors / scratch (not part of release)
+copy-site/
+integration1CandKassa/
 
 # Misc
 *.bak

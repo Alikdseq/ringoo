@@ -22,6 +22,8 @@ export interface Category {
   description: string | null;
   meta_title?: string | null;
   meta_description?: string | null;
+  /** Устойчивый код папки 1С (если синхронизирована) */
+  onec_code?: string | null;
 }
 
 export interface ProductColor {
@@ -69,6 +71,10 @@ export interface Product {
   is_featured?: boolean;
   /** Дата создания (список товаров) — для бейджа «Новинка» */
   created_at?: string;
+  updated_at?: string;
+  /** Код номенклатуры 1С (если товар из синхронизации) */
+  onec_code?: string | null;
+  onec_type?: string | null;
   /** Суммарное доступное количество по всем складам (для отображения «В наличии: N шт») */
   available_quantity_total?: number;
   /** Статус наличия: влияет на кнопку «В корзину» */

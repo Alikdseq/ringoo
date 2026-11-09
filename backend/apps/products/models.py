@@ -184,6 +184,8 @@ class Product(models.Model):
             models.Index(fields=["category"]),
             models.Index(fields=["is_active"]),
             models.Index(fields=["is_featured"]),
+            # Имя совпадает с 0005_product_brand_index — не удалять индекс «тихо».
+            models.Index(fields=["brand"], name="products_product_brand_idx"),
             models.Index(
                 fields=["is_active", "category"],
                 name="products_prod_active_cat_idx",
@@ -312,7 +314,11 @@ class ProductColor(models.Model):
             ),
         ]
         indexes = [
-            models.Index(fields=["product", "sort_order"]),
+            # Имя из 0003 — иначе makemigrations предлагает RenameIndex.
+            models.Index(
+                fields=["product", "sort_order"],
+                name="products_pr_product_6b2f0a_idx",
+            ),
         ]
 
     def __str__(self) -> str:
@@ -418,3 +424,6 @@ post_save.connect(
     sender=ProductImage,
     dispatch_uid="products.productimage.ensure_single_main",
 )
+
+# Журнал синхронизации каталога 1С (см. sync_models.py).
+from .sync_models import OneCCatalogSyncLog  # noqa: E402,F401

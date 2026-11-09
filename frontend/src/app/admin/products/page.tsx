@@ -333,6 +333,7 @@ export default function AdminProductsPage() {
                   </th>
                   <th className="px-3 py-2 text-left">Название</th>
                   <th className="px-3 py-2 text-left">Артикул</th>
+                  <th className="px-3 py-2 text-left">Код 1С</th>
                   <th className="px-3 py-2 text-left">Категория</th>
                   <th className="px-3 py-2 text-right">Цена</th>
                   <th className="px-3 py-2 text-right">Старая цена</th>
@@ -376,6 +377,9 @@ export default function AdminProductsPage() {
                       </td>
                       <td className="px-3 py-2 align-middle text-xs text-zinc-500">
                         {product.sku || '—'}
+                      </td>
+                      <td className="px-3 py-2 align-middle font-mono text-xs text-zinc-500">
+                        {product.onec_code || '—'}
                       </td>
                       <td className="px-3 py-2 align-middle text-xs text-zinc-500">
                         {categoryTitle || '—'}

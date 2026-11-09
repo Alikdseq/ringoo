@@ -1,6 +1,6 @@
 'use client';
 
-import { useParams } from 'next/navigation';
+import { notFound, useParams } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api/client';
 import { Card } from '@/components/ui/Card';
@@ -8,8 +8,10 @@ import { Button } from '@/components/ui/Button';
 import { Loading } from '@/components/ui/Loading';
 import { getFriendlyErrorMessage } from '@/lib/errors';
 import { useState } from 'react';
+import { isReturnsUiEnabled } from '@/lib/features/returns';
 
 export default function AdminReturnDetailPage() {
+  const enabled = isReturnsUiEnabled();
   const params = useParams();
   const id = String(params?.id || '');
   const qc = useQueryClient();
@@ -17,7 +19,7 @@ export default function AdminReturnDetailPage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin', 'returns', id],
-    enabled: Boolean(id),
+    enabled: enabled && Boolean(id),
     queryFn: async () => {
       const { data } = await apiClient.get(`/admin/returns/${id}/`);
       return data;
@@ -41,6 +43,10 @@ export default function AdminReturnDetailPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'returns', id] }),
     onError: (e) => setError(getFriendlyErrorMessage(e)),
   });
+
+  if (!enabled) {
+    notFound();
+  }
 
   if (isLoading || !data) return <Loading />;
 

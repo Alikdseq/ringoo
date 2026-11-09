@@ -168,3 +168,33 @@ class Payment(models.Model):
     def rubles_to_kopecks(amount: Decimal) -> int:
         quantized = Decimal(amount).quantize(Decimal("0.01"))
         return int(quantized * 100)
+
+
+class PaymentRefund(models.Model):
+    """
+    Один подтверждённый возврат ЮKassa.
+    Повтор того же provider_refund_id не создаёт вторую строку и не двигает склад.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    payment = models.ForeignKey(
+        Payment,
+        on_delete=models.PROTECT,
+        related_name="refund_lines",
+        verbose_name="Платёж",
+    )
+    provider_refund_id = models.CharField(
+        max_length=64,
+        unique=True,
+        db_index=True,
+        verbose_name="refund_id провайдера",
+    )
+    amount = models.DecimalField(max_digits=12, decimal_places=2, verbose_name="Сумма")
+    currency = models.CharField(max_length=3, default="RUB")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "payments_payment_refund"
+        verbose_name = "Строка возврата"
+        verbose_name_plural = "Строки возврата"
+        ordering = ["created_at"]

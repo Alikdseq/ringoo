@@ -22,11 +22,16 @@ class StockListSerializer:
             "id": str(obj.id),
             "product": str(obj.product_id),
             "product_title": obj.product.title if obj.product_id else "",
+            "product_onec_code": getattr(obj.product, "onec_code", "") or "",
             "store": str(obj.store_id),
             "store_name": obj.store.name if obj.store_id else "",
+            "store_onec_warehouse_id": getattr(obj.store, "onec_warehouse_id", "") or "",
+            "onec_series_id": obj.onec_series_id or "",
+            "onec_series_name": obj.onec_series_name or "",
             "quantity": obj.quantity,
             "reserved_quantity": obj.reserved_quantity,
             "available_quantity": obj.available_quantity,
+            "updated_at": obj.updated_at.isoformat() if getattr(obj, "updated_at", None) else None,
         }
 
 
@@ -95,6 +100,27 @@ class StockAdminUpdateView(UpdateAPIView):
                     {"quantity": ["Некорректное значение."]},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
+
+        # Фактический остаток из 1С — не правим вручную; резерв Ringoo можно.
+        product = getattr(instance, "product", None)
+        if (
+            product
+            and getattr(product, "onec_code", None)
+            and new_q is not None
+            and new_q != instance.quantity
+        ):
+            return Response(
+                {
+                    "detail": (
+                        "quantity управляется синхронизацией 1С для товара с onec_code. "
+                        "Можно менять только reserved_quantity (резерв интернет-заказов)."
+                    ),
+                    "code": "onec_managed_stock_readonly",
+                    "fields": ["quantity"],
+                    "onec_code": product.onec_code,
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
         if reserved is not None:
             try:
                 new_r = int(reserved)

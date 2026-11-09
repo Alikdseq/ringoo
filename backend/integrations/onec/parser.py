@@ -16,6 +16,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
+
+# Product.price: max_digits=12, decimal_places=2. Остаток — целое до PositiveIntegerField.
+MONEY_QUANT = Decimal("0.01")
+MONEY_MAX = Decimal("9999999999.99")
+QTY_MAX = Decimal("2147483647")
 from pathlib import Path
 from typing import Iterable
 
@@ -79,7 +84,7 @@ class OneCProductRow:
             return None
 
     def parse_quantity(self) -> Decimal | None:
-        """None = количество отсутствует (не ноль)."""
+        """None = количество отсутствует или не число (не ноль)."""
         raw = (self.quantity_raw or "").strip()
         if not raw:
             return None
@@ -88,6 +93,47 @@ class OneCProductRow:
             return Decimal(normalized)
         except InvalidOperation:
             return None
+
+    def price_problem(self) -> str | None:
+        """
+        None — цену можно писать. Иначе код причины, исходная строка не меняется.
+        Пустая цена — empty (это не отрицательное число).
+        """
+        raw = (self.price_raw or "").strip()
+        if not raw:
+            return "empty"
+        value = self.parse_price()
+        if value is None or not value.is_finite():
+            return "not_a_number"
+        if value < 0:
+            return "negative"
+        if value > MONEY_MAX:
+            return "overflow"
+        try:
+            if value != value.quantize(MONEY_QUANT):
+                return "precision"
+        except InvalidOperation:
+            return "overflow"
+        return None
+
+    def quantity_problem(self) -> str | None:
+        """
+        None — целое количество от 0 до предела поля.
+        Ноль допустим. Дробь, минус и переполнение — нет.
+        """
+        raw = (self.quantity_raw or "").strip()
+        if not raw:
+            return "empty"
+        value = self.parse_quantity()
+        if value is None or not value.is_finite():
+            return "not_a_number"
+        if value < 0:
+            return "negative"
+        if value > QTY_MAX:
+            return "overflow"
+        if value != value.to_integral_value():
+            return "not_integer"
+        return None
 
 
 @dataclass

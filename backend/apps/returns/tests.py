@@ -188,6 +188,7 @@ class ReturnFlowTests(TestCase):
             ).exists()
         )
 
+    @override_settings(RETURNS_ENABLED=True)
     def test_customer_api_create(self):
         client = APIClient()
         client.force_authenticate(user=self.user)
@@ -204,3 +205,25 @@ class ReturnFlowTests(TestCase):
             format="json",
         )
         self.assertEqual(resp.status_code, 201, resp.content)
+
+    @override_settings(RETURNS_ENABLED=False)
+    def test_customer_api_disabled(self):
+        client = APIClient()
+        client.force_authenticate(user=self.user)
+        resp = client.post(
+            "/api/v1/returns/create/",
+            {
+                "order_id": str(self.order.pk),
+                "ground": "quality_ok",
+                "demand": "refund_money",
+                "description": "тест",
+                "return_method": "carrier",
+                "items": [{"order_item_id": str(self.oi.pk), "quantity": 1}],
+            },
+            format="json",
+        )
+        self.assertEqual(resp.status_code, 403, resp.content)
+        self.assertEqual(resp.data.get("code"), "returns_temporarily_disabled")
+        list_resp = client.get("/api/v1/returns/")
+        self.assertEqual(list_resp.status_code, 403)
+        self.assertEqual(list_resp.data.get("code"), "returns_temporarily_disabled")

@@ -1,0 +1,59 @@
+# Root build context guard (prefer service-local Dockerfiles).
+.git
+.github
+.cursor
+.vscode
+.idea
+
+# Secrets and local env
+.env
+.env.*
+!.env.example
+!.env.*.example
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env.*.example
+secrets/
+*.pem
+*.key
+*.p12
+*.pfx
+.pgpass
+
+# Dependencies and build artifacts
+**/node_modules
+**/.next
+**/out
+**/dist
+**/build
+**/.venv
+**/venv
+**/__pycache__
+**/*.py[cod]
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
+**/coverage
+**/.nyc_output
+
+# Runtime data
+logs/
+media/
+staticfiles/
+backups/
+backup/
+*.log
+*.sqlite3
+*.db
+*.dump
+*.sql
+*.tar
+*.tar.gz
+*.zip
+
+# Local mirrors / scratch
+copy-site/
+integration1CandKassa/
+docs/**/*.docx
+**/agent-transcripts/

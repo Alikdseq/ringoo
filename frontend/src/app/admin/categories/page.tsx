@@ -5,9 +5,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import {
   getAdminCategories,
   type AdminCategory,
-  createAdminCategory,
   updateAdminCategory,
-  deleteAdminCategory,
   type CategoryPayload,
 } from '@/lib/api/services/adminCatalog.service';
 import { Card } from '@/components/ui/Card';
@@ -58,17 +56,6 @@ export default function AdminCategoriesPage() {
     return { roots, children, sortFn };
   }, [categories]);
 
-  const createMutation = useMutation({
-    mutationFn: ({ payload, image }: { payload: CategoryPayload; image: File | null }) =>
-      createAdminCategory(payload, image),
-    onSuccess: () => {
-      void refetch();
-      setForm(emptyForm);
-      setImageFile(null);
-      setSelectedId(null);
-    },
-  });
-
   const updateMutation = useMutation({
     mutationFn: ({
       id,
@@ -81,14 +68,6 @@ export default function AdminCategoriesPage() {
     }) => updateAdminCategory(id, payload, image),
     onSuccess: () => {
       void refetch();
-    },
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: (id: string) => deleteAdminCategory(id),
-    onSuccess: () => {
-      void refetch();
-      handleNew();
     },
   });
 
@@ -115,11 +94,8 @@ export default function AdminCategoriesPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (selectedId) {
-      updateMutation.mutate({ id: selectedId, payload: form, image: imageFile });
-    } else {
-      createMutation.mutate({ payload: form, image: imageFile });
-    }
+    if (!selectedId) return;
+    updateMutation.mutate({ id: selectedId, payload: form, image: imageFile });
   };
 
   const renderRow = (cat: AdminCategory, level: number = 0): ReactElement => {
@@ -135,6 +111,7 @@ export default function AdminCategoriesPage() {
           <td className="px-3 py-2 text-sm text-zinc-900">
             <span style={{ paddingLeft: level * 16 }}>{cat.title}</span>
           </td>
+          <td className="px-3 py-2 font-mono text-xs text-zinc-500">{cat.onec_code || '—'}</td>
           <td className="px-3 py-2 text-xs text-zinc-500">{cat.slug}</td>
           <td className="px-3 py-2 text-xs text-zinc-500">
             {cat.parent ? (categories.find(c => c.id === cat.parent)?.title ?? '—') : 'Корень'}
@@ -152,7 +129,7 @@ export default function AdminCategoriesPage() {
           <td className="px-3 py-2 text-right text-xs" onClick={e => e.stopPropagation()}>
             <button
               type="button"
-              className="mr-2 text-[var(--color-brand)] hover:underline"
+              className="text-[var(--color-brand)] hover:underline"
               onClick={() => {
                 updateMutation.mutate({
                   id: cat.id,
@@ -170,22 +147,7 @@ export default function AdminCategoriesPage() {
                 });
               }}
             >
-              {cat.is_active ? 'Скрыть' : 'Активна'}
-            </button>
-            <button
-              type="button"
-              className="text-red-600 hover:underline"
-              onClick={() => {
-                if (
-                  window.confirm(
-                    'Удалить категорию? Если есть дочерние категории или товары — API вернёт ошибку.'
-                  )
-                ) {
-                  deleteMutation.mutate(cat.id);
-                }
-              }}
-            >
-              Удалить
+              {cat.is_active ? 'Скрыть на сайте' : 'Показать на сайте'}
             </button>
           </td>
         </tr>
@@ -197,13 +159,16 @@ export default function AdminCategoriesPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-2xl font-semibold text-zinc-900">Категории</h1>
+        <div>
+          <h1 className="text-2xl font-semibold text-zinc-900">Категории</h1>
+          <p className="mt-1 text-sm text-zinc-600">
+            Иерархия папок приходит из 1С (код папки). Локально можно править SEO, описание, видимость
+            на сайте.
+          </p>
+        </div>
         <div className="flex gap-2">
           <Button type="button" variant="outline" size="sm" onClick={() => refetch()}>
             Обновить
-          </Button>
-          <Button type="button" size="sm" onClick={handleNew}>
-            Добавить категорию
           </Button>
         </div>
       </div>
@@ -224,6 +189,7 @@ export default function AdminCategoriesPage() {
                 <thead>
                   <tr className="border-b border-zinc-200 bg-zinc-50 text-xs uppercase text-zinc-500">
                     <th className="px-3 py-2 text-left">Название</th>
+                    <th className="px-3 py-2 text-left">Код 1С</th>
                     <th className="px-3 py-2 text-left">Slug</th>
                     <th className="px-3 py-2 text-left">Родитель</th>
                     <th className="px-3 py-2 text-left">Порядок</th>
@@ -239,17 +205,22 @@ export default function AdminCategoriesPage() {
 
         <Card className="p-4">
           <h2 className="mb-3 text-sm font-semibold text-zinc-900">
-            {selectedId ? 'Редактирование категории' : 'Новая категория'}
+            {selectedId ? 'Локальные настройки категории' : 'Выберите категорию в дереве'}
           </h2>
+          {!selectedId ? (
+            <p className="text-sm text-zinc-500">
+              Создание и удаление категорий выполняется синхронизацией из 1С. Здесь — только
+              витринные поля Ringoo.
+            </p>
+          ) : (
           <form className="space-y-3" onSubmit={handleSubmit}>
             <div className="space-y-1">
-              <label className="block text-xs font-medium text-zinc-500">Название</label>
+              <label className="block text-xs font-medium text-zinc-500">Название (из 1С)</label>
               <input
                 type="text"
                 value={form.title}
-                onChange={e => setForm({ ...form, title: e.target.value })}
-                className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm"
-                required
+                readOnly
+                className="w-full rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm"
               />
             </div>
             <div className="space-y-1">
@@ -257,32 +228,20 @@ export default function AdminCategoriesPage() {
               <input
                 type="text"
                 value={form.slug}
-                onChange={e => setForm({ ...form, slug: e.target.value })}
-                className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm"
-                required
+                readOnly
+                className="w-full rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm"
               />
             </div>
             <div className="space-y-1">
-              <label className="block text-xs font-medium text-zinc-500">Родитель</label>
-              <select
-                value={form.parent ?? ''}
-                onChange={e =>
-                  setForm({
-                    ...form,
-                    parent: e.target.value ? e.target.value : null,
-                  })
+              <label className="block text-xs font-medium text-zinc-500">Код 1С</label>
+              <input
+                type="text"
+                value={
+                  categories.find(c => c.id === selectedId)?.onec_code || '—'
                 }
-                className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm"
-              >
-                <option value="">Корневая категория</option>
-                {categories
-                  .filter(c => !selectedId || c.id !== selectedId)
-                  .map(c => (
-                    <option key={c.id} value={c.id}>
-                      {c.title}
-                    </option>
-                  ))}
-              </select>
+                readOnly
+                className="w-full rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 font-mono text-sm"
+              />
             </div>
             <div className="space-y-1">
               <label className="block text-xs font-medium text-zinc-500">Описание</label>
@@ -361,37 +320,19 @@ export default function AdminCategoriesPage() {
             </div>
 
             <div className="flex justify-end gap-2 pt-2">
-              {selectedId && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    if (
-                      window.confirm(
-                        'Удалить эту категорию? Товары с этой категорией могут стать недоступны.'
-                      )
-                    ) {
-                      deleteMutation.mutate(selectedId);
-                    }
-                  }}
-                  loading={deleteMutation.isPending}
-                >
-                  Удалить
-                </Button>
-              )}
               <Button type="button" variant="ghost" size="sm" onClick={handleNew}>
-                Очистить форму
+                Снять выбор
               </Button>
               <Button
                 type="submit"
                 size="sm"
-                loading={createMutation.isPending || updateMutation.isPending}
+                loading={updateMutation.isPending}
               >
-                {selectedId ? 'Сохранить' : 'Создать'}
+                Сохранить локальные поля
               </Button>
             </div>
           </form>
+          )}
         </Card>
       </div>
     </div>

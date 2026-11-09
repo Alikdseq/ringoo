@@ -279,3 +279,66 @@ class Sec007YooKassaWebhookTests(TestCase):
         self.assertEqual(order.status, Order.STATUS_CONFIRMED)
         # Не больше одного реального get_payment при debounce (первый + возможно без debounce)
         self.assertLessEqual(MockClient.return_value.get_payment.call_count, 2)
+
+    @patch("apps.payments.yookassa_service.YooKassaClient")
+    def test_empty_allowlist_does_not_pretend_to_filter(self, MockClient):
+        order = _order()
+        payment = self._pending_payment(order, yk_id="yk-ip-off")
+        MockClient.return_value.get_payment.return_value = _yk_ok(
+            payment, status="pending"
+        )
+        with override_settings(
+            YOOKASSA_WEBHOOK_IP_ALLOWLIST=[],
+            YOOKASSA_WEBHOOK_IP_FILTER_ENABLED=False,
+        ):
+            response = self.api.post(
+                "/api/v1/payments/yookassa/webhook/",
+                {
+                    "event": "payment.succeeded",
+                    "object": {"id": "yk-ip-off", "status": "succeeded"},
+                },
+                format="json",
+                REMOTE_ADDR="203.0.113.9",
+            )
+        self.assertEqual(response.status_code, 200)
+        payment.refresh_from_db()
+        self.assertEqual(payment.status, Payment.STATUS_PENDING)
+        MockClient.return_value.get_payment.assert_called()
+
+    def test_enabled_filter_with_empty_list_rejects(self):
+        with override_settings(
+            YOOKASSA_WEBHOOK_IP_ALLOWLIST=[],
+            YOOKASSA_WEBHOOK_IP_FILTER_ENABLED=True,
+        ):
+            response = self.api.post(
+                "/api/v1/payments/yookassa/webhook/",
+                {
+                    "event": "payment.succeeded",
+                    "object": {"id": "missing", "status": "succeeded"},
+                },
+                format="json",
+                REMOTE_ADDR="203.0.113.9",
+            )
+        self.assertEqual(response.status_code, 403)
+
+    def test_nonempty_allowlist_uses_remote_addr_not_forwarded_for(self):
+        with override_settings(
+            YOOKASSA_WEBHOOK_IP_ALLOWLIST=["198.51.100.10"],
+            YOOKASSA_WEBHOOK_IP_FILTER_ENABLED=False,
+        ):
+            denied = self.api.post(
+                "/api/v1/payments/yookassa/webhook/",
+                {"event": "not.a.real.event", "object": {"id": "x"}},
+                format="json",
+                REMOTE_ADDR="203.0.113.9",
+                HTTP_X_FORWARDED_FOR="198.51.100.10",
+            )
+            allowed = self.api.post(
+                "/api/v1/payments/yookassa/webhook/",
+                {"event": "unknown.event", "object": {"id": "x"}},
+                format="json",
+                REMOTE_ADDR="198.51.100.10",
+            )
+        self.assertEqual(denied.status_code, 403)
+        self.assertEqual(allowed.status_code, 200)
+        self.assertEqual(Payment.objects.count(), 0)

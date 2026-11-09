@@ -18,8 +18,8 @@
     "format:check": "prettier --check \"src/**/*.{ts,tsx,js,jsx,mjs,cjs,json,css,md}\"",
     "type-check": "tsc --noEmit -p tsconfig.typecheck.json",
     "analyze": "cross-env ANALYZE=true next build",
-    "test": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test": "cross-env NODE_ENV=test vitest",
+    "test:coverage": "cross-env NODE_ENV=test vitest run --coverage"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.7",

@@ -218,6 +218,19 @@ class OrderCreateSerializer(serializers.Serializer):
     def validate(self, attrs):
         delivery_type = attrs.get("delivery_type")
         store = attrs.get("store")
+        payment_type = attrs.get("payment_type")
+
+        # Банковский перевод оставлен в модели для истории заказов, но новые
+        # заказы через API создавать нельзя (UI тоже скрывает этот способ).
+        if payment_type == Order.PAYMENT_BANK_TRANSFER:
+            raise serializers.ValidationError(
+                {
+                    "payment_type": (
+                        "Способ оплаты «банковский перевод» недоступен для новых заказов. "
+                        "Выберите наличные, карту при получении или онлайн-оплату."
+                    )
+                }
+            )
 
         if delivery_type == Order.DELIVERY_DELIVERY:
             addr = attrs.get("delivery_address") or {}

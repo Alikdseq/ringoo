@@ -161,6 +161,13 @@ class RegisterView(APIView):
         user = serializer.save()
         # JWT-регистрация без django.contrib.auth.login — сливаем гостевую корзину вручную (как при token login).
         merge_guest_cart_into_user(request, user)
+        # 1С-контрагент: асинхронно, не ломает регистрацию (флаги OFF → no-op / pending).
+        try:
+            from .tasks import enqueue_partner_sync_after_register
+
+            enqueue_partner_sync_after_register(user)
+        except Exception:  # noqa: BLE001
+            pass
         refresh = RefreshToken.for_user(user)
         access_s = str(refresh.access_token)
         refresh_s = str(refresh)

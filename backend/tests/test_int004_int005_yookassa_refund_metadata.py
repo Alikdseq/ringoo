@@ -135,9 +135,8 @@ class Int004RefundSucceededTests(TestCase):
         self.assertEqual(self.payment.yookassa_refund_id, "rf-ok")
         self.assertEqual(self.payment.refunded_amount, Decimal("1000.00"))
         self.assertIsNotNone(self.payment.refunded_at)
-        # Order status not changed by refund handler
         self.order.refresh_from_db()
-        self.assertEqual(self.order.status, Order.STATUS_CONFIRMED)
+        self.assertEqual(self.order.status, Order.STATUS_CANCELLED)
 
     def test_refund_idempotent(self):
         client = MagicMock()
@@ -191,16 +190,18 @@ class Int004RefundSucceededTests(TestCase):
         self.assertEqual(self.payment.status, Payment.STATUS_NEEDS_REVIEW)
         self.assertNotEqual(self.payment.yookassa_refund_id, "rf-wp")
 
-    def test_refund_amount_mismatch_partial(self):
+    def test_partial_refund_keeps_payment_open(self):
         client = MagicMock()
         client.get_refund.return_value = _yk_refund_payload(
             self.payment, refund_id="rf-part", amount="100.00"
         )
         result = sync_refund_from_yookassa("rf-part", client=client)
         self.payment.refresh_from_db()
-        self.assertEqual(result.status, Payment.STATUS_NEEDS_REVIEW)
-        self.assertEqual(self.payment.status, Payment.STATUS_NEEDS_REVIEW)
-        self.assertIsNone(self.payment.yookassa_refund_id)
+        self.order.refresh_from_db()
+        self.assertEqual(result.status, Payment.STATUS_PAID)
+        self.assertEqual(self.payment.amount, Decimal("1000.00"))
+        self.assertEqual(self.payment.refunded_amount, Decimal("100.00"))
+        self.assertEqual(self.order.status, Order.STATUS_CONFIRMED)
 
     def test_refund_api_unavailable(self):
         client = MagicMock()

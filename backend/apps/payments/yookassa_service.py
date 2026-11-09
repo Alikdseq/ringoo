@@ -145,7 +145,9 @@ def initiate_yookassa_payment(
                 code="payment_blocked",
             )
         if synced.status in (Payment.STATUS_FAILED, Payment.STATUS_EXPIRED):
-            # Предыдущий платёж закрыт — создаём новый ниже.
+            # Предыдущий платёж закрыт — не отдаём старый form_url; создаём новый ниже.
+            if synced.form_url:
+                Payment.objects.filter(pk=synced.pk).update(form_url="")
             payment = _create_yookassa_payment_row(order)
         elif synced.form_url and synced.yookassa_payment_id:
             logger.info(
@@ -192,12 +194,14 @@ def initiate_yookassa_payment(
         with transaction.atomic():
             p = Payment.objects.select_for_update().get(pk=payment.pk)
             p.status = Payment.STATUS_FAILED
+            p.form_url = ""
             p.error_code = str(exc.code or "")[:32]
             p.error_message = str(exc.message)[:512]
             p.register_response = _sanitize(exc.payload)
             p.save(
                 update_fields=[
                     "status",
+                    "form_url",
                     "error_code",
                     "error_message",
                     "register_response",
@@ -492,6 +496,9 @@ def sync_payment_from_yookassa(
 
         if remote_status == "canceled":
             locked.status = Payment.STATUS_FAILED
+            # Не отдаём старый confirmation_url при repay (старый URL на стороне ЮKassa
+            # может ещё жить до expiry — новый initiate создаёт новый Payment).
+            locked.form_url = ""
             cancellation = data.get("cancellation_details") or {}
             reason = str(cancellation.get("reason") or "Платёж отменён")
             party = str(cancellation.get("party") or "")
@@ -567,13 +574,58 @@ def _reject_untrusted_yk_refund(
     if locked.currency and str(locked.currency).upper() not in ("RUB", "643"):
         return "Локальная валюта платежа некорректна"
     if not _amount_matches(locked.amount, remote_value):
-        # Частичный возврат — без автоматических правил (NEEDS BUSINESS DECISION)
-        return "Сумма возврата не равна сумме платежа (частичный возврат)"
+        parsed = _parse_money(remote_value)
+        if parsed is None:
+            return "Сумма возврата не разобрана"
+        if parsed <= 0:
+            return "Сумма возврата должна быть больше нуля"
+        # Частичная сумма не отклоняется здесь: её сверяют с остатком платежа.
+        return None
 
     refund_id = str(data.get("id") or "").strip()
     if not refund_id:
         return "refund_id отсутствует"
     return None
+
+
+def _parse_money(raw: Any) -> Decimal | None:
+    if raw is None or str(raw).strip() == "":
+        return None
+    try:
+        return Decimal(str(raw)).quantize(Decimal("0.01"))
+    except (ArithmeticError, ValueError):
+        return None
+
+
+def _refunded_so_far(payment: Payment) -> Decimal:
+    from django.db.models import Sum
+
+    from .models import PaymentRefund
+
+    agg = PaymentRefund.objects.filter(payment=payment).aggregate(total=Sum("amount"))
+    return Decimal(str(agg["total"] or 0)).quantize(Decimal("0.01"))
+
+
+def _release_reservation_after_full_refund(order: Order) -> None:
+    """
+    Полный возврат денег по заказу, который ещё не ушёл покупателю:
+    отмена и одно снятие резерва. Quantity склада не увеличивается.
+    Уже выданный заказ (in_progress / completed) не трогаем.
+    """
+    if order.status not in (Order.STATUS_NEW, Order.STATUS_CONFIRMED):
+        logger.info(
+            "payment_refund_stock_unchanged order_id=%s order_status=%s",
+            order.pk,
+            order.status,
+        )
+        return
+    from apps.orders.services import cancel_order_and_release_stock
+
+    cancel_order_and_release_stock(
+        order,
+        reason="yookassa_full_refund",
+        allow_paid=False,
+    )
 
 
 def sync_refund_from_yookassa(
@@ -583,20 +635,37 @@ def sync_refund_from_yookassa(
     from_webhook: bool = False,
 ) -> Payment | None:
     """
-    Подтверждает возврат через GET /refunds/{id} и при полном match → STATUS_REFUNDED.
-    Идемпотентно по yookassa_refund_id. Order.status не меняет.
+    Подтверждает возврат через GET /refunds/{id}.
+    Полная сумма → платёж refunded. Если заказ ещё new/confirmed, он отменяется
+    и резерв снимается один раз. Quantity склада не растёт.
+    Частичная сумма копится в refunded_amount, исходная amount не меняется,
+    заказ и резерв не трогаются. Повтор того же refund_id ничего не добавляет.
     """
+    from .models import PaymentRefund
+
     rid = str(refund_id or "").strip()
     if not rid or len(rid) > 128:
         logger.warning("YooKassa refund sync: invalid refund_id")
         return None
 
-    # Уже обработанный refund
-    existing = Payment.objects.filter(
-        provider=Payment.PROVIDER_YOOKASSA,
-        yookassa_refund_id=rid,
-    ).select_related("order").first()
-    if existing is not None and existing.status == Payment.STATUS_REFUNDED:
+    prior = (
+        PaymentRefund.objects.filter(provider_refund_id=rid)
+        .select_related("payment")
+        .first()
+    )
+    if prior is not None:
+        return prior.payment
+
+    existing = (
+        Payment.objects.filter(
+            provider=Payment.PROVIDER_YOOKASSA,
+            yookassa_refund_id=rid,
+            status=Payment.STATUS_REFUNDED,
+        )
+        .select_related("order")
+        .first()
+    )
+    if existing is not None:
         return existing
 
     try:
@@ -645,6 +714,9 @@ def sync_refund_from_yookassa(
             {"refund": data, "event": "refund.sync"}
         )
 
+        if PaymentRefund.objects.filter(provider_refund_id=rid).exists():
+            return locked
+
         if locked.status == Payment.STATUS_REFUNDED and locked.yookassa_refund_id == rid:
             locked.save(
                 update_fields=[
@@ -656,9 +728,8 @@ def sync_refund_from_yookassa(
             )
             return locked
 
-        if locked.status == Payment.STATUS_REFUNDED and locked.yookassa_refund_id:
-            # Другой уже зафиксированный refund
-            locked.error_message = "Повторный refund_id при уже refunded"[:512]
+        if locked.status == Payment.STATUS_REFUNDED:
+            locked.error_message = "Возврат сверх уже полностью возвращённого платежа"[:512]
             locked.save(
                 update_fields=[
                     "error_message",
@@ -695,26 +766,58 @@ def sync_refund_from_yookassa(
             locked.save()
             return locked
 
-        amount = data.get("amount") or {}
-        remote_value = amount.get("value") if isinstance(amount, dict) else None
-        try:
-            refunded_amount = Decimal(str(remote_value)).quantize(Decimal("0.01"))
-        except Exception:
-            refunded_amount = locked.amount
+        amount_node = data.get("amount") or {}
+        remote_value = amount_node.get("value") if isinstance(amount_node, dict) else None
+        refunded_now = _parse_money(remote_value)
+        if refunded_now is None or refunded_now <= 0:
+            locked.error_message = "Сумма возврата не разобрана"[:512]
+            if locked.status == Payment.STATUS_PAID:
+                locked.status = Payment.STATUS_NEEDS_REVIEW
+            locked.save()
+            return locked
 
-        locked.status = Payment.STATUS_REFUNDED
+        already = _refunded_so_far(locked)
+        cap = Decimal(str(locked.amount)).quantize(Decimal("0.01"))
+        if already + refunded_now > cap:
+            locked.error_message = "Сумма возвратов превысит оплаченную"[:512]
+            if locked.status == Payment.STATUS_PAID:
+                locked.status = Payment.STATUS_NEEDS_REVIEW
+            locked.save()
+            return locked
+
+        try:
+            with transaction.atomic():
+                PaymentRefund.objects.create(
+                    payment=locked,
+                    provider_refund_id=rid,
+                    amount=refunded_now,
+                    currency="RUB",
+                )
+        except IntegrityError:
+            return Payment.objects.select_related("order").get(pk=locked.pk)
+
+        total = (already + refunded_now).quantize(Decimal("0.01"))
+        locked.refunded_amount = total
         locked.yookassa_refund_id = rid
-        locked.refunded_amount = refunded_amount
         locked.refunded_at = timezone.now()
         locked.error_code = ""
         locked.error_message = ""
+        full = total == cap
+        if full:
+            locked.status = Payment.STATUS_REFUNDED
+        elif locked.status == Payment.STATUS_NEEDS_REVIEW:
+            locked.status = Payment.STATUS_PAID
         locked.save()
         logger.info(
-            "payment_refunded order_id=%s payment_id=%s refund_id=%s",
+            "payment_refund_applied order_id=%s payment_id=%s refund_id=%s full=%s",
             locked.order_id,
             locked.pk,
             rid,
+            int(full),
         )
+        if full:
+            order = Order.objects.select_for_update().get(pk=locked.order_id)
+            _release_reservation_after_full_refund(order)
         return locked
 
 

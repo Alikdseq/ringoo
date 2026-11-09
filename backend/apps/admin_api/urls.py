@@ -30,11 +30,22 @@ from apps.returns.views import (
 )
 
 from .views import content, crm, dashboard, managers, orders, products, promotions, reports, stock, stores, users
+from .views import onec_sync
 
 app_name = "admin_api"
 
 urlpatterns = [
     path("dashboard/stats/", dashboard.DashboardStatsView.as_view(), name="dashboard-stats"),
+    path("onec/sync/status/", onec_sync.OneCSyncStatusView.as_view(), name="onec-sync-status"),
+    path("onec/sync/logs/", onec_sync.OneCSyncLogListView.as_view(), name="onec-sync-logs"),
+    path(
+        "onec/sync/logs/<uuid:pk>/",
+        onec_sync.OneCSyncLogDetailView.as_view(),
+        name="onec-sync-log-detail",
+    ),
+    path("onec/sync/probe/", onec_sync.OneCSyncProbeView.as_view(), name="onec-sync-probe"),
+    path("onec/sync/dry-run/", onec_sync.OneCSyncDryRunView.as_view(), name="onec-sync-dry-run"),
+    path("onec/sync/apply/", onec_sync.OneCSyncApplyView.as_view(), name="onec-sync-apply"),
     path("returns/", AdminReturnListView.as_view(), name="return-list"),
     path("returns/<uuid:pk>/", AdminReturnDetailView.as_view(), name="return-detail"),
     path(

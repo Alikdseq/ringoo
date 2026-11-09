@@ -23,7 +23,8 @@ fi
 
 DB_CONTAINER="${DB_CONTAINER:-ringoo_db}"
 DB_NAME="${DB_NAME:-ringoo}"
-DB_USER="${DB_USER:-postgres}"
+# Согласовано с backup-db.sh / .env.backup.example (не postgres по умолчанию).
+DB_USER="${DB_USER:-ringoo_admin}"
 
 echo "[restore-db] Restoring from $DUMP_FILE into container $DB_CONTAINER"
 

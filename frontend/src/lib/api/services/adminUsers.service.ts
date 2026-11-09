@@ -7,6 +7,9 @@ export interface AdminUserListItem {
   email: string | null;
   is_active: boolean;
   is_staff: boolean;
+  onec_partner_id?: string | null;
+  onec_partner_status?: string | null;
+  onec_partner_synced_at?: string | null;
   created_at: string;
 }
 
@@ -25,6 +28,10 @@ export interface AdminUserDetail {
   groups: string[];
   profile: UserProfile | null;
   delivery_addresses: DeliveryAddress[];
+  onec_partner_id?: string | null;
+  onec_partner_status?: string | null;
+  onec_partner_synced_at?: string | null;
+  onec_partner_last_error?: string | null;
   created_at: string;
 }
 

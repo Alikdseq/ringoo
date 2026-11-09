@@ -21,6 +21,9 @@ class UserListSerializer(serializers.ModelSerializer):
             "email",
             "is_active",
             "is_staff",
+            "onec_partner_id",
+            "onec_partner_status",
+            "onec_partner_synced_at",
             "created_at",
         )
         read_only_fields = fields
@@ -72,6 +75,10 @@ class UserDetailSerializer(serializers.ModelSerializer):
             "groups",
             "profile",
             "delivery_addresses",
+            "onec_partner_id",
+            "onec_partner_status",
+            "onec_partner_synced_at",
+            "onec_partner_last_error",
             "created_at",
         )
         read_only_fields = fields

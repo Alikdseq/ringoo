@@ -65,21 +65,24 @@ function isRelaxedLocalCsp(): boolean {
   return /localhost|127\.0\.0\.1|host\.docker\.internal/i.test(api);
 }
 
+/** Домены Яндекс.Карт API 2.1 (скрипт, тайлы, подсказки, статика). */
+const YANDEX_MAPS_SCRIPT =
+  "https://api-maps.yandex.ru https://core-renderer-tiles.maps.yandex.net https://*.maps.yandex.net";
+const YANDEX_MAPS_STATIC = "https://yastatic.net";
+const YANDEX_MAPS_CONNECT =
+  "https://api-maps.yandex.ru https://core-renderer-tiles.maps.yandex.net https://*.maps.yandex.net https://yandex.ru https://*.yandex.ru https://*.yandex.net https://yastatic.net";
+const YANDEX_MAPS_IMG =
+  "https://core-renderer-tiles.maps.yandex.net https://*.maps.yandex.net https://api-maps.yandex.ru https://yastatic.net";
+
 /** Локальный backend отдаёт медиа по http — без http: в img-src браузер блокирует /media/. */
 function cspImgSrc(): string {
-  const base = "img-src 'self' data: blob: https:";
+  const base = `img-src 'self' data: blob: https: ${YANDEX_MAPS_IMG}`;
   if (!isRelaxedLocalCsp()) {
     return base;
   }
   // http: (scheme) + явные origin — покрывает localhost/127.0.0.1 и любые порты dev API
   return `${base} http: ${devApiHttpOrigins().join(" ")}`;
 }
-
-/** Домены Яндекс.Карт API 2.1 (скрипт, тайлы, подсказки, статика). */
-const YANDEX_MAPS_SCRIPT = "https://api-maps.yandex.ru";
-const YANDEX_MAPS_STATIC = "https://yastatic.net";
-const YANDEX_MAPS_CONNECT =
-  "https://api-maps.yandex.ru https://yandex.ru https://*.yandex.ru https://*.yandex.net https://yastatic.net";
 
 /** Ngrok / внешний origin в dev: без этого Next блокирует /_next/* и ломается страница. */
 function buildAllowedDevOrigins(): string[] {

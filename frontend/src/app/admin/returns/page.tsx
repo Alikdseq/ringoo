@@ -2,9 +2,11 @@
 
 import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
+import { notFound } from 'next/navigation';
 import { apiClient } from '@/lib/api/client';
 import { Card } from '@/components/ui/Card';
 import { Loading } from '@/components/ui/Loading';
+import { isReturnsUiEnabled } from '@/lib/features/returns';
 
 type ReturnRow = {
   id: string;
@@ -18,13 +20,20 @@ type ReturnRow = {
 };
 
 export default function AdminReturnsPage() {
+  const enabled = isReturnsUiEnabled();
+
   const { data, isLoading, error } = useQuery({
     queryKey: ['admin', 'returns'],
+    enabled,
     queryFn: async () => {
       const { data } = await apiClient.get<ReturnRow[]>('/admin/returns/');
       return data;
     },
   });
+
+  if (!enabled) {
+    notFound();
+  }
 
   if (isLoading) return <Loading />;
   if (error) {

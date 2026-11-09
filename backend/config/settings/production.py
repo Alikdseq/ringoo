@@ -341,6 +341,14 @@ else:
         "staticfiles": {"BACKEND": "whitenoise.storage.CompressedStaticFilesStorage"},
     }
 
+# Каталог логов должен существовать до конфигурации FileHandler (иначе старт падает).
+_LOG_FILE_PATH = os.getenv('LOG_FILE_PATH', '/app/logs/django.log')
+if not ON_VERCEL:
+    try:
+        os.makedirs(os.path.dirname(_LOG_FILE_PATH) or '.', exist_ok=True)
+    except OSError:
+        pass
+
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
@@ -368,7 +376,7 @@ LOGGING = {
         **({} if ON_VERCEL else {
             'file': {
                 'class': 'logging.handlers.RotatingFileHandler',
-                'filename': os.getenv('LOG_FILE_PATH', '/app/logs/django.log'),
+                'filename': _LOG_FILE_PATH,
                 'maxBytes': 1024 * 1024 * 10,
                 'backupCount': 5,
                 'formatter': 'json',

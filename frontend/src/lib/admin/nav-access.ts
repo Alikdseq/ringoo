@@ -23,6 +23,8 @@ export const ADMIN_NAV_REQUIRED_GROUPS: Record<string, AdminGroupName[]> = {
   '/admin/products': [ADMIN_GROUP.catalog],
   '/admin/products/import': [ADMIN_GROUP.catalog],
   '/admin/categories': [ADMIN_GROUP.catalog],
+  '/admin/sync': [ADMIN_GROUP.catalog],
+  '/admin/color-mappings': [ADMIN_GROUP.catalog],
   '/admin/stock': [ADMIN_GROUP.stores],
   '/admin/users': [ADMIN_GROUP.users],
   '/admin/content': [ADMIN_GROUP.content],

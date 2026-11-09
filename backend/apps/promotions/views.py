@@ -51,6 +51,16 @@ class PromoCodeValidateView(APIView):
     permission_classes = (AllowAny,)
 
     def post(self, request):
+        from django.conf import settings
+
+        if not getattr(settings, "PROMOCODES_ENABLED", False):
+            return Response(
+                {
+                    "detail": "Применение промокодов временно отключено.",
+                    "code": "promocodes_temporarily_disabled",
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
         serializer = PromoCodeValidateSerializer(data=request.data)
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

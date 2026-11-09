@@ -12,11 +12,10 @@ from rest_framework.views import APIView
 
 from apps.admin_api.permissions import (
     RINGOO_GROUP_ORDERS,
-    AdminMfaVerified,
-    IsStaff,
     admin_permissions,
 )
 from apps.orders.models import Order
+from apps.returns.flags import returns_enabled
 from apps.returns.models import ReturnRequest
 from apps.returns.services import (
     create_return_request,
@@ -24,6 +23,18 @@ from apps.returns.services import (
     inspect_and_maybe_restock,
     transition_return,
 )
+
+RETURNS_DISABLED_PAYLOAD = {
+    "detail": (
+        "Функциональность возвратов временно отключена. "
+        "Обратитесь в магазин для решения вопроса о возврате."
+    ),
+    "code": "returns_temporarily_disabled",
+}
+
+
+def _returns_disabled_response() -> Response:
+    return Response(RETURNS_DISABLED_PAYLOAD, status=status.HTTP_403_FORBIDDEN)
 
 
 def _serialize_return(rr: ReturnRequest) -> dict:
@@ -73,6 +84,8 @@ class CustomerReturnCreateView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
+        if not returns_enabled():
+            return _returns_disabled_response()
         order_id = request.data.get("order_id")
         order = get_object_or_404(Order, pk=order_id)
         if order.user_id != request.user.pk and not request.user.is_staff:
@@ -98,6 +111,8 @@ class CustomerReturnListView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        if not returns_enabled():
+            return _returns_disabled_response()
         qs = (
             ReturnRequest.objects.filter(user=request.user)
             .prefetch_related("items", "events")
@@ -110,6 +125,8 @@ class CustomerReturnDetailView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, pk):
+        if not returns_enabled():
+            return _returns_disabled_response()
         rr = get_object_or_404(
             ReturnRequest.objects.prefetch_related("items", "events"), pk=pk
         )
@@ -122,6 +139,8 @@ class AdminReturnListView(APIView):
     permission_classes = admin_permissions(RINGOO_GROUP_ORDERS)
 
     def get(self, request):
+        if not returns_enabled():
+            return _returns_disabled_response()
         qs = ReturnRequest.objects.prefetch_related("items").order_by("-created_at")
         status_f = request.query_params.get("status")
         if status_f:
@@ -151,6 +170,8 @@ class AdminReturnDetailView(APIView):
     permission_classes = admin_permissions(RINGOO_GROUP_ORDERS)
 
     def get(self, request, pk):
+        if not returns_enabled():
+            return _returns_disabled_response()
         rr = get_object_or_404(
             ReturnRequest.objects.prefetch_related("items", "events", "money_refunds"),
             pk=pk,
@@ -175,6 +196,8 @@ class AdminReturnTransitionView(APIView):
     permission_classes = admin_permissions(RINGOO_GROUP_ORDERS)
 
     def post(self, request, pk):
+        if not returns_enabled():
+            return _returns_disabled_response()
         rr = get_object_or_404(ReturnRequest, pk=pk)
         new_status = request.data.get("status")
         try:
@@ -196,6 +219,8 @@ class AdminReturnRefundView(APIView):
     permission_classes = admin_permissions(RINGOO_GROUP_ORDERS)
 
     def post(self, request, pk):
+        if not returns_enabled():
+            return _returns_disabled_response()
         rr = get_object_or_404(ReturnRequest, pk=pk)
         dry_run = request.data.get("dry_run", True)
         if isinstance(dry_run, str):
@@ -226,6 +251,8 @@ class AdminReturnInspectView(APIView):
     permission_classes = admin_permissions(RINGOO_GROUP_ORDERS)
 
     def post(self, request, pk):
+        if not returns_enabled():
+            return _returns_disabled_response()
         rr = get_object_or_404(ReturnRequest, pk=pk)
         try:
             rr = inspect_and_maybe_restock(

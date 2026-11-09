@@ -217,6 +217,8 @@ class ProductDetailSerializer(serializers.ModelSerializer):
             "title",
             "slug",
             "sku",
+            "onec_code",
+            "onec_type",
             "description",
             "short_description",
             "price",

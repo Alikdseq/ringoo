@@ -20,6 +20,8 @@ import {
   X,
   HardDriveDownload,
   Undo2,
+  RefreshCw,
+  Palette,
 } from 'lucide-react';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { BrandLogo } from '@/components/layout/BrandLogo';
@@ -28,13 +30,22 @@ import {
   canAccessAdminNav,
   type StaffAccessInfo,
 } from '@/lib/admin/nav-access';
+import {
+  isBackupNavEnabled,
+  isReturnsUiEnabled,
+  isXlsxImportUiEnabled,
+} from '@/lib/features/admin-ui';
 
 const navItems = [
   { href: '/admin/orders', label: 'Заказы', icon: ShoppingCart },
   { href: '/admin/products', label: 'Товары', icon: Package },
-  { href: '/admin/products/import', label: 'Импорт XLSX', icon: Upload },
+  ...(isXlsxImportUiEnabled()
+    ? [{ href: '/admin/products/import', label: 'Импорт XLSX', icon: Upload }]
+    : []),
   { href: '/admin/categories', label: 'Категории', icon: Layers },
   { href: '/admin/stock', label: 'Остатки', icon: LayoutGrid },
+  { href: '/admin/sync', label: 'Синхронизация 1С', icon: RefreshCw },
+  { href: '/admin/color-mappings', label: 'Цвета ↔ 1С', icon: Palette },
   { href: '/admin/users', label: 'Пользователи', icon: Users },
   { href: '/admin/content', label: 'Контент', icon: FileText },
   { href: '/admin/stores', label: 'Магазины', icon: Store },
@@ -42,8 +53,12 @@ const navItems = [
   { href: '/admin/promotions', label: 'Акции', icon: Tag },
   { href: '/admin/crm', label: 'Заявки (CRM)', icon: MessageSquare },
   { href: '/admin/analytics', label: 'Аналитика', icon: BarChart3 },
-  { href: '/admin/returns', label: 'Возвраты', icon: Undo2 },
-  { href: '/admin/backup', label: 'Резервное копирование', icon: HardDriveDownload },
+  ...(isReturnsUiEnabled()
+    ? [{ href: '/admin/returns', label: 'Возвраты', icon: Undo2 }]
+    : []),
+  ...(isBackupNavEnabled()
+    ? [{ href: '/admin/backup', label: 'Резервное копирование', icon: HardDriveDownload }]
+    : []),
 ];
 
 function AdminSidebar({

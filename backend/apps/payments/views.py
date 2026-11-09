@@ -37,6 +37,41 @@ from .yookassa_service import handle_yookassa_webhook
 
 logger = logging.getLogger(__name__)
 
+_ip_filter_off_logged = False
+
+
+def yookassa_webhook_ip_allowed(request) -> bool:
+    """
+    Пустой allowlist не означает, что фильтр включён.
+    Непустой список проверяет только REMOTE_ADDR, не сырой X-Forwarded-For.
+    Включённый флаг при пустом списке отклоняет запрос.
+    """
+    global _ip_filter_off_logged
+    raw = getattr(settings, "YOOKASSA_WEBHOOK_IP_ALLOWLIST", None) or []
+    allowlist = [str(item).strip() for item in raw if str(item).strip()]
+    enabled = bool(getattr(settings, "YOOKASSA_WEBHOOK_IP_FILTER_ENABLED", False))
+    if not allowlist and not enabled:
+        if not _ip_filter_off_logged:
+            _ip_filter_off_logged = True
+            logger.warning(
+                "YooKassa webhook IP filter is off: allowlist is empty. "
+                "Source IP is not checked. Paid status still requires a provider GET."
+            )
+        return True
+    if not allowlist and enabled:
+        logger.warning(
+            "YooKassa webhook rejected: IP filter is enabled but allowlist is empty"
+        )
+        return False
+    remote = (request.META.get("REMOTE_ADDR") or "").strip()
+    if remote not in allowlist:
+        logger.warning(
+            "YooKassa webhook rejected by IP allowlist remote=%s",
+            remote[:64],
+        )
+        return False
+    return True
+
 
 def _callback_token_required() -> bool:
     """
@@ -293,6 +328,12 @@ class YooKassaWebhookView(APIView):
     throttle_classes = [YooKassaWebhookThrottle]
 
     def post(self, request):
+        if not yookassa_webhook_ip_allowed(request):
+            return Response(
+                {"detail": "forbidden"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
         max_bytes = int(getattr(settings, "YOOKASSA_WEBHOOK_MAX_BODY_BYTES", 65536) or 65536)
         cl = request.META.get("CONTENT_LENGTH")
         try:

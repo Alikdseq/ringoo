@@ -12,7 +12,10 @@ export interface AdminProductListItem {
   is_active: boolean;
   is_featured: boolean;
   brand: string | null;
+  onec_code?: string | null;
+  onec_type?: string | null;
   created_at: string;
+  updated_at?: string;
   available_quantity_total: number;
 }
 

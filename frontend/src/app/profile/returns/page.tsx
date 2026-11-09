@@ -2,18 +2,27 @@
 
 import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
+import { notFound } from 'next/navigation';
 import { apiClient } from '@/lib/api/client';
 import { Card } from '@/components/ui/Card';
 import { Loading } from '@/components/ui/Loading';
+import { isReturnsUiEnabled } from '@/lib/features/returns';
 
 export default function ProfileReturnsPage() {
+  const enabled = isReturnsUiEnabled();
+
   const { data, isLoading, error } = useQuery({
     queryKey: ['returns', 'mine'],
+    enabled,
     queryFn: async () => {
       const { data } = await apiClient.get('/returns/');
       return data as Array<{ id: string; number: string; status: string; created_at: string }>;
     },
   });
+
+  if (!enabled) {
+    notFound();
+  }
 
   if (isLoading) return <Loading />;
   if (error) {

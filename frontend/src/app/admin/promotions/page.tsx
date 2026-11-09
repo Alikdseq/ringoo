@@ -20,33 +20,39 @@ import {
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Loading } from '@/components/ui/Loading';
+import { isPromoCodesUiEnabled } from '@/lib/features/storefront';
 
 type TabKey = 'promotions' | 'promocodes';
 
 export default function AdminPromotionsPage() {
+  const promocodesOn = isPromoCodesUiEnabled();
   const [tab, setTab] = useState<TabKey>('promotions');
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-2xl font-semibold text-zinc-900">Акции и промокоды</h1>
+        <h1 className="text-2xl font-semibold text-zinc-900">
+          {promocodesOn ? 'Акции и промокоды' : 'Акции'}
+        </h1>
       </div>
 
-      <div className="flex gap-2 border-b border-zinc-200">
-        <TabButton
-          active={tab === 'promotions'}
-          onClick={() => setTab('promotions')}
-          label="Акции"
-        />
-        <TabButton
-          active={tab === 'promocodes'}
-          onClick={() => setTab('promocodes')}
-          label="Промокоды"
-        />
-      </div>
+      {promocodesOn ? (
+        <div className="flex gap-2 border-b border-zinc-200">
+          <TabButton
+            active={tab === 'promotions'}
+            onClick={() => setTab('promotions')}
+            label="Акции"
+          />
+          <TabButton
+            active={tab === 'promocodes'}
+            onClick={() => setTab('promocodes')}
+            label="Промокоды"
+          />
+        </div>
+      ) : null}
 
-      {tab === 'promotions' && <PromotionsTab />}
-      {tab === 'promocodes' && <PromoCodesTab />}
+      {(tab === 'promotions' || !promocodesOn) && <PromotionsTab />}
+      {promocodesOn && tab === 'promocodes' && <PromoCodesTab />}
     </div>
   );
 }

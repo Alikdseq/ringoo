@@ -5,13 +5,29 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      react: path.resolve(__dirname, "node_modules/react"),
+      "react-dom": path.resolve(__dirname, "node_modules/react-dom"),
+      "react/jsx-runtime": path.resolve(
+        __dirname,
+        "node_modules/react/jsx-runtime.js"
+      ),
     },
+    dedupe: ["react", "react-dom"],
   },
   test: {
+    // Контейнер frontend часто с NODE_ENV=production — тогда React.act отсутствует.
+    env: {
+      NODE_ENV: "test",
+    },
     environment: "jsdom",
     setupFiles: "./vitest.setup.ts",
     globals: true,
     include: ["src/**/*.test.{ts,tsx}"],
+    server: {
+      deps: {
+        inline: ["@testing-library/react", "@testing-library/dom", "react-dom"],
+      },
+    },
     coverage: {
       provider: "v8",
       reporter: ["text", "json-summary", "html"],

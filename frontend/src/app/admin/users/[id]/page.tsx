@@ -129,6 +129,25 @@ export default function AdminUserDetailPage() {
               <span className="text-zinc-500">Пол:</span>{' '}
               <span className="text-zinc-900">{user.profile?.gender ?? '—'}</span>
             </div>
+            <div className="rounded-lg border border-zinc-100 bg-zinc-50 p-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                Синхронизация с 1С
+              </p>
+              <p className="mt-1 text-sm text-zinc-900">
+                Статус: {user.onec_partner_status || 'none'}
+              </p>
+              <p className="mt-1 font-mono text-xs text-zinc-600">
+                ID: {user.onec_partner_id || '—'}
+              </p>
+              {user.onec_partner_synced_at ? (
+                <p className="mt-1 text-xs text-zinc-500">
+                  Обновлено: {new Date(user.onec_partner_synced_at).toLocaleString('ru-RU')}
+                </p>
+              ) : null}
+              {user.onec_partner_last_error ? (
+                <p className="mt-1 text-xs text-red-600">{user.onec_partner_last_error}</p>
+              ) : null}
+            </div>
           </div>
 
           <div className="mt-4 space-y-2">

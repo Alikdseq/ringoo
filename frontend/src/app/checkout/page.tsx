@@ -905,7 +905,7 @@ export default function CheckoutPage() {
           )}
         </div>
 
-        {/* Right: totals and promo */}
+        {/* Right: totals */}
         <aside className="w-full space-y-4 lg:sticky lg:top-24 lg:w-80 lg:max-w-sm">
           <Card className="space-y-3">
             <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
@@ -925,10 +925,6 @@ export default function CheckoutPage() {
                 </span>
               </div>
             </div>
-            <p className="pt-2 text-xs text-zinc-500 dark:text-zinc-400">
-              Промокоды и скидки появятся здесь после подключения к API пересчёта — сумма заказа
-              сейчас совпадает с корзиной и с тем, что сохранит сервер.
-            </p>
           </Card>
 
           <div className="flex gap-2">

@@ -1,10 +1,20 @@
 # Backup & restore — Ringoo
 
+**Обновлено:** 2026-11-07 (Block 5)
+
+## Рекомендуемый orchestration
+
+`./scripts/backup-set.sh` — единый `set_ID` (PostgreSQL + Media + SHA256 + optional age + lock + MANIFEST).
+Defaults: `DB_USER=ringoo_admin` (согласовано с `restore-db.sh`). Offsite S3 — отдельно (`OFFSITE_BACKUP_SETUP.md`) → **NOT VERIFIED** без credentials.
+
+Рекомендуемый RPO ≤ 24h / RTO ≤ 4h — **не утверждены** владельцем автоматически.
+
 ## Что есть в репозитории
 
+- `scripts/backup-set.sh` — полный набор (предпочтительно).
 - `scripts/backup-db.sh` — `pg_dump` + gzip (локальный файл).
 - `scripts/backup-media.sh`, `scripts/backup-all.sh`.
-- `scripts/restore-db.sh` — восстановление в контейнер.
+- `scripts/restore-db.sh` — восстановление в контейнер (`DB_USER` default `ringoo_admin`).
 - `scripts/backup-db-encrypted.sh` — dump → age encrypt (см. ниже).
 - `.env.backup.example` — переменные без секретов в Git.
 
@@ -45,7 +55,7 @@
 3. `pg_dump ringoo_mig_check | psql ringoo_mig_seed` — dump/restore цикл успешен.
 4. На seed созданы Order/Payment/Stock; nullable поля refund/guest/color совместимы со старыми строками.
 
-**Статус dump→restore на изолированных БД:** VERIFIED (local docker).  
+**Статус dump→restore на изолированных БД:** VERIFIED (local docker).
 **Статус encrypted offsite + age drill на VPS:** по-прежнему NOT VERIFIED.
 
 ## App role

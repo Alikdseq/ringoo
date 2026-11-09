@@ -2,6 +2,7 @@
 
 import { useCallback, useState } from 'react';
 import Link from 'next/link';
+import { notFound } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import {
@@ -9,8 +10,10 @@ import {
   downloadProductImportTemplate,
 } from '@/lib/api/services/adminProducts.service';
 import { getFriendlyErrorMessage } from '@/lib/errors';
+import { isXlsxImportUiEnabled } from '@/lib/features/admin-ui';
 
 export default function AdminProductImportPage() {
+  const enabled = isXlsxImportUiEnabled();
   const [xlsx, setXlsx] = useState<File | null>(null);
   const [zip, setZip] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
@@ -67,6 +70,10 @@ export default function AdminProductImportPage() {
     },
     [xlsx, zip]
   );
+
+  if (!enabled) {
+    notFound();
+  }
 
   return (
     <div className="mx-auto w-full max-w-3xl space-y-6">

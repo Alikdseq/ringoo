@@ -34,6 +34,7 @@ x-backend-prod-env: &backend-prod-env
   TRUST_PROXY: ${TRUST_PROXY:-1}
   AXES_IPWARE_PROXY_COUNT: ${AXES_IPWARE_PROXY_COUNT:-1}
   SBER_ECOM_ENABLED: ${SBER_ECOM_ENABLED:-false}
+  RETURNS_ENABLED: ${RETURNS_ENABLED:-0}
   YOOKASSA_ENABLED: ${YOOKASSA_ENABLED:-0}
   YOOKASSA_TEST_MODE: ${YOOKASSA_TEST_MODE:-1}
   YOOKASSA_SHOP_ID: ${YOOKASSA_SHOP_ID:-}
@@ -43,11 +44,17 @@ x-backend-prod-env: &backend-prod-env
   YOOKASSA_WEBHOOK_URL: ${YOOKASSA_WEBHOOK_URL:-}
   ONE_C_API_ENABLED: ${ONE_C_API_ENABLED:-false}
   ONE_C_ORDER_SYNC_ENABLED: ${ONE_C_ORDER_SYNC_ENABLED:-false}
+  ONE_C_SYNC_PARTNER_ON_REGISTER: ${ONE_C_SYNC_PARTNER_ON_REGISTER:-false}
+  ONE_C_CATALOG_SYNC_ENABLED: ${ONE_C_CATALOG_SYNC_ENABLED:-0}
+  ONE_C_CATALOG_SYNC_INTERVAL_SECONDS: ${ONE_C_CATALOG_SYNC_INTERVAL_SECONDS:-3600}
+  ONE_C_CATALOG_STALE_HOURS: ${ONE_C_CATALOG_STALE_HOURS:-24}
+  BACKUP_OFFSITE_ENABLED: ${BACKUP_OFFSITE_ENABLED:-0}
   JWT_COOKIE_ENABLED: ${JWT_COOKIE_ENABLED:-True}
   JWT_COOKIE_SECURE: ${JWT_COOKIE_SECURE:-True}
 
 services:
   db:
+    restart: unless-stopped
     # Compose merge appends ports — must reset, not ports: []
     ports: !reset []
     environment: !override
@@ -63,6 +70,7 @@ services:
         ]
 
   redis:
+    restart: unless-stopped
     ports: !reset []
     environment: !override
       REDIS_PASSWORD: ${REDIS_PASSWORD:?set REDIS_PASSWORD}
@@ -77,6 +85,7 @@ services:
         - redis-cli -a "$$REDIS_PASSWORD" ping | grep -q PONG
 
   web:
+    restart: unless-stopped
     # !override — Compose ≥2.24: не наследовать env_file/volumes/build из docker-compose.yml
     build: !override
       context: ./backend
@@ -87,7 +96,9 @@ services:
         HTTP_PROXY: ${HTTP_PROXY:-}
         HTTPS_PROXY: ${HTTPS_PROXY:-}
         NO_PROXY: ${NO_PROXY:-}
-    image: ringoo-web:prod
+        RINGOO_GIT_SHA: ${RINGOO_GIT_SHA:-unknown}
+        RINGOO_RELEASE: ${RINGOO_RELEASE:-}
+    image: ringoo-web:${RINGOO_IMAGE_TAG:-prod}
     command: >
       gunicorn config.wsgi:application
       --bind 0.0.0.0:8000
@@ -104,6 +115,8 @@ services:
         required: false
     environment: !override
       <<: *backend-prod-env
+      RINGOO_GIT_SHA: ${RINGOO_GIT_SHA:-unknown}
+      RINGOO_RELEASE: ${RINGOO_RELEASE:-}
     # Не публиковать 8000 наружу: reverse proxy → 127.0.0.1 или Docker DNS.
     # Для host-proxy: BACKEND_PUBLISH=127.0.0.1:8000:8000
     ports: !override
@@ -122,6 +135,7 @@ services:
       - ringoo_network
 
   frontend:
+    restart: unless-stopped
     build: !override
       context: ./frontend
       dockerfile: Dockerfile
@@ -130,7 +144,8 @@ services:
         NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:?set NEXT_PUBLIC_SITE_URL}
         NEXT_PUBLIC_USE_AUTH_COOKIES: ${NEXT_PUBLIC_USE_AUTH_COOKIES:-1}
         NEXT_PUBLIC_ONLINE_PAYMENT_ENABLED: ${NEXT_PUBLIC_ONLINE_PAYMENT_ENABLED:-0}
-    image: ringoo-frontend:prod
+        NEXT_PUBLIC_RETURNS_ENABLED: ${NEXT_PUBLIC_RETURNS_ENABLED:-0}
+    image: ringoo-frontend:${RINGOO_IMAGE_TAG:-prod}
     command: node server.js
     volumes: !override []
     env_file: !override []
@@ -139,6 +154,7 @@ services:
       API_INTERNAL_V1_URL: http://web:8000/api/v1
       RINGOO_API_PROXY_TARGET: http://web:8000
       NEXT_PUBLIC_ONLINE_PAYMENT_ENABLED: ${NEXT_PUBLIC_ONLINE_PAYMENT_ENABLED:-0}
+      NEXT_PUBLIC_RETURNS_ENABLED: ${NEXT_PUBLIC_RETURNS_ENABLED:-0}
     # Не публиковать 3000 наружу: только localhost для host Caddy/Nginx.
     # FRONTEND_PUBLISH=127.0.0.1:3000:3000 (default). Пустое значение недопустимо —
     # для полного unpublish задайте в overlay без ports и proxy в той же Docker-сети.
@@ -156,10 +172,11 @@ services:
       - ringoo_network
 
   celery:
+    restart: unless-stopped
     build: !override
       context: ./backend
       dockerfile: Dockerfile
-    image: ringoo-celery:prod
+    image: ringoo-celery:${RINGOO_IMAGE_TAG:-prod}
     command: celery -A config.celery worker --loglevel=info
     volumes: !override
       - media_volume:/app/media
@@ -171,6 +188,8 @@ services:
         required: false
     environment: !override
       <<: *backend-prod-env
+      RINGOO_GIT_SHA: ${RINGOO_GIT_SHA:-unknown}
+      RINGOO_RELEASE: ${RINGOO_RELEASE:-}
     depends_on:
       db:
         condition: service_healthy
@@ -187,10 +206,11 @@ services:
       - ringoo_network
 
   celery-beat:
+    restart: unless-stopped
     build: !override
       context: ./backend
       dockerfile: Dockerfile
-    image: ringoo-celery-beat:prod
+    image: ringoo-celery-beat:${RINGOO_IMAGE_TAG:-prod}
     command: celery -A config.celery beat --loglevel=info
     volumes: !override
       - logs_volume:/app/logs
@@ -201,6 +221,8 @@ services:
         required: false
     environment: !override
       <<: *backend-prod-env
+      RINGOO_GIT_SHA: ${RINGOO_GIT_SHA:-unknown}
+      RINGOO_RELEASE: ${RINGOO_RELEASE:-}
     depends_on:
       - celery
     deploy:

@@ -103,6 +103,7 @@ export default function AdminUsersPage() {
                   <th className="px-3 py-2 text-left">Телефон</th>
                   <th className="px-3 py-2 text-left">Email</th>
                   <th className="px-3 py-2 text-left">Роль</th>
+                  <th className="px-3 py-2 text-left">1С контрагент</th>
                   <th className="px-3 py-2 text-left">Дата регистрации</th>
                   <th className="px-3 py-2 text-center">Активен</th>
                   <th className="px-3 py-2 text-right">Действия</th>
@@ -133,6 +134,14 @@ export default function AdminUsersPage() {
                       </td>
                       <td className="px-3 py-2 align-middle text-xs text-zinc-600">
                         {user.is_staff ? 'Админ' : 'Пользователь'}
+                      </td>
+                      <td className="px-3 py-2 align-middle text-xs text-zinc-600">
+                        <div>{user.onec_partner_status || 'none'}</div>
+                        {user.onec_partner_id ? (
+                          <div className="font-mono text-[10px] text-zinc-400">
+                            {user.onec_partner_id.slice(0, 8)}…
+                          </div>
+                        ) : null}
                       </td>
                       <td className="px-3 py-2 align-middle text-xs text-zinc-600">{created}</td>
                       <td className="px-3 py-2 align-middle text-center text-xs">

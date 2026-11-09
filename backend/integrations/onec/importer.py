@@ -11,7 +11,7 @@ import json
 from collections import defaultdict
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -24,6 +24,9 @@ from apps.products.utils import unique_product_slug
 from apps.stores.models import Stock, Store
 
 from .parser import (
+    MONEY_MAX,
+    MONEY_QUANT,
+    QTY_MAX,
     OneCFolder,
     OneCParseError,
     OneCProductRow,
@@ -72,7 +75,7 @@ class StockAction:
     sklad: str
     sklad_id: str
     quantity: str | None
-    quantity_status: str  # explicit_zero | positive | missing | invalid
+    quantity_status: str  # explicit_zero | positive | missing | invalid | rejected
     action: str  # upsert | skip
     notes: str = ""
     series: str = ""
@@ -118,14 +121,50 @@ def _now_iso() -> str:
 
 
 def _quantity_status(row: OneCProductRow) -> tuple[str | None, str]:
+    problem = row.quantity_problem()
+    if problem == "empty":
+        return None, "missing"
+    if problem == "not_a_number":
+        return None, "invalid"
+    if problem:
+        return None, "rejected"
     qty = row.parse_quantity()
     if qty is None:
-        if (row.quantity_raw or "").strip():
-            return None, "invalid"
-        return None, "missing"
+        return None, "invalid"
     if qty == 0:
         return "0", "explicit_zero"
-    return str(qty), "positive"
+    return str(qty.to_integral_value()), "positive"
+
+
+def writable_price(raw: str | None) -> Decimal | None:
+    """Повторная проверка непосредственно перед UPDATE/INSERT. Иначе None."""
+    if raw is None or str(raw).strip() == "":
+        return None
+    try:
+        value = Decimal(str(raw))
+    except (InvalidOperation, ValueError, ArithmeticError):
+        return None
+    if not value.is_finite() or value < 0 or value > MONEY_MAX:
+        return None
+    try:
+        if value != value.quantize(MONEY_QUANT):
+            return None
+    except (InvalidOperation, ValueError, ArithmeticError):
+        return None
+    return value.quantize(MONEY_QUANT)
+
+
+def writable_quantity(raw: str | None) -> int | None:
+    """Целое >= 0. Отрицательное не превращается в ноль."""
+    if raw is None or str(raw).strip() == "":
+        return None
+    try:
+        value = Decimal(str(raw))
+    except (InvalidOperation, ValueError, ArithmeticError):
+        return None
+    if not value.is_finite() or value < 0 or value > QTY_MAX or value != value.to_integral_value():
+        return None
+    return int(value)
 
 
 def _folder_index(folders: list[OneCFolder]) -> dict[str, OneCFolder]:
@@ -271,9 +310,15 @@ def _aggregate_products(
         )
         if row.name and row.name != bucket["name"]:
             bucket.setdefault("name_variants", set()).add(row.name)
-        price = row.parse_price()
-        if price is not None:
-            bucket["prices"].append(price)
+        problem = row.price_problem()
+        if problem and problem != "empty":
+            bucket.setdefault("price_problems", []).append(
+                {"value": (row.price_raw or "")[:64], "reason": problem}
+            )
+        elif problem is None:
+            price = row.parse_price()
+            if price is not None:
+                bucket["prices"].append(price)
         bucket["rows"].append(row)
         if not bucket["parent_code"] and row.parent_code:
             bucket["parent_code"] = row.parent_code
@@ -326,13 +371,35 @@ def _plan_products(
             )
 
         prices: list[Decimal] = data["prices"]
+        price_problems = list(data.get("price_problems") or [])
         price_str = str(prices[0]) if prices else None
-        if not prices:
+        if price_problems:
+            price_str = None
+            for problem in price_problems:
+                issues.append(
+                    {
+                        "type": "rejected_price",
+                        "onec_code": code,
+                        "field": "price",
+                        "value": problem.get("value") or "",
+                        "reason": problem.get("reason") or "rejected",
+                        "name": data["name"],
+                        "message": (
+                            f"Цена отклонена ({problem.get('reason')}): "
+                            f"{problem.get('value')}"
+                        ),
+                    }
+                )
+        elif not prices:
             issues.append(
                 {
                     "type": "product_missing_price",
                     "onec_code": code,
+                    "field": "price",
+                    "value": "",
+                    "reason": "empty",
                     "name": data["name"],
+                    "message": "Пустая цена",
                 }
             )
         elif len({str(p) for p in prices}) > 1:
@@ -343,6 +410,7 @@ def _plan_products(
                     "prices": [str(p) for p in sorted(set(prices))],
                 }
             )
+        price_blocked = bool(price_problems) or not prices
 
         matched = existing_by_onec.get(code)
         matched_by = "onec_code" if matched else ""
@@ -425,6 +493,15 @@ def _plan_products(
                     )
                 )
 
+        if price_blocked:
+            for action in product_actions:
+                if action.onec_code == code and action.action in ("create", "update"):
+                    action.action = "skip"
+                    action.price = None
+                    action.notes = (
+                        "Цена отклонена или пустая — карточка не создаётся и не перезаписывается"
+                    )
+
         # Остатки / склады / серии по строкам
         for row in data["rows"]:
             if row.has_warehouse:
@@ -473,7 +550,8 @@ def _plan_products(
                 )
                 continue
 
-            if qty_status == "invalid":
+            if qty_status in ("invalid", "rejected"):
+                reason = row.quantity_problem() or qty_status
                 stock_actions.append(
                     StockAction(
                         onec_code=code,
@@ -482,18 +560,39 @@ def _plan_products(
                         quantity=None,
                         quantity_status=qty_status,
                         action="skip",
-                        notes=f"Некорректное количество: {row.quantity_raw!r}",
+                        notes=f"Количество отклонено: {row.quantity_raw!r}",
                         series=row.series,
                         series_id=row.series_id,
                     )
                 )
                 issues.append(
                     {
-                        "type": "invalid_quantity",
+                        "type": "rejected_quantity"
+                        if qty_status == "rejected"
+                        else "invalid_quantity",
                         "onec_code": code,
-                        "quantity_raw": row.quantity_raw,
+                        "field": "quantity",
+                        "value": (row.quantity_raw or "")[:64],
+                        "reason": reason,
                         "sklad": row.sklad,
+                        "message": f"Количество отклонено ({reason}): {row.quantity_raw}",
                     }
+                )
+                continue
+
+            if price_blocked:
+                stock_actions.append(
+                    StockAction(
+                        onec_code=code,
+                        sklad=row.sklad,
+                        sklad_id=row.sklad_id,
+                        quantity=None,
+                        quantity_status=qty_status,
+                        action="skip",
+                        notes="Остаток не пишем: цена этой позиции отклонена",
+                        series=row.series,
+                        series_id=row.series_id,
+                    )
                 )
                 continue
 
@@ -558,6 +657,11 @@ def plan_from_parsed(
         "stocks_skip": sum(1 for a in stock_actions if a.action == "skip"),
         "warehouses": len(warehouses),
         "issues": len(cat_issues) + len(prod_issues),
+        "rejected_positions": sum(
+            1
+            for i in cat_issues + prod_issues
+            if i.get("type") in ("rejected_price", "rejected_quantity", "invalid_quantity")
+        ),
         "series_rows": sum(1 for i in prod_issues if i.get("type") == "series_present"),
         "missing_category_products": sum(
             1 for i in prod_issues if i.get("type") == "product_missing_category"
@@ -702,7 +806,7 @@ def apply_catalog_import(plan: CatalogImportPlan) -> dict[str, Any]:
         ).first()
         if not category:
             continue
-        price = Decimal(action.price) if action.price else None
+        price = writable_price(action.price)
         if price is None:
             continue
 
@@ -792,7 +896,7 @@ def apply_catalog_import(plan: CatalogImportPlan) -> dict[str, Any]:
         store = store_by_wh.get(key)
         if not store:
             continue
-        qty = int(Decimal(st.quantity)) if st.quantity is not None else None
+        qty = writable_quantity(st.quantity)
         if qty is None:
             continue
         series_id = (getattr(st, "series_id", None) or "").strip()
@@ -804,10 +908,9 @@ def apply_catalog_import(plan: CatalogImportPlan) -> dict[str, Any]:
             store_id=store.pk,
             series_id=series_id,
             series_name=series_name,
-            quantity=max(0, qty),
-            # batch import: key includes qty so re-import with same qty is idempotent
+            quantity=qty,
             idempotency_key=(
-                f"onec_import:{product.pk}:{store.pk}:{series_id}:q{max(0, qty)}"
+                f"onec_import:{product.pk}:{store.pk}:{series_id}:q{qty}"
             ),
         )
         stock_upserts += 1

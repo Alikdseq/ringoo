@@ -174,6 +174,8 @@ export default function AdminProductEditPage() {
     );
   };
 
+  const onecManaged = Boolean(product?.onec_code);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!form) return;
@@ -256,6 +258,13 @@ export default function AdminProductEditPage() {
 
       {/* Основная форма */}
       <Card className="p-4">
+        {onecManaged ? (
+          <div className="mb-4 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-900">
+            Управляется 1С (код <span className="font-mono">{product.onec_code}</span>). Цена,
+            название, артикул и категория — только просмотр. SEO и описания можно править.
+            Обновлено: {product.updated_at ? new Date(product.updated_at).toLocaleString('ru-RU') : '—'}
+          </div>
+        ) : null}
         <form className="space-y-4" onSubmit={handleSubmit}>
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-1">
@@ -264,7 +273,8 @@ export default function AdminProductEditPage() {
                 type="text"
                 value={form.title}
                 onChange={e => handleFormChange('title', e.target.value)}
-                className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm"
+                readOnly={onecManaged}
+                className={`w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm ${onecManaged ? 'bg-zinc-50' : ''}`}
                 required
               />
             </div>
@@ -293,7 +303,8 @@ export default function AdminProductEditPage() {
                 <select
                   value={form.category}
                   onChange={e => handleFormChange('category', e.target.value)}
-                  className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm"
+                  disabled={onecManaged}
+                  className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm disabled:bg-zinc-50"
                   required
                 >
                   <option value="">Выберите категорию</option>
@@ -312,7 +323,8 @@ export default function AdminProductEditPage() {
                 type="text"
                 value={form.sku ?? ''}
                 onChange={e => handleFormChange('sku', e.target.value)}
-                className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm"
+                readOnly={onecManaged}
+                className={`w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm ${onecManaged ? 'bg-zinc-50' : ''}`}
               />
             </div>
 
@@ -329,14 +341,17 @@ export default function AdminProductEditPage() {
 
           <div className="grid gap-4 md:grid-cols-3">
             <div className="space-y-1">
-              <label className="block text-xs font-medium text-zinc-500">Цена *</label>
+              <label className="block text-xs font-medium text-zinc-500">
+                Цена *{onecManaged ? ' (1С)' : ''}
+              </label>
               <input
                 type="number"
                 min={0}
                 step="0.01"
+                readOnly={onecManaged}
                 value={form.price}
                 onChange={e => handleFormChange('price', e.target.value)}
-                className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm"
+                className={`w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm ${onecManaged ? 'bg-zinc-50' : ''}`}
                 required
               />
             </div>
@@ -347,9 +362,10 @@ export default function AdminProductEditPage() {
                 type="number"
                 min={0}
                 step="0.01"
+                readOnly={onecManaged}
                 value={form.old_price ?? ''}
                 onChange={e => handleFormChange('old_price', e.target.value)}
-                className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm"
+                className={`w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm ${onecManaged ? 'bg-zinc-50' : ''}`}
               />
             </div>
 
@@ -629,8 +645,13 @@ export default function AdminProductEditPage() {
                         type="number"
                         min={0}
                         defaultValue={item.quantity}
-                        onBlur={e => handleStockNumberChange(item.id, 'quantity', e.target.value)}
-                        className="w-24 rounded-lg border border-zinc-200 px-2 py-1 text-right text-xs"
+                        readOnly={onecManaged}
+                        onBlur={e => {
+                          if (onecManaged) return;
+                          handleStockNumberChange(item.id, 'quantity', e.target.value);
+                        }}
+                        className={`w-24 rounded-lg border border-zinc-200 px-2 py-1 text-right text-xs ${onecManaged ? 'bg-zinc-50' : ''}`}
+                        title={onecManaged ? 'quantity из 1С' : undefined}
                       />
                     </td>
                     <td className="px-3 py-2 align-middle text-right">

@@ -21,6 +21,9 @@ def health_check(request):
         'status': 'healthy',
         'database': 'ok',
         'cache': 'ok',
+        # Без секретов — только идентификаторы релиза из env/build.
+        'release': (getattr(settings, 'RINGOO_RELEASE', '') or '')[:64] or None,
+        'git_sha': (getattr(settings, 'RINGOO_GIT_SHA', '') or 'unknown')[:40],
     }
 
     try:

@@ -543,20 +543,10 @@ function OrderStatusInner() {
                 </div>
               </div>
 
-              {/* Бонусы */}
               <div className="mt-6 grid gap-3 sm:grid-cols-2">
-                <div className="rounded-2xl border border-border bg-white p-4">
-                  <div className="text-sm font-semibold text-foreground">Бонусы</div>
-                  <div className="mt-2 text-sm text-foreground-muted">
-                    Потрачено: −{money(order.bonus_used)}{' '}
-                  </div>
-                  <div className="mt-1 text-sm text-foreground-muted">
-                    Начислено: +{money(order.bonus_earned)}{' '}
-                  </div>
-                </div>
-                <div className="rounded-2xl border border-border bg-white p-4">
+                <div className="rounded-2xl border border-border bg-white p-4 sm:col-span-2">
                   <div className="text-sm font-semibold text-foreground">Действия</div>
-                  <div className="mt-3 grid gap-2">
+                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
                     {canReorder &&
                       (isAuthenticated ? (
                         <Button
