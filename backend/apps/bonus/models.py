@@ -54,8 +54,9 @@ class BonusAccount(models.Model):
         verbose_name_plural = "Бонусные счета"
         ordering = ["-updated_at"]
         indexes = [
-            models.Index(fields=["user"]),
-            models.Index(fields=["updated_at"]),
+            # Имена из 0001 — иначе makemigrations предлагает RenameIndex.
+            models.Index(fields=["user"], name="bonus_bonus_user_id_8a1f0d_idx"),
+            models.Index(fields=["updated_at"], name="bonus_bonus_updated_2c2b2a_idx"),
         ]
 
     def __str__(self):
@@ -124,10 +125,11 @@ class BonusTransaction(models.Model):
         verbose_name_plural = "Бонусные транзакции"
         ordering = ["-created_at"]
         indexes = [
-            models.Index(fields=["account"]),
-            models.Index(fields=["created_at"]),
-            models.Index(fields=["reason"]),
-            models.Index(fields=["related_order"]),
+            # Имена из 0001 — иначе makemigrations предлагает RenameIndex.
+            models.Index(fields=["account"], name="bonus_bonus_account_7e8f3c_idx"),
+            models.Index(fields=["created_at"], name="bonus_bonus_created_1d4e5b_idx"),
+            models.Index(fields=["reason"], name="bonus_bonus_reason_9a2b3c_idx"),
+            models.Index(fields=["related_order"], name="bonus_bonus_related_4e5f6a_idx"),
         ]
 
     def __str__(self):

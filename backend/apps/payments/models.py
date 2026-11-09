@@ -149,8 +149,9 @@ class Payment(models.Model):
         verbose_name_plural = "Платежи"
         ordering = ["-created_at"]
         indexes = [
-            models.Index(fields=["order", "status"]),
-            models.Index(fields=["created_at"]),
+            # Имена из 0001 — иначе makemigrations предлагает RenameIndex.
+            models.Index(fields=["order", "status"], name="payments_pa_order_i_7e0e0e_idx"),
+            models.Index(fields=["created_at"], name="payments_pa_created_e4e6f7_idx"),
         ]
         constraints = [
             # Не больше одного успешного платежа на заказ

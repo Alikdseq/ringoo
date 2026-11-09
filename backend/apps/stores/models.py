@@ -246,9 +246,10 @@ class Stock(models.Model):
             ),
         ]
         indexes = [
-            models.Index(fields=["product"]),
-            models.Index(fields=["store"]),
-            models.Index(fields=["onec_series_id"]),
+            # Имена из 0001/0006 — иначе makemigrations предлагает RenameIndex.
+            models.Index(fields=["product"], name="stores_stoc_product_94053f_idx"),
+            models.Index(fields=["store"], name="stores_stoc_store_i_36a02e_idx"),
+            models.Index(fields=["onec_series_id"], name="stores_stoc_onec_se_4b8e1a_idx"),
         ]
 
     def __str__(self):

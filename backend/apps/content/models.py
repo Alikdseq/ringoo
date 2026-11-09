@@ -306,7 +306,11 @@ class PageGalleryImage(models.Model):
         verbose_name_plural = "Галереи страниц"
         ordering = ["placement", "sort_order", "id"]
         indexes = [
-            models.Index(fields=["placement", "is_active", "sort_order"]),
+            # Имя из 0002 — иначе makemigrations предлагает RenameIndex.
+            models.Index(
+                fields=["placement", "is_active", "sort_order"],
+                name="content_pag_placeme_idx",
+            ),
         ]
 
     def __str__(self):

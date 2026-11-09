@@ -42,8 +42,9 @@ class WishlistItem(models.Model):
             ),
         ]
         indexes = [
-            models.Index(fields=["user"]),
-            models.Index(fields=["product"]),
+            # Имена из 0001 — иначе makemigrations предлагает RenameIndex.
+            models.Index(fields=["user"], name="wishlist_wi_user_id_7a8c2a_idx"),
+            models.Index(fields=["product"], name="wishlist_wi_product_2b9f3c_idx"),
         ]
 
     def __str__(self):

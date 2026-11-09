@@ -311,8 +311,9 @@ class DeliveryAddress(models.Model):
         verbose_name_plural = "Адреса доставки"
         ordering = ["-is_default", "-created_at"]
         indexes = [
-            models.Index(fields=["user"]),
-            models.Index(fields=["user", "is_default"]),
+            # Имена из 0001 — иначе makemigrations предлагает RenameIndex.
+            models.Index(fields=["user"], name="users_deladdr_user_idx"),
+            models.Index(fields=["user", "is_default"], name="users_deladdr_user_default_idx"),
         ]
 
     def __str__(self) -> str:
@@ -372,8 +373,9 @@ class ConsentRecord(models.Model):
         verbose_name_plural = "Записи согласий"
         ordering = ["-accepted_at"]
         indexes = [
-            models.Index(fields=["user", "consent_type"]),
-            models.Index(fields=["order"]),
+            # Имена из 0004 — иначе makemigrations предлагает RenameIndex.
+            models.Index(fields=["user", "consent_type"], name="users_conse_user_id_6e0f0a_idx"),
+            models.Index(fields=["order"], name="users_conse_order_i_8c8f8b_idx"),
         ]
 
     def __str__(self) -> str:

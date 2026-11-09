@@ -281,11 +281,12 @@ class Order(models.Model):
         verbose_name_plural = "Заказы"
         ordering = ["-created_at"]
         indexes = [
-            models.Index(fields=["order_number"]),
-            models.Index(fields=["status"]),
-            models.Index(fields=["user"]),
-            models.Index(fields=["created_at"]),
-            models.Index(fields=["onec_sync_status"]),
+            # Имена из 0001/0007 — иначе makemigrations предлагает RenameIndex.
+            models.Index(fields=["order_number"], name="orders_orde_order_n_f3ada5_idx"),
+            models.Index(fields=["status"], name="orders_orde_status_c6dd84_idx"),
+            models.Index(fields=["user"], name="orders_orde_user_id_a87c6f_idx"),
+            models.Index(fields=["created_at"], name="orders_orde_created_0e92de_idx"),
+            models.Index(fields=["onec_sync_status"], name="orders_orde_onec_sy_7a1c2d_idx"),
         ]
 
     def __str__(self):
