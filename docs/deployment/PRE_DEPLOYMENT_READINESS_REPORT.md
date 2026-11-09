@@ -22,8 +22,8 @@
 | Исходный HEAD (до релизного коммита Block 9) | `d0c047e` (уже +6 к `origin/main` с Block 4) |
 | Базовый известный аудит-коммит | `8a0bd5f` (в истории; не HEAD) |
 | Remote | `https://github.com/Alikdseq/ringoo.git` |
-| Итоговый commit hash | `a36483d` (docs SHA note; release payload `c190e38`) |
-| Push | SUCCESS — `8a0bd5f..a36483d` → `origin/main` |
+| Итоговый commit hash | `7e97c53` (release payload `c190e38`) |
+| Push | SUCCESS — `8a0bd5f..7e97c53` → `origin/main` |
 | Рабочее дерево | чистое кроме локальных `промпт.txt`, `*.docx`, `Описание работ.txt` |
 
 Исключено из релиза: `copy-site/`, `integration1CandKassa/`, `*.docx`, `промпт.txt`, `Описание работ.txt`, локальные `.env*`.
@@ -116,9 +116,9 @@
 
 | Поле | Значение |
 |---|---|
-| Commit создан | да — `c190e38` + `a36483d` |
+| Commit создан | да — `c190e38` (+ follow-up docs) |
 | Push выполнен | да |
-| Commit hash | `a36483d` (synced with `origin/main`) |
+| Commit hash | `7e97c53` (synced with `origin/main`) |
 | Branch | `main` |
 | Sync | fast-forward only; no force; local HEAD == `origin/main` |
 
