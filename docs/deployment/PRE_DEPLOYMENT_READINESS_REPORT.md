@@ -22,8 +22,8 @@
 | Исходный HEAD (до релизного коммита Block 9) | `d0c047e` (уже +6 к `origin/main` с Block 4) |
 | Базовый известный аудит-коммит | `8a0bd5f` (в истории; не HEAD) |
 | Remote | `https://github.com/Alikdseq/ringoo.git` |
-| Итоговый commit hash | `c190e38` (`release: prepare Ringoo for controlled VPS deployment`) |
-| Push | выполняется после фиксации SHA в этом отчёте |
+| Итоговый commit hash | `a36483d` (docs SHA note; release payload `c190e38`) |
+| Push | SUCCESS — `8a0bd5f..a36483d` → `origin/main` |
 | Рабочее дерево | чистое кроме локальных `промпт.txt`, `*.docx`, `Описание работ.txt` |
 
 Исключено из релиза: `copy-site/`, `integration1CandKassa/`, `*.docx`, `промпт.txt`, `Описание работ.txt`, локальные `.env*`.
@@ -116,11 +116,11 @@
 
 | Поле | Значение |
 |---|---|
-| Commit создан | да — `c190e38` |
-| Push выполнен | см. финальный статус после `git push` |
-| Commit hash | `c190e38` (+ docs SHA note commit if present) |
+| Commit создан | да — `c190e38` + `a36483d` |
+| Push выполнен | да |
+| Commit hash | `a36483d` (synced with `origin/main`) |
 | Branch | `main` |
-| Sync | fast-forward only; no force |
+| Sync | fast-forward only; no force; local HEAD == `origin/main` |
 
 ## 10. Следующие действия владельца
 
