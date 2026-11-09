@@ -68,7 +68,7 @@ if ON_VERCEL:
 if not ALLOWED_HOSTS:
     raise ImproperlyConfigured(
         'ALLOWED_HOSTS is empty. Set a comma-separated list of hostnames '
-        '(e.g. shop.example.com,www.shop.example.com).'
+        '(e.g. ringoo15.store,www.ringoo15.store).'
     )
 
 # ---------------------------------------------------------------------------
@@ -234,7 +234,7 @@ if ON_VERCEL:
             CSRF_TRUSTED_ORIGINS.append(origin)
 elif not CSRF_TRUSTED_ORIGINS:
     raise ImproperlyConfigured(
-        'CSRF_TRUSTED_ORIGINS must include https://your-frontend-domain '
+        'CSRF_TRUSTED_ORIGINS must include https://ringoo15.store '
         'when running behind a browser client.'
     )
 
@@ -314,7 +314,7 @@ EMAIL_PORT = int(os.getenv('EMAIL_PORT', '587'))
 EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True') == 'True'
 EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
-DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@ringoo.ru')
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@ringoo15.store')
 
 USE_S3 = os.getenv('USE_S3', 'False') == 'True'
 

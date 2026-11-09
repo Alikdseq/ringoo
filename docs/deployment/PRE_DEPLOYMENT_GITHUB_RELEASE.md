@@ -160,9 +160,9 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml \
 
 ```bash
 curl -fsS http://127.0.0.1:8000/health/
-# через reverse proxy:
-curl -fsS https://YOUR_DOMAIN/health/
-curl -fsS https://YOUR_DOMAIN/api/v1/  # ожидать осмысленный ответ/роутинг
+# через reverse proxy (ringoo15.store):
+curl -fsS https://ringoo15.store/health/
+curl -fsS https://ringoo15.store/api/v1/  # ожидать осмысленный ответ/роутинг
 ```
 
 Ожидайте `git_sha` / release в health при корректных build args.
@@ -171,7 +171,7 @@ curl -fsS https://YOUR_DOMAIN/api/v1/  # ожидать осмысленный �
 
 ```bash
 curl -fsS -o /dev/null -w "%{http_code}\n" http://127.0.0.1:3000/
-curl -fsS -o /dev/null -w "%{http_code}\n" https://YOUR_DOMAIN/
+curl -fsS -o /dev/null -w "%{http_code}\n" https://ringoo15.store/
 ```
 
 Проверьте, что витрина открывается, checkout не предлагает выключенную онлайн-оплату, админ-панель Next требует staff JWT.

@@ -27,18 +27,26 @@ ufw status
 
 ## TLS
 
-Примеры:
+Примеры для **ringoo15.store**:
 
+- `docs/ops/caddy.ringoo15.store.caddyfile` (канон)
 - `docs/ops/caddy.production.example.caddyfile`
 - `docs/ops/nginx.production.example.conf`
+
+DNS перед TLS:
+
+```text
+A     ringoo15.store      → <VPS_IP>
+A     www.ringoo15.store  → <VPS_IP>
+```
 
 Caddy автоматически получает сертификат Let’s Encrypt при корректном DNS.
 
 Проверка после установки:
 
 ```bash
-curl -I https://shop.example.com
-echo | openssl s_client -connect shop.example.com:443 -servername shop.example.com 2>/dev/null | openssl x509 -noout -dates
+curl -I https://ringoo15.store
+echo | openssl s_client -connect ringoo15.store:443 -servername ringoo15.store 2>/dev/null | openssl x509 -noout -dates
 ```
 
 ## Django proxy trust
@@ -51,7 +59,7 @@ AXES_IPWARE_PROXY_COUNT=1
 SECURE_SSL_REDIRECT=True
 ```
 
-Proxy должен **перезаписывать** `X-Forwarded-Proto` (не принимать клиентский заголовок as-is с WAN).  
+Proxy должен **перезаписывать** `X-Forwarded-Proto` (не принимать клиентский заголовок as-is с WAN).
 Backend слушает только localhost / Docker network.
 
 ## Статус
