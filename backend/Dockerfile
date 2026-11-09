@@ -70,7 +70,9 @@ USER django
 
 EXPOSE 8000
 
+# Host: web — ALLOWED_HOSTS в prod включает web; 127.0.0.1 часто нет.
+# Celery/beat переопределяют healthcheck в compose (этот HTTP-check только для gunicorn).
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/', timeout=5)" || exit 1
+    CMD python -c "import urllib.request; urllib.request.urlopen(urllib.request.Request('http://127.0.0.1:8000/health/', headers={'Host':'web'}), timeout=5)" || exit 1
 
 CMD ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "4", "--timeout", "120"]

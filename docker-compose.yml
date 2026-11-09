@@ -125,14 +125,14 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    # Стандартная библиотека urllib (без пакета requests) — работает в любом python-образе
+    # Host: web — совпадает с ALLOWED_HOSTS в Docker; без этого DisallowedHost → unhealthy.
     healthcheck:
       test:
         [
           "CMD",
           "python",
           "-c",
-          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/', timeout=5)",
+          "import urllib.request; urllib.request.urlopen(urllib.request.Request('http://127.0.0.1:8000/health/', headers={'Host':'web'}), timeout=5)",
         ]
       interval: 30s
       timeout: 10s
@@ -231,6 +231,16 @@ services:
       - db
       - redis
       - web
+    # Worker nodename = celery@$HOSTNAME (без -n); $$HOSTNAME → $HOSTNAME в контейнере.
+    # Exit-код inspect ping: 0 = pong, ≠0 (напр. 69) = нет ответа; без grep по выводу.
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - celery -A config.celery inspect ping -d celery@$$HOSTNAME -t 5 >/dev/null 2>&1
+      interval: 30s
+      timeout: 15s
+      start_period: 60s
+      retries: 3
     networks:
       - ringoo_network
 
@@ -260,6 +270,19 @@ services:
       - db
       - redis
       - celery
+    # Beat = PID 1 (command без entrypoint-обёртки); проверяем только /proc/1/cmdline.
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import sys\ntry:\n t=open('/proc/1/cmdline','rb').read()\nexcept Exception:\n sys.exit(1)\nsys.exit(0 if (b'celery' in t and b'beat' in t) else 1)",
+        ]
+      interval: 30s
+      timeout: 10s
+      start_period: 40s
+      retries: 3
     networks:
       - ringoo_network
 

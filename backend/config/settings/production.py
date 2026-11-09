@@ -298,6 +298,9 @@ SECURE_SSL_REDIRECT = os.getenv(
     'SECURE_SSL_REDIRECT',
     'False' if ON_VERCEL else 'True',
 ) == 'True'
+# Docker/Compose healthcheck ходит на http://127.0.0.1:8000/health/ без TLS.
+# Публичный трафик по-прежнему редиректится на HTTPS (Caddy/Nginx).
+SECURE_REDIRECT_EXEMPT = [r'^health/?$']
 SESSION_COOKIE_SECURE = os.getenv('SESSION_COOKIE_SECURE', 'True') == 'True'
 CSRF_COOKIE_SECURE = os.getenv('CSRF_COOKIE_SECURE', 'True') == 'True'
 SECURE_BROWSER_XSS_FILTER = os.getenv('SECURE_BROWSER_XSS_FILTER', 'False') == 'True'
