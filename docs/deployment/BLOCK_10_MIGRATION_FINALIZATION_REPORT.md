@@ -94,8 +94,8 @@
 | Поле | Значение |
 |---|---|
 | Ветка | `main` |
-| Коммит | `fix: resolve Django migration index drift` *(SHA после push)* |
-| Push | ordinary `git push origin main` (no force) |
+| Коммит | `50ab104` — `fix: resolve Django migration index drift` |
+| Push | SUCCESS — `f334c9f..50ab104` → `origin/main` (no force) |
 
 Исключено из коммита: локальные `.env*`, `*.docx`, `промпт.txt`, `copy-site/`.
 
