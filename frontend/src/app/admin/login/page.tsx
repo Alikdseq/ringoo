@@ -4,7 +4,7 @@ import { Suspense, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import {
-  checkStaffAccess,
+  fetchStaffAccess,
   getAdminMfaStatus,
   login,
   verifyAdminMfa,
@@ -34,8 +34,11 @@ function AdminLoginContent() {
       queryKey: AUTH_ME_QUERY_KEY,
       queryFn: authMeQueryFn,
     });
-    await queryClient.invalidateQueries({ queryKey: AUTH_STAFF_ACCESS_QUERY_KEY });
-    const allowed = await checkStaffAccess();
+    const access = await queryClient.fetchQuery({
+      queryKey: AUTH_STAFF_ACCESS_QUERY_KEY,
+      queryFn: () => fetchStaffAccess(),
+    });
+    const allowed = access?.staff === true;
     if (!allowed) {
       setError(
         'Доступ только для сотрудников с подтверждённым вторым фактором (TOTP).'

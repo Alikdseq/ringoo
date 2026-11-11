@@ -24,7 +24,7 @@ import { getWishlist } from '@/lib/api/services/wishlist.service';
 import { addToCart } from '@/lib/api/services/cart.service';
 import { copyToClipboard } from '@/lib/clipboard';
 import { useAuth, AUTH_ME_QUERY_KEY, AUTH_STAFF_ACCESS_QUERY_KEY } from '@/lib/hooks/useAuth';
-import { checkStaffAccess } from '@/lib/api/services/auth.service';
+import { fetchStaffAccess } from '@/lib/api/services/auth.service';
 import { getFriendlyErrorMessage } from '@/lib/errors';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -104,13 +104,14 @@ export function ProfileContent() {
     enabled: isAuthenticated,
   });
 
-  const { data: isStaff = false } = useQuery({
+  const { data: staffAccess } = useQuery({
     queryKey: AUTH_STAFF_ACCESS_QUERY_KEY,
-    queryFn: () => checkStaffAccess(),
+    queryFn: () => fetchStaffAccess(),
     enabled: isAuthenticated,
     staleTime: 5 * 60 * 1000,
     retry: false,
   });
+  const isStaff = staffAccess?.staff === true;
 
   const { data: ratingsSummary } = useQuery({
     queryKey: ['ratings-summary'],
