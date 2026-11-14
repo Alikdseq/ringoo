@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Check, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -15,6 +15,11 @@ import {
   stashPayAuth,
 } from '@/lib/api/services/payments.service';
 import { getFriendlyErrorMessage } from '@/lib/errors';
+import {
+  buildCheckoutAttemptFingerprint,
+  resolveCheckoutIdempotencyKey,
+} from '@/lib/orders/checkout-idempotency';
+import { resolveCashCheckoutSuccessPath } from '@/lib/orders/checkout-success-path';
 import { getProductStock, getStores } from '@/lib/api/services/stores.service';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -111,7 +116,7 @@ const STEPS = ['Корзина', 'Доставка', 'Оплата', 'Подтв
 export default function CheckoutPage() {
   const [currentStep, setCurrentStep] = useState(0);
 
-  const { data: cart, isLoading, isError } = useCart();
+  const { data: cart, isLoading, isError, error: cartError, refetch: refetchCart } = useCart();
 
   const [delivery, setDelivery] = useState<DeliveryFormState>({
     fullName: '',
@@ -139,6 +144,9 @@ export default function CheckoutPage() {
   const [consentError, setConsentError] = useState<string | null>(null);
   /** Пока уходим на ЮKassa — не показывать «пустая корзина» после invalidate. */
   const [isRedirectingToPay, setIsRedirectingToPay] = useState(false);
+  /** B8-004: один idempotency key на логическую попытку (не на каждый клик). */
+  const idempotencyKeyRef = useRef<string | null>(null);
+  const idempotencyFingerprintRef = useRef<string | null>(null);
   const router = useRouter();
   const queryClient = useQueryClient();
   const { isAuthenticated, user } = useAuth();
@@ -260,6 +268,8 @@ export default function CheckoutPage() {
       // Инвалидация после готовности redirect — иначе checkout мигает «пустая корзина».
       if (result.redirectUrl) {
         setIsRedirectingToPay(true);
+        idempotencyKeyRef.current = null;
+        idempotencyFingerprintRef.current = null;
         queryClient.invalidateQueries({ queryKey: ['cart'] });
         queryClient.invalidateQueries({ queryKey: ['orders'] });
         window.location.assign(result.redirectUrl);
@@ -268,7 +278,28 @@ export default function CheckoutPage() {
 
       queryClient.invalidateQueries({ queryKey: ['cart'] });
       queryClient.invalidateQueries({ queryKey: ['orders'] });
-      router.push(`/orders/${result.order.id}/success`);
+      // Успех → следующая попытка checkout получит новый ключ.
+      idempotencyKeyRef.current = null;
+      idempotencyFingerprintRef.current = null;
+
+      // B8-001: гость не должен попадать на auth-only getOrder.
+      // guest_access_token — только в sessionStorage (не в URL).
+      const order = result.order;
+      if (order.guest_access_token && order.order_number && order.phone) {
+        stashPayAuth(order.id, {
+          phone: order.phone,
+          order_number: order.order_number,
+          guest_token: order.guest_access_token,
+        });
+      }
+
+      router.push(
+        resolveCashCheckoutSuccessPath({
+          isAuthenticated,
+          orderId: order.id,
+          orderNumber: order.order_number,
+        })
+      );
     },
     onError: error => {
       const orderId = (error as CheckoutMutationError).orderId;
@@ -453,13 +484,30 @@ export default function CheckoutPage() {
       consent_marketing: consentNewsletter,
       accept_price_changes: acceptPriceChanges,
     };
-    const idempotencyKey =
-      typeof crypto !== 'undefined' && crypto.randomUUID
-        ? crypto.randomUUID()
-        : `ck-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
+    // B8-004: повторный клик / timeout retry с тем же fingerprint → тот же ключ.
+    const fingerprint = buildCheckoutAttemptFingerprint({
+      cartId: cart?.id ?? null,
+      paymentType: payment.paymentType,
+      storeId: delivery.storeId,
+      deliveryType: delivery.deliveryType,
+      phone: delivery.phone,
+      fullName: delivery.fullName,
+      itemKeys: items.map(
+        i => `${i.product.id}:${i.quantity}:${i.color?.id ?? ''}`
+      ),
+      acceptPriceChanges,
+    });
+    const resolved = resolveCheckoutIdempotencyKey({
+      fingerprint,
+      lastFingerprint: idempotencyFingerprintRef.current,
+      currentKey: idempotencyKeyRef.current,
+    });
+    idempotencyKeyRef.current = resolved.key;
+    idempotencyFingerprintRef.current = resolved.fingerprint;
+
     createOrderMutation.mutate({
       data: payload,
-      idempotencyKey,
+      idempotencyKey: resolved.key,
       consentNewsletter,
     });
   };
@@ -481,22 +529,49 @@ export default function CheckoutPage() {
     );
   }
 
-  // Пустая корзина вне активного checkout — не путать с ошибкой оформления / online-оплатой.
-  if ((isError || !cart || items.length === 0) && !checkoutBusy) {
+  // B8-012: error ≠ empty — разные сообщения и действия.
+  if (isError && !checkoutBusy) {
     return (
       <div className="flex min-h-[60vh] flex-col items-center justify-center px-4 text-center">
-        <p className="mb-3 text-sm text-red-600 dark:text-red-400">
+        <p className="mb-2 text-sm text-red-600 dark:text-red-400">
+          {getFriendlyErrorMessage(cartError)}
+        </p>
+        <p className="mb-4 text-sm text-zinc-600 dark:text-zinc-300">
           Не удалось загрузить корзину для оформления заказа.
         </p>
+        <div className="flex flex-wrap justify-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              void refetchCart();
+            }}
+          >
+            Повторить
+          </Button>
+          <Button asChild>
+            <Link href="/cart">Вернуться в корзину</Link>
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if ((!cart || items.length === 0) && !checkoutBusy) {
+    return (
+      <div className="flex min-h-[60vh] flex-col items-center justify-center px-4 text-center">
+        <p className="mb-3 text-sm text-zinc-600 dark:text-zinc-300">
+          Корзина пуста. Добавьте товары, чтобы оформить заказ.
+        </p>
         <Button asChild>
-          <Link href="/cart">Вернуться в корзину</Link>
+          <Link href="/catalog">В каталог</Link>
         </Button>
       </div>
     );
   }
 
   return (
-    <PageContainer className="py-6">
+    <PageContainer className="pb-28 py-6 lg:pb-6">
       <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-50">
           Оформление заказа
@@ -927,7 +1002,7 @@ export default function CheckoutPage() {
             </div>
           </Card>
 
-          <div className="flex gap-2">
+          <div className="hidden gap-2 lg:flex">
             <Button
               type="button"
               variant="outline"
@@ -963,6 +1038,50 @@ export default function CheckoutPage() {
             note="Тут будут: рассрочка, подтверждение заказа по SMS и юридические уточнения."
           />
         </aside>
+      </div>
+
+      {/* Mobile: итог + CTA всегда видны над клавиатурой/низом экрана */}
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-white/95 backdrop-blur lg:hidden">
+        <div className="mx-auto flex w-full max-w-7xl items-center gap-2 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+          <div className="min-w-0 flex-1">
+            <p className="text-xs text-zinc-500">Итого</p>
+            <p className="truncate text-base font-semibold tabular-nums text-zinc-900">
+              {cartTotal.toFixed(2)} {CURRENCY_SYMBOL}
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={currentStep === 0}
+            onClick={handlePrev}
+            className="min-h-[44px] shrink-0 touch-manipulation"
+            aria-label="Назад"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          {currentStep < STEPS.length - 1 ? (
+            <Button
+              type="button"
+              size="sm"
+              onClick={handleNext}
+              className="min-h-[44px] min-w-[7.5rem] shrink-0 touch-manipulation"
+            >
+              Далее
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              size="sm"
+              onClick={handleSubmit}
+              disabled={checkoutBusy}
+              loading={checkoutBusy}
+              className="min-h-[44px] min-w-[8.5rem] shrink-0 touch-manipulation"
+            >
+              Подтвердить
+            </Button>
+          )}
+        </div>
       </div>
     </PageContainer>
   );

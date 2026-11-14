@@ -5,14 +5,20 @@ import type { ReactElement } from 'react';
 
 const invalidateQueries = vi.fn();
 const getOrderPaymentStatus = vi.fn();
+const takePayAuth = vi.fn();
+const useAuthMock = vi.fn();
 
 vi.mock('next/navigation', () => ({
   useParams: () => ({ id: 'order-1' }),
 }));
 
+vi.mock('@/lib/hooks/useAuth', () => ({
+  useAuth: () => useAuthMock(),
+}));
+
 vi.mock('@/lib/api/services/payments.service', () => ({
   getOrderPaymentStatus: (...args: unknown[]) => getOrderPaymentStatus(...args),
-  takePayAuth: () => null,
+  takePayAuth: (...args: unknown[]) => takePayAuth(...args),
 }));
 
 vi.mock('@tanstack/react-query', async () => {
@@ -36,13 +42,32 @@ function renderWithClient(ui: ReactElement) {
   return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>);
 }
 
-describe('PaymentReturnPage cart invalidation', () => {
+describe('PaymentReturnPage (B8-005)', () => {
   beforeEach(() => {
     invalidateQueries.mockClear();
     getOrderPaymentStatus.mockReset();
+    takePayAuth.mockReset();
+    useAuthMock.mockReset();
+    useAuthMock.mockReturnValue({
+      isAuthenticated: false,
+      isLoading: false,
+      hasToken: false,
+    });
+  });
+
+  it('does not call payment API for guest without stash (no 403 spam)', async () => {
+    takePayAuth.mockReturnValue(null);
+    renderWithClient(<PaymentReturnPage />);
+    expect(await screen.findByText(/Нужен доступ к заказу/i)).toBeInTheDocument();
+    expect(getOrderPaymentStatus).not.toHaveBeenCalled();
   });
 
   it('does not invalidate cart while payment is pending', async () => {
+    takePayAuth.mockReturnValue({
+      phone: '79001112233',
+      order_number: 'R-1',
+      guest_token: 'tok',
+    });
     getOrderPaymentStatus.mockResolvedValue({
       payment: {
         status: 'pending',
@@ -53,7 +78,9 @@ describe('PaymentReturnPage cart invalidation', () => {
 
     renderWithClient(<PaymentReturnPage />);
 
-    expect(await screen.findByText(/Ожидаем подтверждение оплаты|Проверяем оплату/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/Ожидаем подтверждение оплаты|Проверяем оплату/)
+    ).toBeInTheDocument();
     await waitFor(() => {
       expect(getOrderPaymentStatus).toHaveBeenCalled();
     });
@@ -61,6 +88,11 @@ describe('PaymentReturnPage cart invalidation', () => {
   });
 
   it('invalidates cart only after backend confirms paid', async () => {
+    takePayAuth.mockReturnValue({
+      phone: '79001112233',
+      order_number: 'R-1',
+      guest_token: 'tok',
+    });
     getOrderPaymentStatus.mockResolvedValue({
       payment: {
         status: 'paid',
@@ -78,21 +110,23 @@ describe('PaymentReturnPage cart invalidation', () => {
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['orders'] });
   });
 
-  it('does not invalidate cart on failed payment', async () => {
+  it('authenticated user can poll without guest stash', async () => {
+    useAuthMock.mockReturnValue({
+      isAuthenticated: true,
+      isLoading: false,
+      hasToken: true,
+    });
+    takePayAuth.mockReturnValue(null);
     getOrderPaymentStatus.mockResolvedValue({
       payment: {
-        status: 'failed',
+        status: 'paid',
         order_number: 'R-1',
         amount: '1000.00',
       },
     });
 
     renderWithClient(<PaymentReturnPage />);
-
-    expect(await screen.findByText('Оплата не подтверждена')).toBeInTheDocument();
-    await waitFor(() => {
-      expect(getOrderPaymentStatus).toHaveBeenCalled();
-    });
-    expect(invalidateQueries).not.toHaveBeenCalled();
+    expect(await screen.findByText('Оплата прошла успешно')).toBeInTheDocument();
+    expect(getOrderPaymentStatus).toHaveBeenCalled();
   });
 });

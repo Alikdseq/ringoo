@@ -14,11 +14,13 @@ import {
   takePayAuth,
 } from '@/lib/api/services/payments.service';
 import { getFriendlyErrorMessage } from '@/lib/errors';
+import { useAuth } from '@/lib/hooks/useAuth';
 
 export default function PaymentFailPage(): ReactElement {
   const params = useParams();
   const router = useRouter();
   const orderId = String(params?.id ?? '');
+  const { isAuthenticated, hasToken } = useAuth();
   const [retrying, setRetrying] = useState(false);
   const [retryError, setRetryError] = useState<string | null>(null);
   const onlineEnabled = isOnlinePaymentUiEnabled();
@@ -29,11 +31,26 @@ export default function PaymentFailPage(): ReactElement {
     setRetryError(null);
     try {
       const auth = takePayAuth(orderId);
-      if (!auth?.phone || !auth?.order_number) {
-        setRetryError('Недостаточно данных для повторной оплаты. Откройте заказ по номеру и телефону.');
-        return;
+      const asOwner = isAuthenticated || hasToken;
+      // B8-005: гость без guest_token не может pay; владелец — через JWT.
+      if (!asOwner) {
+        if (!auth?.phone || !auth?.order_number || !auth?.guest_token) {
+          setRetryError(
+            'Недостаточно данных для повторной оплаты в этой вкладке. Откройте «Статус заказа» и восстановите доступ (номер + телефон / письмо).'
+          );
+          return;
+        }
       }
-      const result = await initiateOrderPayment(orderId, auth);
+      const result = await initiateOrderPayment(
+        orderId,
+        asOwner
+          ? undefined
+          : {
+              phone: auth!.phone,
+              order_number: auth!.order_number,
+              guest_token: auth!.guest_token,
+            }
+      );
       const redirectUrl = result.confirmation_url || result.form_url;
       if (redirectUrl) {
         window.location.href = redirectUrl;

@@ -38,6 +38,8 @@ def _catalog_order(**kwargs):
         name="S", slug=f"sec-s-{Store.objects.count()}", address="a", city="c"
     )
     Stock.objects.create(product=product, store=store, quantity=10, reserved_quantity=0)
+    from tests.order_fsm_assertions import fsm_v2_create_kwargs
+
     defaults = dict(
         full_name="Иван",
         phone="79001112233",
@@ -51,7 +53,7 @@ def _catalog_order(**kwargs):
         consent_personal_data=True,
     )
     defaults.update(kwargs)
-    order = Order.objects.create(**defaults)
+    order = Order.objects.create(**fsm_v2_create_kwargs(**defaults))
     OrderItem.objects.create(
         order=order,
         product=product,
@@ -492,8 +494,9 @@ class PaymentForgerySecurityTests(TestCase):
         with override_settings(LATE_ONLINE_PAYMENT_POLICY="manual"):
             updated = sync_payment_from_bank(payment, client=mock_client)
         self.assertEqual(updated.status, Payment.STATUS_NEEDS_REVIEW)
-        order.refresh_from_db()
-        self.assertEqual(order.status, Order.STATUS_CANCELLED)
+        from tests.order_fsm_assertions import assert_order_cancelled
+
+        assert_order_cancelled(self, order)
 
 
 @override_settings(SBER_ECOM_ENABLED=True, FRONTEND_URL="https://shop.test")

@@ -36,6 +36,8 @@ def _catalog():
 
 
 def _make_order(**kwargs):
+    from tests.order_fsm_assertions import fsm_v2_create_kwargs
+
     product, store = _catalog()
     user = kwargs.pop("user", None)
     defaults = dict(
@@ -52,7 +54,7 @@ def _make_order(**kwargs):
         consent_personal_data=True,
     )
     defaults.update(kwargs)
-    order = Order.objects.create(**defaults)
+    order = Order.objects.create(**fsm_v2_create_kwargs(**defaults))
     OrderItem.objects.create(
         order=order,
         product=product,

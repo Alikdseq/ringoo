@@ -204,3 +204,52 @@ class Sec005OrderIdempotencyIsolationTests(TestCase):
         )
         self.assertEqual(r2.status_code, 201)
         self.assertNotEqual(r1.json()["id"], r2.json()["id"])
+
+    def test_validation_error_releases_pending_lock(self):
+        """После 400 клиент может повторить с тем же ключом и исправленным телом."""
+        self.api.force_authenticate(user=self.user_a)
+        key = "fix-then-ok"
+        bad = self._payload(phone=self.user_a.phone)
+        bad.pop("consent_personal_data")
+        r_bad = self.api.post(
+            "/api/v1/orders/",
+            bad,
+            format="json",
+            HTTP_X_IDEMPOTENCY_KEY=key,
+        )
+        self.assertEqual(r_bad.status_code, 400)
+        r_ok = self.api.post(
+            "/api/v1/orders/",
+            self._payload(phone=self.user_a.phone),
+            format="json",
+            HTTP_X_IDEMPOTENCY_KEY=key,
+        )
+        self.assertEqual(r_ok.status_code, 201, r_ok.content)
+
+    def test_parallel_pending_claim_second_gets_conflict(self):
+        """
+        B8-004: второй запрос с тем же ключом, пока первый pending,
+        не должен создать второй заказ.
+        """
+        self.api.force_authenticate(user=self.user_a)
+        key = "parallel-claim"
+        payload = self._payload(phone=self.user_a.phone)
+
+        from apps.orders.views import _order_idempotency_cache_key
+        from django.test import RequestFactory
+
+        rf = RequestFactory()
+        req = rf.post("/api/v1/orders/")
+        req.user = self.user_a
+        ck = _order_idempotency_cache_key(req, key)
+        cache.set(ck, {"pending": True}, timeout=60)
+
+        r = self.api.post(
+            "/api/v1/orders/",
+            payload,
+            format="json",
+            HTTP_X_IDEMPOTENCY_KEY=key,
+        )
+        self.assertEqual(r.status_code, 409)
+        self.assertEqual(r.json().get("code"), "idempotency_in_progress")
+        self.assertEqual(Order.objects.filter(user=self.user_a).count(), 0)

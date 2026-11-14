@@ -332,7 +332,12 @@ class Sec006GuestAccessTokenTests(TestCase):
         )
         self.assertEqual(resp.status_code, 200)
         order = Order.objects.get(pk=data["id"])
-        self.assertEqual(order.status, Order.STATUS_CANCELLED)
+        # FSM v2: отмена → closed + closure_result=cancelled (не legacy status=cancelled).
+        from tests.order_fsm_assertions import assert_order_cancelled
+
+        assert_order_cancelled(self, order)
+        self.assertEqual(resp.json().get("display_status"), "cancelled")
+        self.assertEqual(resp.json().get("closure_result"), "cancelled")
 
     def test_expired_token_rejected(self):
         data = self._create_guest_order()

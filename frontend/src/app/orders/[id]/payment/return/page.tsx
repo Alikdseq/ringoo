@@ -1,7 +1,7 @@
 'use client';
 
 import type { ReactElement } from 'react';
-import { useEffect, useState } from 'react';
+import { useEffect, useSyncExternalStore } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { CheckCircle2, Loader2, XCircle } from 'lucide-react';
 import Link from 'next/link';
@@ -16,22 +16,48 @@ import {
 } from '@/lib/api/services/payments.service';
 import { CURRENCY_SYMBOL } from '@/lib/constants';
 import { getFriendlyErrorMessage } from '@/lib/errors';
+import { useAuth } from '@/lib/hooks/useAuth';
+
+function subscribePayAuthStore(_onStoreChange: () => void): () => void {
+  return () => {};
+}
+
+function readPayAuthSnapshot(orderId: string): PayGuestAuth | null {
+  if (!orderId) return null;
+  return takePayAuth(orderId);
+}
 
 /**
  * Return URL после оплаты (ЮKassa / Сбер).
  * Успех подтверждается только через API сайта → сверка со шлюзом на backend.
  * Возврат по URL сам по себе не означает оплату.
  * Корзина на backend очищается только при status=paid; здесь лишь инвалидируем кэш.
+ *
+ * B8-005: гость без sessionStorage stash не дергает payment API (403) —
+ * показываем восстановление через /order-status (SEC-006), без токена в URL.
  */
 export default function PaymentReturnPage(): ReactElement {
   const params = useParams();
   const orderId = String(params?.id ?? '');
   const queryClient = useQueryClient();
-  const [guestAuth, setGuestAuth] = useState<PayGuestAuth | null>(null);
+  const { isAuthenticated, isLoading: authLoading, hasToken } = useAuth();
+  // Client-only sessionStorage; SSR snapshot = null (без hydration mismatch).
+  const guestAuth = useSyncExternalStore(
+    subscribePayAuthStore,
+    () => readPayAuthSnapshot(orderId),
+    () => null
+  );
 
-  useEffect(() => {
-    if (orderId) setGuestAuth(takePayAuth(orderId));
-  }, [orderId]);
+  const canQueryPayment =
+    Boolean(orderId) &&
+    !authLoading &&
+    (isAuthenticated || hasToken || Boolean(guestAuth?.guest_token));
+
+  const missingGuestAccess =
+    !authLoading &&
+    !isAuthenticated &&
+    !hasToken &&
+    !guestAuth?.guest_token;
 
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
     queryKey: [
@@ -40,6 +66,7 @@ export default function PaymentReturnPage(): ReactElement {
       guestAuth?.phone,
       guestAuth?.order_number,
       guestAuth?.guest_token,
+      isAuthenticated,
     ],
     queryFn: () =>
       getOrderPaymentStatus(
@@ -52,7 +79,7 @@ export default function PaymentReturnPage(): ReactElement {
             }
           : undefined
       ),
-    enabled: Boolean(orderId),
+    enabled: canQueryPayment,
     refetchInterval: query => {
       const status = query.state.data?.payment?.status;
       if (
@@ -78,17 +105,51 @@ export default function PaymentReturnPage(): ReactElement {
     data?.payment?.status === 'reversed' ||
     data?.payment?.status === 'refunded';
 
-  // Только после backend-подтверждённого paid — обновить UI корзины (сервер уже очистил).
   useEffect(() => {
     if (!paid) return;
     void queryClient.invalidateQueries({ queryKey: ['cart'] });
     void queryClient.invalidateQueries({ queryKey: ['orders'] });
   }, [paid, queryClient]);
 
+  if (missingGuestAccess) {
+    const orderNumberHint = guestAuth?.order_number;
+    return (
+      <div className="mx-auto w-full max-w-lg px-4 py-12 sm:px-6">
+        <Card className="space-y-4 p-6 text-center">
+          <XCircle className="mx-auto h-12 w-12 text-amber-500" />
+          <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50">
+            Нужен доступ к заказу
+          </h1>
+          <p className="text-sm text-zinc-600 dark:text-zinc-300">
+            Данные для проверки оплаты в этой вкладке не найдены (другой браузер, режим
+            инкогнито или очищенное хранилище). Номер заказа сам по себе не открывает
+            персональные данные — восстановите доступ по телефону и письму.
+          </p>
+          <div className="flex flex-wrap justify-center gap-2 pt-2">
+            <Button asChild>
+              <Link
+                href={
+                  orderNumberHint
+                    ? `/order-status?order_number=${encodeURIComponent(orderNumberHint)}`
+                    : '/order-status'
+                }
+              >
+                Статус заказа
+              </Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link href="/catalog">В каталог</Link>
+            </Button>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto w-full max-w-lg px-4 py-12 sm:px-6">
       <Card className="space-y-4 p-6 text-center">
-        {(isLoading || isFetching) && !paid && !failed && !needsReview && (
+        {(authLoading || isLoading || isFetching) && !paid && !failed && !needsReview && (
           <>
             <Loader2 className="mx-auto h-10 w-10 animate-spin text-brand" />
             <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50">
@@ -155,11 +216,20 @@ export default function PaymentReturnPage(): ReactElement {
               <Button asChild>
                 <Link href={`/orders/${orderId}/payment/fail`}>К ошибке оплаты</Link>
               </Button>
+              <Button asChild variant="outline">
+                <Link href="/order-status">Статус заказа</Link>
+              </Button>
             </div>
           </>
         )}
 
-        {!isLoading && !paid && !failed && !needsReview && !isError && data && (
+        {!authLoading &&
+          !isLoading &&
+          !paid &&
+          !failed &&
+          !needsReview &&
+          !isError &&
+          data && (
           <>
             <Loader2 className="mx-auto h-10 w-10 animate-spin text-brand" />
             <h1 className="text-xl font-semibold">Ожидаем подтверждение оплаты</h1>

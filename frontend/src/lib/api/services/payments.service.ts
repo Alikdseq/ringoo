@@ -85,6 +85,11 @@ export function stashPayPhone(orderId: string, phone: string): void {
   stashPayAuth(orderId, { phone, order_number: '' });
 }
 
+/**
+ * Прочитать guest pay auth для orderId (sessionStorage, без удаления).
+ * Reload той же вкладки сохраняет доступ; новая вкладка/браузер — нет (SEC-006:
+ * восстановление через /order-status + email recover, не через order_number).
+ */
 export function takePayAuth(orderId: string): PayGuestAuth | null {
   try {
     const key = `${PAY_AUTH_KEY}:${orderId}`;
@@ -92,11 +97,16 @@ export function takePayAuth(orderId: string): PayGuestAuth | null {
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Partial<PayGuestAuth>;
     if (parsed?.phone && parsed?.order_number) {
-      return {
+      const auth: PayGuestAuth = {
         phone: parsed.phone,
         order_number: parsed.order_number,
         guest_token: parsed.guest_token || undefined,
       };
+      // Подтянуть token, сохранённый отдельно по order_number (cash/COD / recover).
+      if (!auth.guest_token && auth.order_number) {
+        auth.guest_token = peekGuestTokenByOrderNumber(auth.order_number);
+      }
+      return auth;
     }
     // legacy: только phone
     if (typeof raw === 'string' && raw && !raw.startsWith('{')) {

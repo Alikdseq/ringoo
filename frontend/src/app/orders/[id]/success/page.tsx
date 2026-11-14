@@ -1,19 +1,19 @@
 'use client';
 
 import type { ReactElement } from 'react';
+import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { CheckCircle2 } from 'lucide-react';
 import Link from 'next/link';
+import { useParams, useRouter } from 'next/navigation';
 import type { Order } from '@/types';
 import { getOrder } from '@/lib/api/services/orders.service';
+import { takePayAuth } from '@/lib/api/services/payments.service';
+import { useAuth } from '@/lib/hooks/useAuth';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Loading } from '@/components/ui/Loading';
 import { CURRENCY_SYMBOL } from '@/lib/constants';
-
-interface PageProps {
-  params: { id: string };
-}
 
 function OrderInfo({ order }: { order: Order }): ReactElement {
   return (
@@ -91,18 +91,55 @@ function OrderInfo({ order }: { order: Order }): ReactElement {
   );
 }
 
-export default function OrderSuccessPage({ params }: PageProps): ReactElement {
-  const { id } = params;
+/**
+ * Успех для авторизованного покупателя (B8-003: route id через useParams).
+ * Гость сюда не должен попадать после checkout (B8-001 → /orders/success);
+ * при прямом заходе — редирект на публичную страницу или сообщение без getOrder.
+ */
+export default function OrderSuccessPage(): ReactElement {
+  const params = useParams<{ id: string }>();
+  const id = String(params?.id ?? '');
+  const router = useRouter();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
+
+  useEffect(() => {
+    if (authLoading || !id || isAuthenticated) return;
+    const guestAuth = takePayAuth(id);
+    if (guestAuth?.order_number) {
+      router.replace(
+        `/orders/success?order_number=${encodeURIComponent(guestAuth.order_number)}`
+      );
+    }
+  }, [authLoading, isAuthenticated, id, router]);
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['order', id],
     queryFn: () => getOrder(id),
+    enabled: Boolean(id) && isAuthenticated && !authLoading,
   });
 
-  if (isLoading) {
+  if (authLoading || (isAuthenticated && isLoading)) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center">
         <Loading />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div className="flex min-h-[50vh] flex-col items-center justify-center px-4 text-center">
+        <p className="mb-3 text-sm text-zinc-600 dark:text-zinc-300">
+          Заказ оформлен. Для просмотра статуса укажите номер и телефон на странице проверки.
+        </p>
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <Button asChild variant="outline">
+            <Link href="/order-status">Проверить заказ</Link>
+          </Button>
+          <Button asChild>
+            <Link href="/catalog">Вернуться в каталог</Link>
+          </Button>
+        </div>
       </div>
     );
   }

@@ -162,9 +162,37 @@ class OrderListCreateView(APIView):
             cache_key = _order_idempotency_cache_key(request, idempotency_key)
             cached = cache.get(cache_key)
             if cached is not None:
+                if cached.get("pending"):
+                    # Параллельный запрос с тем же ключом ещё создаёт заказ.
+                    return Response(
+                        {
+                            "detail": "Заказ уже оформляется. Повторите через мгновение.",
+                            "code": "idempotency_in_progress",
+                        },
+                        status=status.HTTP_409_CONFLICT,
+                    )
                 return Response(
                     cached["data"],
                     status=cached["status"],
+                )
+            # B8-004: атомарный claim — второй параллельный запрос не создаст дубль.
+            claimed = cache.add(
+                cache_key,
+                {"pending": True},
+                timeout=getattr(
+                    django_settings, "ORDER_IDEMPOTENCY_CACHE_TIMEOUT", 86400
+                ),
+            )
+            if not claimed:
+                cached = cache.get(cache_key)
+                if cached and not cached.get("pending"):
+                    return Response(cached["data"], status=cached["status"])
+                return Response(
+                    {
+                        "detail": "Заказ уже оформляется. Повторите через мгновение.",
+                        "code": "idempotency_in_progress",
+                    },
+                    status=status.HTTP_409_CONFLICT,
                 )
 
         # Мутабельная копия: из тела нельзя полагаться только на session-корзину (разные cookie / гость).
@@ -190,6 +218,8 @@ class OrderListCreateView(APIView):
             if not data.get("items"):
                 # Старый путь: состав только из серверной корзины
                 if not cart.items.exists():
+                    if cache_key:
+                        cache.delete(cache_key)
                     return Response(
                         {"code": "ORDER_INVALID_ITEMS", "detail": "Корзина пуста."},
                         status=status.HTTP_400_BAD_REQUEST,
@@ -204,6 +234,8 @@ class OrderListCreateView(APIView):
 
         serializer = OrderCreateSerializer(data=data, context={"request": request})
         if not serializer.is_valid():
+            if cache_key:
+                cache.delete(cache_key)
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         attrs = serializer.validated_data
@@ -315,6 +347,8 @@ class OrderListCreateView(APIView):
                 )
 
         except InsufficientStockError:
+            if cache_key:
+                cache.delete(cache_key)
             detail = (
                 "Недостаточно товара в выбранном магазине. "
                 "Выберите магазин, где все позиции корзины есть в наличии."
@@ -446,7 +480,9 @@ class OrderReorderView(APIView):
 
             need_qty = int(order_item.quantity)
             if store is not None:
-                available = Stock.available_quantity_at_store(product.pk, store.pk)
+                available = Stock.available_quantity_retail(
+                    product.pk, store_id=store.pk
+                )
                 if available < need_qty:
                     skipped.append(
                         {
