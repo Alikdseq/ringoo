@@ -68,12 +68,16 @@ def transition_order_status(
 ) -> Order:
     """
     Идемпотентно при том же целевом состоянии.
-    closed+cancelled → cancel_order_and_release_stock.
+    closed+cancelled → cancel_order_and_release_stock (release резерва).
+    closed+completed → сохранить статус и release резерва без локального
+    списания quantity (физический остаток обновляет 1С / reconciliation).
     skip_onec_cancel=True — отмена пришла из 1С (не слать cancel обратно).
     """
     new_status, closure_result = _normalize_target(new_status, closure_result)
 
-    locked = Order.objects.select_for_update().get(pk=order.pk)
+    locked = Order.objects.select_for_update().prefetch_related("items").get(
+        pk=order.pk
+    )
     current_raw = locked.status
     current = normalize_status(current_raw)
 
@@ -118,6 +122,19 @@ def transition_order_status(
                 closure_result if new_status == Order.STATUS_CLOSED else None
             )
             locked.save(update_fields=["status", "closure_result", "updated_at"])
+        # Повтор completed/cancelled: снять «застрявший» резерв идемпотентно
+        # (ключи release:order:… уже не дадут двойного снятия).
+        if same_closed:
+            from integrations.onec.orders import release_order_item_reservations
+
+            release_order_item_reservations(
+                locked,
+                reason=(
+                    "order_completed_release"
+                    if closure_result == Order.CLOSURE_COMPLETED
+                    else "order_cancel_release"
+                ),
+            )
         return locked
 
     if current == Order.STATUS_CLOSED and not allow_system_override:
@@ -164,4 +181,16 @@ def transition_order_status(
         f"/{closure_result}" if closure_result else "",
         f" ({reason})" if reason else "",
     )
+
+    # ONEC-003: выдача заказа — освобождаем резерв, quantity не трогаем.
+    if (
+        new_status == Order.STATUS_CLOSED
+        and closure_result == Order.CLOSURE_COMPLETED
+    ):
+        from integrations.onec.orders import release_order_item_reservations
+
+        release_order_item_reservations(
+            locked, reason=reason or "order_completed_release"
+        )
+
     return locked

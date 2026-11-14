@@ -71,7 +71,17 @@ def _admin_orders_queryset(request):
 
 
 class OrderAdminUpdateSerializer(serializers.ModelSerializer):
-    """Админка: status (+ closure_result для closed)."""
+    """
+    Админка: status (+ closure_result для closed).
+
+    status объявлен CharField: Model ChoiceField отклонял алиасы
+    cancelled/completed до validate(), хотя FSM их нормализует в closed+result.
+    """
+
+    status = serializers.CharField(required=False)
+    closure_result = serializers.CharField(
+        required=False, allow_null=True, allow_blank=True
+    )
 
     class Meta:
         model = Order
@@ -83,8 +93,11 @@ class OrderAdminUpdateSerializer(serializers.ModelSerializer):
             return attrs
         new_status = attrs.get("status", instance.status)
         closure = attrs.get("closure_result", instance.closure_result)
+        if closure == "":
+            closure = None
+            attrs["closure_result"] = None
         if new_status in ("cancelled", "completed"):
-            # Совместимость со старым UI
+            # Совместимость со старым UI / PATCH {"status": "cancelled"}
             attrs["status"] = Order.STATUS_CLOSED
             attrs["closure_result"] = (
                 Order.CLOSURE_CANCELLED
@@ -93,6 +106,28 @@ class OrderAdminUpdateSerializer(serializers.ModelSerializer):
             )
             new_status = Order.STATUS_CLOSED
             closure = attrs["closure_result"]
+        elif new_status in ("confirmed", "in_progress"):
+            attrs["status"] = Order.STATUS_PROCESSING
+            new_status = Order.STATUS_PROCESSING
+            attrs["closure_result"] = None
+            closure = None
+        allowed_status = {
+            Order.STATUS_NEW,
+            Order.STATUS_PROCESSING,
+            Order.STATUS_READY,
+            Order.STATUS_CLOSED,
+        }
+        if new_status not in allowed_status:
+            raise serializers.ValidationError(
+                {"status": f"Недопустимый статус: {new_status}."}
+            )
+        if closure is not None and closure not in (
+            Order.CLOSURE_COMPLETED,
+            Order.CLOSURE_CANCELLED,
+        ):
+            raise serializers.ValidationError(
+                {"closure_result": "Допустимо: completed|cancelled."}
+            )
         if new_status == Order.STATUS_CLOSED and not closure:
             raise serializers.ValidationError(
                 {"closure_result": "Обязателен для status=closed."}

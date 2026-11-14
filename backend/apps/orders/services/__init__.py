@@ -96,7 +96,9 @@ def cancel_order_and_release_stock(
 
         from integrations.onec.orders import release_order_item_reservations
 
-        release_order_item_reservations(locked)
+        release_order_item_reservations(
+            locked, reason=reason or "order_cancel_release"
+        )
 
         if not skip_onec_cancel:
             order_pk = locked.pk

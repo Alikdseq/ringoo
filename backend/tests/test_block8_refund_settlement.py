@@ -63,7 +63,9 @@ class FullAndPartialRefundTests(TestCase):
         self.assertEqual(self.payment.status, Payment.STATUS_REFUNDED)
         self.assertEqual(self.payment.amount, Decimal("1000.00"))
         self.assertEqual(self.payment.refunded_amount, Decimal("1000.00"))
-        self.assertEqual(self.order.status, Order.STATUS_CANCELLED)
+        from tests.order_fsm_assertions import assert_order_cancelled
+
+        assert_order_cancelled(self, self.order)
         self.assertEqual(self.stock.reserved_quantity, 0)
         self.assertEqual(self.stock.quantity, 5)
         self.assertEqual(PaymentRefund.objects.filter(payment=self.payment).count(), 1)
@@ -78,7 +80,9 @@ class FullAndPartialRefundTests(TestCase):
         self.assertEqual(self.payment.status, Payment.STATUS_REFUNDED)
         self.assertEqual(self.payment.amount, Decimal("1000.00"))
         self.assertEqual(self.payment.refunded_amount, Decimal("1000.00"))
-        self.assertEqual(self.order.status, Order.STATUS_CANCELLED)
+        from tests.order_fsm_assertions import assert_order_cancelled
+
+        assert_order_cancelled(self, self.order)
         self.assertEqual(self.stock.quantity, 5)
         self.assertEqual(self.stock.reserved_quantity, 0)
         third = sync_refund_from_yookassa("rf-c", client=self._refund("rf-c", "1.00"))
@@ -147,7 +151,9 @@ class FullAndPartialRefundTests(TestCase):
         self.order.refresh_from_db()
         self.stock.refresh_from_db()
         self.assertEqual(self.payment.status, Payment.STATUS_REFUNDED)
-        self.assertEqual(self.order.status, Order.STATUS_CANCELLED)
+        from tests.order_fsm_assertions import assert_order_cancelled
+
+        assert_order_cancelled(self, self.order)
         self.assertEqual(self.stock.quantity, 5)
         self.assertEqual(self.stock.reserved_quantity, 0)
 

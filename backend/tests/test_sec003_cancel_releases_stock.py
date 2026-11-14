@@ -99,14 +99,18 @@ class Sec003CancelReleasesStockTests(TestCase):
         self.assertEqual(resp.status_code, 200)
         order.refresh_from_db()
         stock.refresh_from_db()
-        self.assertEqual(order.status, Order.STATUS_CANCELLED)
+        from tests.order_fsm_assertions import assert_order_cancelled
+
+        assert_order_cancelled(self, order)
+        self.assertEqual(stock.quantity, 10)
         self.assertEqual(stock.reserved_quantity, 0)
         enqueue.assert_called_once_with(order.pk)
 
-        # Повторная отмена: статус уже cancelled → 400 на user API
+        # Повторная отмена: заказ уже закрыт как cancelled → 400 на user API
         resp2 = self.api.post(f"/api/v1/orders/{order.id}/cancel/", {}, format="json")
         self.assertEqual(resp2.status_code, 400)
         stock.refresh_from_db()
+        self.assertEqual(stock.quantity, 10)
         self.assertEqual(stock.reserved_quantity, 0)
 
     def test_service_double_cancel_does_not_over_release(self):
@@ -143,7 +147,10 @@ class Sec003CancelReleasesStockTests(TestCase):
         self.assertEqual(resp.status_code, 200, resp.content)
         order.refresh_from_db()
         stock.refresh_from_db()
-        self.assertEqual(order.status, Order.STATUS_CANCELLED)
+        from tests.order_fsm_assertions import assert_order_cancelled
+
+        assert_order_cancelled(self, order)
+        self.assertEqual(stock.quantity, 10)
         self.assertEqual(stock.reserved_quantity, 0)
         enqueue.assert_called_once_with(order.pk)
 
@@ -157,6 +164,7 @@ class Sec003CancelReleasesStockTests(TestCase):
                 )
         self.assertEqual(resp2.status_code, 200)
         stock.refresh_from_db()
+        self.assertEqual(stock.quantity, 10)
         self.assertEqual(stock.reserved_quantity, 0)
         enqueue2.assert_not_called()
 
@@ -208,6 +216,9 @@ class Sec003CancelReleasesStockTests(TestCase):
                 admin_obj.save_model(request, order, form=None, change=True)
         stock.refresh_from_db()
         order.refresh_from_db()
-        self.assertEqual(order.status, Order.STATUS_CANCELLED)
+        from tests.order_fsm_assertions import assert_order_cancelled
+
+        assert_order_cancelled(self, order)
+        self.assertEqual(stock.quantity, 10)
         self.assertEqual(stock.reserved_quantity, 0)
         enqueue.assert_called_once()

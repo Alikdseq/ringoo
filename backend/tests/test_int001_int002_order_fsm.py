@@ -22,6 +22,8 @@ User = get_user_model()
 
 
 def _order(status=Order.STATUS_NEW):
+    from tests.order_fsm_assertions import fsm_v2_create_kwargs
+
     cat = Category.objects.create(title="C", slug=f"fsm-{Category.objects.count()}")
     product = Product.objects.create(
         title="P",
@@ -35,14 +37,16 @@ def _order(status=Order.STATUS_NEW):
     )
     Stock.objects.create(product=product, store=store, quantity=5, reserved_quantity=1)
     order = Order.objects.create(
-        full_name="A",
-        phone="79001112233",
-        delivery_type=Order.DELIVERY_PICKUP,
-        store=store,
-        payment_type=Order.PAYMENT_CASH,
-        status=status,
-        total_amount=Decimal("100.00"),
-        consent_personal_data=True,
+        **fsm_v2_create_kwargs(
+            full_name="A",
+            phone="79001112233",
+            delivery_type=Order.DELIVERY_PICKUP,
+            store=store,
+            payment_type=Order.PAYMENT_CASH,
+            status=status,
+            total_amount=Decimal("100.00"),
+            consent_personal_data=True,
+        )
     )
     OrderItem.objects.create(
         order=order,
@@ -91,7 +95,9 @@ class OrderFsmTests(TestCase):
         admin.action_set_status_confirmed(
             req, Order.objects.filter(pk__in=[cancelled.pk, fresh.pk])
         )
+        from tests.order_fsm_assertions import assert_order_cancelled
+
         cancelled.refresh_from_db()
         fresh.refresh_from_db()
-        self.assertEqual(cancelled.status, Order.STATUS_CANCELLED)
+        assert_order_cancelled(self, cancelled)
         self.assertEqual(fresh.status, Order.STATUS_CONFIRMED)

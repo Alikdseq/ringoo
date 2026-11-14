@@ -45,6 +45,8 @@ class _FakeHTTPResponse:
 
 
 def _order(**kwargs):
+    from tests.order_fsm_assertions import fsm_v2_create_kwargs
+
     cat = Category.objects.create(title="Cat", slug=f"c-{Category.objects.count()}")
     product = Product.objects.create(
         title="Phone",
@@ -70,7 +72,7 @@ def _order(**kwargs):
         consent_personal_data=True,
     )
     defaults.update(kwargs)
-    order = Order.objects.create(**defaults)
+    order = Order.objects.create(**fsm_v2_create_kwargs(**defaults))
     OrderItem.objects.create(
         order=order,
         product=product,
@@ -360,7 +362,9 @@ class PaymentServiceTests(TestCase):
         result = expire_unpaid_online_orders()
         self.assertEqual(result["cancelled"], 1)
         order.refresh_from_db()
-        self.assertEqual(order.status, Order.STATUS_CANCELLED)
+        from tests.order_fsm_assertions import assert_order_cancelled
+
+        assert_order_cancelled(self, order)
         stock.refresh_from_db()
         self.assertEqual(stock.reserved_quantity, 0)
 

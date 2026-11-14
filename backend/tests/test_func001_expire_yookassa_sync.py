@@ -106,7 +106,9 @@ class Func001ExpireYooKassaSyncTests(TestCase):
         self.assertGreaterEqual(result["rescued_paid"], 1)
         order.refresh_from_db()
         payment.refresh_from_db()
-        self.assertNotEqual(order.status, Order.STATUS_CANCELLED)
+        from tests.order_fsm_assertions import assert_order_not_cancelled
+
+        assert_order_not_cancelled(self, order)
         self.assertEqual(payment.status, Payment.STATUS_PAID)
         stock = Stock.objects.get(product=product, store=store)
         self.assertEqual(stock.reserved_quantity, 1)
@@ -127,7 +129,9 @@ class Func001ExpireYooKassaSyncTests(TestCase):
         result = expire_unpaid_online_orders()
         self.assertEqual(result["cancelled"], 1)
         order.refresh_from_db()
-        self.assertEqual(order.status, Order.STATUS_CANCELLED)
+        from tests.order_fsm_assertions import assert_order_cancelled
+
+        assert_order_cancelled(self, order)
         stock = Stock.objects.get(product=product, store=store)
         self.assertEqual(stock.reserved_quantity, 0)
 
@@ -147,7 +151,9 @@ class Func001ExpireYooKassaSyncTests(TestCase):
         result = expire_unpaid_online_orders()
         self.assertEqual(result["cancelled"], 1)
         order.refresh_from_db()
-        self.assertEqual(order.status, Order.STATUS_CANCELLED)
+        from tests.order_fsm_assertions import assert_order_cancelled
+
+        assert_order_cancelled(self, order)
 
     @patch("apps.payments.yookassa_service.YooKassaClient")
     def test_api_unavailable_does_not_blind_cancel(self, MockClient):
@@ -180,7 +186,9 @@ class Func001ExpireYooKassaSyncTests(TestCase):
         payment.refresh_from_db()
         self.assertEqual(payment.status, Payment.STATUS_NEEDS_REVIEW)
         order.refresh_from_db()
-        self.assertNotEqual(order.status, Order.STATUS_CANCELLED)
+        from tests.order_fsm_assertions import assert_order_not_cancelled
+
+        assert_order_not_cancelled(self, order)
         self.assertEqual(result["cancelled"], 0)
 
     @patch("apps.payments.yookassa_service.YooKassaClient")

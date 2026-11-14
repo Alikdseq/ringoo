@@ -97,7 +97,9 @@ class Func002Func009CancelTests(TestCase):
         resp = self.api.post(f"/api/v1/orders/{order.id}/cancel/", {}, format="json")
         self.assertEqual(resp.status_code, 200, resp.content)
         order.refresh_from_db()
-        self.assertEqual(order.status, Order.STATUS_CANCELLED)
+        from tests.order_fsm_assertions import assert_order_cancelled
+
+        assert_order_cancelled(self, order)
         stock = Stock.objects.get(product=product, store=store)
         self.assertEqual(stock.reserved_quantity, 0)
 
@@ -194,7 +196,9 @@ class Func002Func009CancelTests(TestCase):
                 self.assertEqual(resp.status_code, 200, resp.content)
                 cancel_order_and_release_stock(order, reason="repeat")
         order.refresh_from_db()
-        self.assertEqual(order.status, Order.STATUS_CANCELLED)
+        from tests.order_fsm_assertions import assert_order_cancelled
+
+        assert_order_cancelled(self, order)
         stock = Stock.objects.get(product=product, store=store)
         self.assertEqual(stock.reserved_quantity, 0)
         self.assertEqual(enq.call_count, 1)

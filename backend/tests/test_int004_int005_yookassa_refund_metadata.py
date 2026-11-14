@@ -136,7 +136,9 @@ class Int004RefundSucceededTests(TestCase):
         self.assertEqual(self.payment.refunded_amount, Decimal("1000.00"))
         self.assertIsNotNone(self.payment.refunded_at)
         self.order.refresh_from_db()
-        self.assertEqual(self.order.status, Order.STATUS_CANCELLED)
+        from tests.order_fsm_assertions import assert_order_cancelled
+
+        assert_order_cancelled(self, self.order)
 
     def test_refund_idempotent(self):
         client = MagicMock()
