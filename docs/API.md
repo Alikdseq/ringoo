@@ -73,8 +73,8 @@ Content-Type: application/json
 - `GET /api/v1/products/products/product-models/` - Линейки моделей в текущей выборке (те же фильтры, что у списка, **без** `model`). Ответ: `{ "results": [{ "key": "iphone-17-pro-max", "label": "iPhone 17 Pro Max", "count": 12 }] }`.
 - `GET /api/v1/products/products/{slug}/` - Детали товара
 - `GET /api/v1/products/products/{product_id}/stock/` - Наличие товара в магазинах (`product_id` — UUID)
-- `GET /api/v1/categories/` - Список категорий
-- `GET /api/v1/categories/{slug}/` - Детали категории
+- `GET /api/v1/products/categories/` - Список категорий (префикс `products/`, не корневой `/categories/`). Опционально `?is_active=true|false` (по умолчанию только активные).
+- `GET /api/v1/products/categories/{id}/` - Детали категории (`id` — UUID, не slug)
 
 ### Корзина
 
@@ -118,7 +118,7 @@ Content-Type: application/json
 
 ### Admin API (staff)
 
-- `GET|POST /api/v1/admin/managers/` — список менеджеров (`?store=`, `?search=`, `?is_active=`)
+- `GET /api/v1/admin/managers/` — список менеджеров (`?store=`, `?search=`, `?is_active=`)
 - `POST /api/v1/admin/managers/create/` — создать менеджера (multipart: `photo`, `photo_2`)
 - `PATCH|DELETE /api/v1/admin/managers/{id}/` — изменить / удалить
 - `GET /api/v1/admin/content/page-gallery/?placement=` — галереи страниц (staff)
@@ -155,7 +155,7 @@ http://localhost:8000/api/schema/
 ```json
 {
   "count": 100,
-  "next": "http://localhost:8000/api/v1/products/?page=2",
+  "next": "http://localhost:8000/api/v1/products/products/?page=2",
   "previous": null,
   "results": [...]
 }
@@ -165,15 +165,23 @@ http://localhost:8000/api/schema/
 
 ### Товары
 
+Список: `GET /api/v1/products/products/`.
+
 - `?category=slug` - Фильтр по категории
+- `?brand=` - Фильтр по бренду
+- `?model=` - Ключ линейки (из `product-models`)
 - `?min_price=1000&max_price=5000` - Фильтр по цене
 - `?search=название` - Поиск по названию
-- `?ordering=price` - Сортировка (price, -price, created_at, -created_at)
+- `?in_stock=true` - Только в наличии
+- `?store=slug` - В наличии в магазине
+- `?rating_min=` - Минимальный рейтинг
+- `?ordering=` - `popular` | `price_asc` | `price_desc` | `rating_desc` | `created_at` (не `price` / `-price`)
+- `?page=`, `?page_size=` - Пагинация
 
 ### Заказы
 
-- `?status=new` - Фильтр по статусу
-- `?ordering=-created_at` - Сортировка по дате
+- `?status=new` - Фильтр по статусу (значение поля `status` FSM; для UI-отмены см. `display_status` / `closed`+`closure_result`)
+- `?ordering=created_at` или `-created_at` - Сортировка по дате
 
 ## Коды ошибок
 
@@ -191,9 +199,10 @@ http://localhost:8000/api/schema/
 ### Получить список товаров
 
 ```bash
-curl -X GET "http://localhost:8000/api/v1/products/?category=smartphones&min_price=10000" \
-  -H "Authorization: Bearer <token>"
+curl -X GET "http://localhost:8000/api/v1/products/products/?category=smartphones&min_price=10000&ordering=price_asc"
 ```
+
+(Каталог публичный: Bearer не обязателен.)
 
 ### Добавить товар в корзину
 
@@ -245,6 +254,7 @@ API использует rate limiting для защиты от злоупотр
 
 ---
 
-**Дата создания:** 2026-02-05  
-**Версия:** 1.0  
+**Дата создания:** 2026-02-05
+**Обновлено:** 2026-11-14 (FIX-PACK H / B8-015 — синхронизация маршрутов категорий и примеров с backend)
+**Версия:** 1.1
 **Статус:** В разработке
