@@ -1,25 +1,9 @@
 import type { MetadataRoute } from 'next';
 import { buildInternalDjangoFetchInit } from '@/lib/api/server-fetch';
+import { PUBLIC_INDEXABLE_STATIC_ROUTES } from '@/lib/seo/public-site-routes';
 import { getApiV1BaseUrl, getSiteUrl } from '@/lib/site-url';
 
 const REVALIDATE = 3600;
-
-const STATIC_PATHS = [
-  '/',
-  '/catalog',
-  '/promotions',
-  '/installment',
-  '/stores',
-  '/about',
-  '/order-status',
-  '/site-map',
-  '/docs/requisites',
-  '/docs/offer',
-  '/docs/privacy',
-  '/docs/consent',
-  '/docs/marketing-consent',
-  '/docs/cookies',
-] as const;
 
 interface Paginated<T> {
   next: string | null;
@@ -35,7 +19,10 @@ async function fetchAllPages<T>(
   let url: string | null = `${api}${initialPath}`;
   try {
     while (url) {
-      const res = await fetch(url, buildInternalDjangoFetchInit({ next: { revalidate: REVALIDATE } }));
+      const res = await fetch(
+        url,
+        buildInternalDjangoFetchInit({ next: { revalidate: REVALIDATE } })
+      );
       if (!res.ok) break;
       const data = (await res.json()) as Paginated<T>;
       for (const row of data.results ?? []) {
@@ -54,23 +41,28 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = getSiteUrl();
   const now = new Date();
 
-  const staticEntries: MetadataRoute.Sitemap = STATIC_PATHS.map(path => ({
-    url: `${base}${path === '/' ? '' : path}`,
-    lastModified: now,
-    changeFrequency: path === '/' ? 'daily' : 'weekly',
-    priority: path === '/' ? 1 : 0.7,
-  }));
+  const staticEntries: MetadataRoute.Sitemap = PUBLIC_INDEXABLE_STATIC_ROUTES.map(
+    route => ({
+      url: `${base}${route.path === '/' ? '' : route.path}`,
+      lastModified: now,
+      changeFrequency: route.changeFrequency ?? 'weekly',
+      priority: route.priority ?? 0.7,
+    })
+  );
 
-  const [productSlugs, categorySlugs, storeSlugs] = await Promise.all([
-    fetchAllPages<{ slug?: string }>('/products/products/?page_size=100', p => p.slug ?? null),
-    fetchAllPages<{ slug?: string }>('/products/categories/?page_size=100', c =>
-      c.slug ? c.slug : null
-    ),
-    fetchAllPages<{ slug?: string; is_active?: boolean }>(
-      '/stores/?page_size=100&is_active=true',
-      s => (s.is_active !== false && s.slug ? s.slug : null)
-    ),
-  ]);
+  const [productSlugs, categorySlugs, storeSlugs, articleSlugs, newsSlugs] =
+    await Promise.all([
+      fetchAllPages<{ slug?: string }>('/products/products/?page_size=100', p => p.slug ?? null),
+      fetchAllPages<{ slug?: string }>('/products/categories/?page_size=100', c =>
+        c.slug ? c.slug : null
+      ),
+      fetchAllPages<{ slug?: string; is_active?: boolean }>(
+        '/stores/?page_size=100&is_active=true',
+        s => (s.is_active !== false && s.slug ? s.slug : null)
+      ),
+      fetchAllPages<{ slug?: string }>('/content/articles/?page_size=100', a => a.slug ?? null),
+      fetchAllPages<{ slug?: string }>('/content/news/?page_size=100', n => n.slug ?? null),
+    ]);
 
   const productEntries: MetadataRoute.Sitemap = productSlugs.map(slug => ({
     url: `${base}/products/${slug}`,
@@ -93,5 +85,26 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.75,
   }));
 
-  return [...staticEntries, ...categoryEntries, ...productEntries, ...storeEntries];
+  const articleEntries: MetadataRoute.Sitemap = articleSlugs.map(slug => ({
+    url: `${base}/blog/${slug}`,
+    lastModified: now,
+    changeFrequency: 'weekly',
+    priority: 0.65,
+  }));
+
+  const newsEntries: MetadataRoute.Sitemap = newsSlugs.map(slug => ({
+    url: `${base}/news/${slug}`,
+    lastModified: now,
+    changeFrequency: 'weekly',
+    priority: 0.65,
+  }));
+
+  return [
+    ...staticEntries,
+    ...categoryEntries,
+    ...productEntries,
+    ...storeEntries,
+    ...articleEntries,
+    ...newsEntries,
+  ];
 }
