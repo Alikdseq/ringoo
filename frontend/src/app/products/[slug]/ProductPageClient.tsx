@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ShoppingCart, Star, Zap } from 'lucide-react';
+import { ShoppingCart, Star } from 'lucide-react';
 import type { ProductDetail, Store } from '@/types';
 import { getStores } from '@/lib/api/services/stores.service';
 import { addToCart } from '@/lib/api/services/cart.service';
@@ -14,7 +14,6 @@ import { Loading } from '@/components/ui/Loading';
 import { Button } from '@/components/ui/Button';
 import { ProductSpecsTable } from '@/components/features/products/ProductSpecsTable';
 import { ProductTabs } from '@/components/features/products/ProductTabs';
-import { Modal } from '@/components/ui/Modal';
 import { ProductDetailRecommendations } from '@/components/features/products/ProductDetailRecommendations';
 import { FreeDeliveryBadge } from '@/components/ui/FreeDeliveryBadge';
 import { useProduct } from '@/lib/hooks/useProducts';
@@ -58,7 +57,6 @@ interface ProductPageClientProps {
 
 function ProductContent({ product }: { product: ProductDetail }): ReactElement {
   const { mode } = useUiMode();
-  const [isOneClickOpen, setIsOneClickOpen] = useState(false);
   const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null);
   const [selectedColorId, setSelectedColorId] = useState<string | null>(null);
   const colorGroups = useMemo(() => mergeColorGroups(product.colors ?? []), [product.colors]);
@@ -97,8 +95,6 @@ function ProductContent({ product }: { product: ProductDetail }): ReactElement {
     }
   );
 
-  const isOutOfStock = product.availability_status === 'out_of_stock';
-
   const queryClient = useQueryClient();
   const addToCartMutation = useMutation({
     mutationFn: (quantity: number) =>
@@ -116,13 +112,33 @@ function ProductContent({ product }: { product: ProductDetail }): ReactElement {
   const stores: Store[] = storesData?.results ?? [];
 
   const stockList = product.stock ?? [];
-  const productStores = stockList
-    .map(stock => {
-      const store = stores.find(s => s.id === stock.store);
-      if (!store) return null;
-      return { store, quantity: stock.available_quantity };
-    })
-    .filter((item): item is { store: Store; quantity: number } => Boolean(item));
+  // ONEC-010: суммируем серии одного магазина (на случай сырых строк без агрегации API).
+  const productStores = (() => {
+    const byStore = new Map<string, number>();
+    for (const stock of stockList) {
+      const storeId = stock.store;
+      byStore.set(
+        storeId,
+        (byStore.get(storeId) ?? 0) + (stock.available_quantity ?? 0)
+      );
+    }
+    return stores
+      .map(store => {
+        const quantity = byStore.get(store.id);
+        if (quantity == null) return null;
+        return { store, quantity };
+      })
+      .filter((item): item is { store: Store; quantity: number } => Boolean(item));
+  })();
+
+  const selectedStoreAvailable =
+    selectedStoreId == null
+      ? null
+      : (productStores.find(item => item.store.id === selectedStoreId)?.quantity ?? 0);
+
+  const isOutOfStock =
+    product.availability_status === 'out_of_stock' ||
+    (selectedStoreAvailable !== null && selectedStoreAvailable <= 0);
 
   return (
     <>
@@ -247,10 +263,6 @@ function ProductContent({ product }: { product: ProductDetail }): ReactElement {
                 <ShoppingCart className="mr-2 h-4 w-4" />
                 {addToCartButtonLabel(mode, isOutOfStock)}
               </Button>
-              <Button variant="secondary" fullWidth onClick={() => setIsOneClickOpen(true)}>
-                <Zap className="mr-2 h-4 w-4" />
-                Купить в 1 клик
-              </Button>
             </div>
 
             <Link href="/catalog" className="mt-4 inline-flex text-sm text-info hover:underline">
@@ -280,7 +292,14 @@ function ProductContent({ product }: { product: ProductDetail }): ReactElement {
                     >
                       <div className="flex items-center justify-between gap-2">
                         <div>
-                          <p className="font-medium text-foreground">{store.name}</p>
+                          <p className="font-medium text-foreground">
+                            {store.name}
+                            {store.is_warehouse ? (
+                              <span className="ml-2 text-xs font-normal text-foreground-muted">
+                                склад
+                              </span>
+                            ) : null}
+                          </p>
                           <p className="text-xs text-foreground-muted">
                             {store.city}, {store.address}
                           </p>
@@ -320,22 +339,6 @@ function ProductContent({ product }: { product: ProductDetail }): ReactElement {
           </div>
           <ProductDetailRecommendations product={product} />
         </section>
-
-        <Modal
-          isOpen={isOneClickOpen}
-          onClose={() => setIsOneClickOpen(false)}
-          title="Купить в 1 клик"
-        >
-          <p className="mb-4 text-sm text-foreground-muted">
-            Здесь будет форма для быстрого заказа. Пока это заглушка.
-          </p>
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setIsOneClickOpen(false)}>
-              Отмена
-            </Button>
-            <Button onClick={() => setIsOneClickOpen(false)}>Отправить заявку</Button>
-          </div>
-        </Modal>
       </PageContainer>
 
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-white/95 backdrop-blur lg:hidden">

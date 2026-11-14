@@ -55,12 +55,12 @@ export function CartItem({ item, onIncrease, onDecrease, onRemove }: CartItemPro
             </div>
           )}
         </div>
-        <div className="flex flex-1 flex-col gap-2">
+        <div className="flex min-w-0 flex-1 flex-col gap-2">
           <div className="flex items-start justify-between gap-2">
-            <div>
+            <div className="min-w-0 flex-1">
               <Link
                 href={`/products/${product.slug}`}
-                className="text-sm font-medium text-zinc-900 hover:underline active:text-brand dark:text-zinc-50"
+                className="line-clamp-2 break-words text-sm font-medium text-zinc-900 hover:underline active:text-brand dark:text-zinc-50"
               >
                 {product.title}
               </Link>

@@ -118,6 +118,8 @@ export interface Store {
     longitude: string;
   } | null;
   working_hours: Record<string, string> | null;
+  /** Метка «Склад»/Apple Room для UI; точка участвует в наличии и заказе. */
+  is_warehouse?: boolean;
 }
 
 export interface Stock {

@@ -188,9 +188,15 @@ export function ProductCard({
     else add(product.id);
   };
 
+  const isOutOfStock =
+    product.availability_status === 'out_of_stock' ||
+    (typeof product.available_quantity_total === 'number' &&
+      product.available_quantity_total <= 0);
+
   const handleAddToCart = (event: React.MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
     event.stopPropagation();
+    if (isOutOfStock) return;
     setAddError(null);
     addToCartMutation.mutate(
       {
@@ -429,7 +435,7 @@ export function ProductCard({
                     size="sm"
                     className="h-11 w-11 rounded-full px-0"
                     onClick={handleAddToCart}
-                    disabled={addToCartMutation.isPending}
+                    disabled={isOutOfStock || addToCartMutation.isPending}
                     aria-label={addToCartAriaLabel(mode)}
                   >
                     <ShoppingCart className="h-8 w-8 stroke-[3]" />
@@ -459,7 +465,7 @@ export function ProductCard({
                     size="sm"
                     className="h-11 w-11 rounded-full px-0"
                     onClick={handleAddToCart}
-                    disabled={addToCartMutation.isPending}
+                    disabled={isOutOfStock || addToCartMutation.isPending}
                     aria-label={addToCartAriaLabel(mode)}
                   >
                     <ShoppingCart className="h-8 w-8 stroke-[3]" />

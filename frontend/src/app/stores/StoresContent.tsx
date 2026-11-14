@@ -289,8 +289,11 @@ export function StoresContent() {
   });
 
   const stockByStore = useMemo(() => {
-    const map = new Map<string, Stock>();
-    for (const s of stock) map.set(s.store, s);
+    // ONEC-010: суммируем available по store (несколько серий → одна точка).
+    const map = new Map<string, number>();
+    for (const s of stock) {
+      map.set(s.store, (map.get(s.store) ?? 0) + (s.available_quantity ?? 0));
+    }
     return map;
   }, [stock]);
 
@@ -299,7 +302,7 @@ export function StoresContent() {
     return base
       .map(s => ({
         store: s,
-        available: stockByStore.get(s.id)?.available_quantity ?? 0,
+        available: stockByStore.get(s.id) ?? 0,
       }))
       .filter(x => (selectedProduct ? true : false));
   }, [stores, city, stockByStore, selectedProduct]);

@@ -66,7 +66,7 @@ export const HEADER_BRAND_CLUSTER_CLASS =
 
 /** Внутренняя раскладка «таблетки»: mobile flex, desktop 3 колонки */
 export const HEADER_PILL_INNER_CLASS =
-  'flex w-full min-w-0 items-center justify-between gap-2 py-2 pl-2 pr-1 sm:pl-2.5 sm:pr-1.5 md:grid md:grid-cols-[auto_minmax(0,1fr)_auto] md:items-center md:gap-x-4 md:px-5 md:py-2.5 lg:gap-x-6 lg:px-6 lg:py-3';
+  'flex w-full min-w-0 items-center justify-between gap-1 overflow-hidden py-2 pl-1.5 pr-1 max-[379px]:gap-0.5 sm:gap-2 sm:pl-2.5 sm:pr-1.5 md:grid md:grid-cols-[auto_minmax(0,1fr)_auto] md:items-center md:gap-x-4 md:overflow-visible md:px-5 md:py-2.5 lg:gap-x-6 lg:px-6 lg:py-3';
 
 /** Центральное меню (desktop) */
 export const HEADER_NAV_CLASS =
@@ -74,19 +74,19 @@ export const HEADER_NAV_CLASS =
 
 /** Правая зона: поиск, переключатель, иконки */
 export const HEADER_ACTIONS_CLUSTER_CLASS =
-  'flex min-w-0 shrink-0 items-center justify-end gap-1.5 md:gap-2 lg:gap-3';
+  'flex min-w-0 shrink-0 items-center justify-end gap-0.5 sm:gap-1.5 md:gap-2 lg:gap-3';
 
 /** Ряд иконок избранное / корзина / бургер */
 export const HEADER_ICONS_ROW_CLASS =
-  'flex shrink-0 items-center gap-0.5 md:gap-1.5 lg:gap-2 md:pl-0.5';
+  'flex shrink-0 items-center gap-0 md:gap-1.5 lg:gap-2 md:pl-0.5';
 
-/** Размер логотипа: mobile чуть крупнее, desktop сбалансированный */
+/** Размер логотипа: на 360px компактнее, чтобы меню не вылезало за viewport */
 export const HEADER_LOGO_BOX_CLASS =
-  'h-12 w-[min(108px,34vw)] max-w-[34vw] shrink-0 max-[399px]:-mr-0.5 sm:h-[3.25rem] sm:w-[7.75rem] sm:max-w-none md:h-14 md:w-[8.25rem] lg:h-[4.25rem] lg:w-[9.25rem]';
+  'h-11 w-[min(96px,28vw)] max-w-[28vw] shrink-0 max-[379px]:h-10 max-[379px]:w-[min(84px,24vw)] max-[379px]:max-w-[24vw] sm:h-[3.25rem] sm:w-[7.75rem] sm:max-w-none md:h-14 md:w-[8.25rem] lg:h-[4.25rem] lg:w-[9.25rem]';
 
-/** Кнопка «Каталог» в хедере — текст всегда виден */
+/** Кнопка «Каталог»: на ≤379px только иконка (aria-label сохраняет доступность) */
 export const HEADER_CATALOG_BUTTON_CLASS =
-  'inline-flex shrink-0 items-center gap-1 rounded-full bg-[var(--color-brand)] font-semibold text-white transition-all duration-200 touch-manipulation hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand)] focus-visible:ring-offset-2 focus-visible:ring-offset-white h-9 min-h-9 px-2 text-[10px] leading-none max-[399px]:[&_svg]:h-3.5 max-[399px]:[&_svg]:w-3.5 sm:h-10 sm:gap-1.5 sm:px-2.5 sm:text-[11px] sm:[&_svg]:h-4 sm:[&_svg]:w-4 md:h-auto md:min-h-0 md:gap-1.5 md:px-4 md:py-2.5 md:text-base md:[&_svg]:h-5 md:[&_svg]:w-5';
+  'inline-flex shrink-0 items-center gap-1 rounded-full bg-[var(--color-brand)] font-semibold text-white transition-all duration-200 touch-manipulation hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand)] focus-visible:ring-offset-2 focus-visible:ring-offset-white h-9 min-h-9 px-2 text-[10px] leading-none max-[379px]:px-2 max-[379px]:[&>span]:sr-only max-[399px]:[&_svg]:h-3.5 max-[399px]:[&_svg]:w-3.5 sm:h-10 sm:gap-1.5 sm:px-2.5 sm:text-[11px] sm:[&_svg]:h-4 sm:[&_svg]:w-4 md:h-auto md:min-h-0 md:gap-1.5 md:px-4 md:py-2.5 md:text-base md:[&_svg]:h-5 md:[&_svg]:w-5';
 
 /** Бейдж на иконке (внутри кнопки, без отрицательных отступов) */
 export const HEADER_BADGE_CLASS =

@@ -29,7 +29,8 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Loading } from '@/components/ui/Loading';
 import { CURRENCY_SYMBOL } from '@/lib/constants';
-import { getFriendlyErrorMessage } from '@/lib/errors';
+import { getApiErrorStatus, getFriendlyErrorMessage } from '@/lib/errors';
+import { LEGAL_ORG } from '@/lib/legal/constants';
 import { isOrderIdParam } from '@/lib/validation/route-params';
 
 function formatDate(date: string): string {
@@ -232,9 +233,16 @@ function OrderDetail({
               {cancelError}
             </p>
           )}
-          <Button variant="outline" className="flex items-center gap-2">
-            <MessageCircle className="h-4 w-4" />
-            Связаться с поддержкой
+          <Button asChild variant="outline">
+            <a
+              className="inline-flex items-center gap-2"
+              href={`mailto:${LEGAL_ORG.email}?subject=${encodeURIComponent(
+                `Заказ ${order.order_number}`
+              )}`}
+            >
+              <MessageCircle className="h-4 w-4" />
+              Написать на {LEGAL_ORG.email}
+            </a>
           </Button>
         </div>
         <div className="flex gap-2 sm:justify-end">
@@ -268,13 +276,18 @@ export default function OrderDetailPage(): ReactElement {
   const [isRedirectingToPay, setIsRedirectingToPay] = useState(false);
 
   const queryClient = useQueryClient();
-  const { data, isLoading, isError } = useQuery({
+  const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['order', id],
     queryFn: () => getOrder(id),
     enabled: isAuthenticated && idValid,
     // Не опираться на устаревший can_pay после оплаты в другой вкладке.
     staleTime: 0,
     refetchOnMount: 'always',
+    retry: (failureCount, err) => {
+      const status = getApiErrorStatus(err);
+      if (status === 404 || status === 403 || status === 401) return false;
+      return failureCount < 1;
+    },
   });
 
   const reorderMutation = useMutation({
@@ -397,17 +410,42 @@ export default function OrderDetailPage(): ReactElement {
   }
 
   if (isError || !data) {
+    const status = getApiErrorStatus(error);
+    const isNotFound = status === 404;
+    const isForbidden = status === 403;
+    // 404/403: не раскрываем, свой ли это заказ — одна формулировка not-found.
+    const title =
+      isNotFound || isForbidden || !data
+        ? 'Заказ не найден'
+        : 'Не удалось загрузить данные заказа';
+    const detail =
+      isNotFound || isForbidden || !data
+        ? 'Проверьте ссылку или откройте заказ из списка. Если заказ оформляли как гость — используйте «Статус заказа».'
+        : getFriendlyErrorMessage(error);
+
     return (
       <div className="flex min-h-[50vh] flex-col items-center justify-center px-4 text-center">
-        <p className="mb-3 text-sm text-red-600 dark:text-red-400">
-          Не удалось загрузить данные заказа.
-        </p>
-        <Link
-          href="/orders"
-          className="inline-flex items-center justify-center rounded-full bg-[var(--color-brand)] px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-[var(--color-brand-muted)]"
-        >
-          Вернуться к заказам
-        </Link>
+        <h1 className="mb-2 text-xl font-semibold text-zinc-900 dark:text-zinc-50">{title}</h1>
+        <p className="mb-4 max-w-md text-sm text-zinc-600 dark:text-zinc-300">{detail}</p>
+        <div className="flex flex-wrap justify-center gap-2">
+          {!isNotFound && !isForbidden ? (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                void refetch();
+              }}
+            >
+              Повторить
+            </Button>
+          ) : null}
+          <Button asChild>
+            <Link href="/orders">К списку заказов</Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link href="/order-status">Статус заказа</Link>
+          </Button>
+        </div>
       </div>
     );
   }

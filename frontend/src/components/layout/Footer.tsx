@@ -83,19 +83,19 @@ export function Footer({ initialCategories }: FooterProps) {
   return (
     <footer className="mt-auto border-t border-border bg-zinc-800 text-white">
       <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 lg:px-8">
-        <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid min-w-0 gap-8 sm:grid-cols-2 lg:grid-cols-4">
           {/* Колонка 1: ИНФОРМАЦИЯ */}
-          <div>
+          <div className="min-w-0">
             <h3 className="mb-4 text-xs font-semibold uppercase tracking-wider text-zinc-400">
               Информация
             </h3>
             <ul className="space-y-2">
               {FOOTER_INFO.map(item => (
-                <li key={item.label}>
+                <li key={item.label} className="min-w-0">
                   <Link
                     href={item.href}
                     prefetch={LINK_PREFETCH_DEFAULT}
-                    className="text-sm text-zinc-300 transition-colors hover:text-white"
+                    className="break-words text-sm text-zinc-300 transition-colors hover:text-white"
                   >
                     {item.label}
                   </Link>
@@ -105,17 +105,17 @@ export function Footer({ initialCategories }: FooterProps) {
           </div>
 
           {/* Колонка 2: КАТАЛОГ */}
-          <div>
+          <div className="min-w-0">
             <h3 className="mb-4 text-xs font-semibold uppercase tracking-wider text-zinc-400">
               Каталог
             </h3>
             <ul className="space-y-2">
               {catalogLinks.map(item => (
-                <li key={item.href}>
+                <li key={item.href} className="min-w-0">
                   <Link
                     href={item.href}
                     prefetch={LINK_PREFETCH_DEFAULT}
-                    className="text-sm text-zinc-300 transition-colors hover:text-white"
+                    className="break-words text-sm text-zinc-300 transition-colors hover:text-white"
                   >
                     {item.label}
                   </Link>
@@ -125,17 +125,17 @@ export function Footer({ initialCategories }: FooterProps) {
           </div>
 
           {/* Колонка 3: ДОКУМЕНТЫ */}
-          <div>
+          <div className="min-w-0">
             <h3 className="mb-4 text-xs font-semibold uppercase tracking-wider text-zinc-400">
               Документы
             </h3>
             <ul className="space-y-2">
               {FOOTER_DOCS.map(item => (
-                <li key={item.href}>
+                <li key={item.href} className="min-w-0">
                   <Link
                     href={item.href}
                     prefetch={LINK_PREFETCH_DEFAULT}
-                    className="text-sm text-zinc-300 transition-colors hover:text-white"
+                    className="break-words text-sm text-zinc-300 transition-colors hover:text-white"
                   >
                     {item.label}
                   </Link>

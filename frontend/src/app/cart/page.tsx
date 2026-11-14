@@ -1,14 +1,12 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { ShoppingCart } from 'lucide-react';
 import Link from 'next/link';
 import { useCart, useRemoveCartItem, useUpdateCartItem } from '@/lib/hooks/useCart';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
-import { Input } from '@/components/ui/Input';
-import { Loading } from '@/components/ui/Loading';
 import { Skeleton } from '@/components/ui/Loading';
 import { PlaceholderBlock } from '@/components/ui/PlaceholderBlock';
 import { FreeDeliveryHighlight } from '@/components/ui/FreeDeliveryBadge';
@@ -19,10 +17,9 @@ import { Ringik } from '@/components/ringik/Ringik';
 import { PageContainer } from '@/components/layout/PageContainer';
 
 export default function CartPage() {
-  const { data: cart, isLoading, isError, error } = useCart();
+  const { data: cart, isLoading, isError, error, refetch } = useCart();
   const updateMutation = useUpdateCartItem();
   const removeMutation = useRemoveCartItem();
-  const [promoCode, setPromoCode] = useState('');
 
   const totalAmount = cart?.total_amount ?? '0.00';
 
@@ -55,9 +52,20 @@ export default function CartPage() {
       <div className="flex min-h-[50vh] flex-col items-center justify-center px-4 text-center">
         <p className="mb-2 text-sm text-danger">{getFriendlyErrorMessage(error)}</p>
         <p className="mb-4 text-xs text-foreground-muted">Не удалось загрузить корзину.</p>
-        <Button asChild>
-          <Link href="/catalog">В каталог</Link>
-        </Button>
+        <div className="flex flex-wrap justify-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              void refetch();
+            }}
+          >
+            Повторить
+          </Button>
+          <Button asChild>
+            <Link href="/catalog">В каталог</Link>
+          </Button>
+        </div>
       </div>
     );
   }
@@ -128,26 +136,8 @@ export default function CartPage() {
                   {totalAmount} {CURRENCY_SYMBOL}
                 </span>
               </div>
-              <div>
-                <label className="mb-1 block text-sm text-zinc-600 dark:text-zinc-400">
-                  Промокод
-                </label>
-                <div className="flex gap-2">
-                  <Input
-                    value={promoCode}
-                    onChange={e => setPromoCode(e.target.value)}
-                    placeholder="Введите промокод"
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    disabled={!promoCode}
-                    className="whitespace-nowrap"
-                  >
-                    Применить
-                  </Button>
-                </div>
-              </div>
+              {/* B8-011: UI промокода скрыт — validate API есть, но apply к cart/order не подключён
+                  и PROMOCODES_ENABLED по умолчанию выкл. Не имитируем скидку на клиенте. */}
             </div>
             <FreeDeliveryHighlight />
             <Button fullWidth asChild>

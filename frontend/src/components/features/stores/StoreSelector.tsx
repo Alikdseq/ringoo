@@ -216,6 +216,9 @@ export function StoreSelector({
                 >
                   <p className="font-medium text-zinc-900 dark:text-zinc-50">
                     {store.name}
+                    {store.is_warehouse ? (
+                      <span className="ml-2 text-xs font-normal text-zinc-500">склад</span>
+                    ) : null}
                     {dist ? (
                       <span className="ml-2 text-xs font-normal text-zinc-500">{dist}</span>
                     ) : null}
