@@ -67,3 +67,9 @@ export function hasRememberMeHint(): boolean {
   if (typeof window === 'undefined') return false;
   return localStorage.getItem(AUTH_REMEMBER_KEY) === '1';
 }
+
+/** Синхронизация useAuth / UI после login/logout/refresh fail. */
+export function notifyAuthSessionChanged(): void {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new Event('ringoo-auth'));
+}

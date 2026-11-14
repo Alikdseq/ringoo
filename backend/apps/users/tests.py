@@ -13,6 +13,7 @@ from rest_framework.test import APIClient
 from apps.orders.models import Order
 from apps.orders.services.anonymize import ANONYMIZED_FULL_NAME, ANONYMIZED_PHONE
 from apps.products.models import Category, Product
+from apps.stores.models import Stock, Store
 
 from .models import ConsentRecord, CustomUser
 from .services import is_valid_phone, normalize_phone, record_successful_password_login
@@ -318,6 +319,20 @@ class TestJwtLoginMergesGuestCart(TestCase):
             price=Decimal("100.00"),
             category=self.category,
             is_active=True,
+        )
+        # Cart API проверяет retail availability — без Stock add → 400 «нет в наличии».
+        self.store = Store.objects.create(
+            name="JWT Merge Store",
+            slug="jwt-merge-store",
+            address="a",
+            city="Москва",
+            is_active=True,
+        )
+        Stock.objects.create(
+            product=self.product,
+            store=self.store,
+            quantity=10,
+            reserved_quantity=0,
         )
 
     def tearDown(self):

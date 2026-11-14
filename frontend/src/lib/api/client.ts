@@ -1,12 +1,10 @@
 import axios, { type AxiosError, type AxiosRequestConfig } from 'axios';
-import { authCookiesMode, hasAuthSessionFlag, hasAuthSessionHint } from '@/lib/auth-mode';
+import { authCookiesMode } from '@/lib/auth-mode';
 import { getCsrfTokenFromCookie } from '@/lib/csrf';
-import {
-  clearAuthTokens,
-  getAccessToken,
-  getRefreshToken,
-  setAuthTokens,
-} from '@/lib/storage/token-storage';
+import { getAccessToken } from '@/lib/storage/token-storage';
+import { refreshAccessToken } from '@/lib/api/auth-refresh';
+
+export { invalidatePendingAuthRefresh, refreshAccessToken } from '@/lib/api/auth-refresh';
 
 function resolveApiBaseUrl(): string {
   const explicit =
@@ -55,8 +53,6 @@ export const apiClient = axios.create({
 
 const UNSAFE_METHODS = new Set(['post', 'put', 'patch', 'delete']);
 
-// --- Interceptors: добавление токенов, refresh, retry ---
-
 apiClient.interceptors.request.use(config => {
   if (authCookiesMode()) {
     config.headers = config.headers ?? {};
@@ -80,77 +76,16 @@ apiClient.interceptors.request.use(config => {
   return config;
 });
 
-let isRefreshing = false;
-let refreshPromise: Promise<string | null> | null = null;
-
-/**
- * Возвращает новый access для Bearer, либо "" если обновление только через HttpOnly-куки.
- */
-async function refreshAccessToken(): Promise<string | null> {
-  if (isRefreshing && refreshPromise) {
-    return refreshPromise;
-  }
-
-  const instance = axios.create({
-    baseURL: API_BASE_URL,
-    withCredentials: true,
-    timeout: 10000,
-    headers: {
-      Accept: 'application/json',
-      'Content-Type': 'application/json',
-      'X-Auth-Cookies': '1',
-      ...(isNgrokApi ? { 'ngrok-skip-browser-warning': '1' } : {}),
-    },
-  });
-
-  if (authCookiesMode()) {
-    if (!getRefreshToken() && !hasAuthSessionHint() && !hasAuthSessionFlag()) {
-      return null;
-    }
-    isRefreshing = true;
-    refreshPromise = instance
-      .post<{ access?: string; refresh?: string }>('/auth/token/refresh/', {})
-      .then(() => '')
-      .catch(() => {
-        clearAuthTokens();
-        return null;
-      })
-      .finally(() => {
-        isRefreshing = false;
-        refreshPromise = null;
-      });
-    return refreshPromise;
-  }
-
-  const refresh = getRefreshToken();
-  if (!refresh) return null;
-
-  isRefreshing = true;
-  refreshPromise = instance
-    .post<{ access: string; refresh?: string }>('/auth/token/refresh/', { refresh })
-    .then(response => {
-      const newAccess = response.data.access;
-      const newRefresh = response.data.refresh ?? refresh;
-      setAuthTokens(newAccess, newRefresh);
-      return newAccess;
-    })
-    .catch(() => {
-      clearAuthTokens();
-      return null;
-    })
-    .finally(() => {
-      isRefreshing = false;
-      refreshPromise = null;
-    });
-
-  return refreshPromise;
-}
-
 type RetryConfig = AxiosRequestConfig & {
   _retry?: boolean;
-  /** Повтор GET без Bearer после неудачного refresh (протухший JWT в localStorage + публичный эндпоинт). */
+  /** Повтор GET без Bearer после неудачного refresh (протухший JWT + публичный эндпоинт). */
   _guestRetry?: boolean;
 };
+
+function isRefreshRequestUrl(url?: string): boolean {
+  if (!url) return false;
+  return url.includes('/auth/token/refresh/');
+}
 
 apiClient.interceptors.response.use(
   response => response,
@@ -158,7 +93,13 @@ apiClient.interceptors.response.use(
     const originalRequest = error.config as RetryConfig | undefined;
     const status = error.response?.status;
 
-    if (status === 401 && originalRequest && !originalRequest._retry) {
+    // 403 — права, не refresh. URL refresh не крутим своим interceptors.
+    if (
+      status === 401 &&
+      originalRequest &&
+      !originalRequest._retry &&
+      !isRefreshRequestUrl(originalRequest.url)
+    ) {
       originalRequest._retry = true;
       const newAccess = await refreshAccessToken();
       if (newAccess !== null) {

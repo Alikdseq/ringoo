@@ -1,13 +1,13 @@
-import { apiClient } from '@/lib/api/client';
+import { apiClient, invalidatePendingAuthRefresh } from '@/lib/api/client';
 import type { StaffAccessInfo } from '@/lib/admin/nav-access';
-import { authCookiesMode, clearAuthSessionHint, setAuthSessionHint } from '@/lib/auth-mode';
+import {
+  authCookiesMode,
+  clearAuthSessionHint,
+  notifyAuthSessionChanged,
+  setAuthSessionHint,
+} from '@/lib/auth-mode';
 import { clearAuthTokens, getRefreshToken, setAuthTokens } from '@/lib/storage/token-storage';
 import type { User } from '@/types';
-
-function notifyAuthSessionChanged(): void {
-  if (typeof window === 'undefined') return;
-  window.dispatchEvent(new Event('ringoo-auth'));
-}
 
 export interface TokenResponse {
   access: string;
@@ -36,8 +36,14 @@ export async function login(
     password,
   });
   if (authCookiesMode()) {
-    setAuthSessionHint(rememberMe);
-  } else {
+    // B8-020: hint только после полной auth; до MFA UI не должен выглядеть «вошедшим».
+    if (data.admin_mfa_required) {
+      clearAuthSessionHint();
+    } else {
+      setAuthSessionHint(rememberMe);
+    }
+  } else if (data.access && data.refresh) {
+    // Bearer: токены нужны и для MFA verify; hint в этом режиме не используется.
     setAuthTokens(data.access, data.refresh);
   }
   notifyAuthSessionChanged();
@@ -75,6 +81,7 @@ export async function register(body: RegisterBody): Promise<RegisterResponse> {
 
 /** Выход: blacklist refresh, сброс кук на сервере и локального состояния. */
 export async function logoutAuth(): Promise<void> {
+  invalidatePendingAuthRefresh();
   try {
     const body = authCookiesMode() ? {} : { refresh: getRefreshToken() ?? undefined };
     await apiClient.post('/auth/logout/', body);
@@ -123,31 +130,31 @@ export type StaffAccessResponse = StaffAccessInfo;
  * Доступ к админ-панели (is_staff + группы). GET /api/v1/auth/staff-access/
  * — 200 только для сотрудников; не смешивать с публичным /me/.
  * Ответ нормализуется к StaffAccessInfo: staff, is_superuser, groups[].
+ *
+ * B8-009 / Fix F: ошибки (401/403/5xx/сеть) пробрасываются — AdminGuard
+ * различает forbidden vs unavailable. Не глотать 403 в `null`.
  */
-export async function fetchStaffAccess(): Promise<StaffAccessInfo | null> {
-  try {
-    const { data } = await apiClient.get<StaffAccessApiPayload>('/auth/staff-access/');
-    const groupsRaw = data?.groups;
-    const groups = Array.isArray(groupsRaw)
-      ? groupsRaw.filter((g): g is string => typeof g === 'string')
-      : [];
-    const normalized: StaffAccessInfo = {
-      staff: Boolean(data?.staff),
-      is_superuser: Boolean(data?.is_superuser),
-      groups,
-    };
-    return normalized;
-  } catch (e: unknown) {
-    const status = (e as { response?: { status?: number } })?.response?.status;
-    if (status === 403 || status === 401) return null;
-    throw e;
-  }
+export async function fetchStaffAccess(): Promise<StaffAccessInfo> {
+  const { data } = await apiClient.get<StaffAccessApiPayload>('/auth/staff-access/');
+  const groupsRaw = data?.groups;
+  const groups = Array.isArray(groupsRaw)
+    ? groupsRaw.filter((g): g is string => typeof g === 'string')
+    : [];
+  return {
+    staff: Boolean(data?.staff),
+    is_superuser: Boolean(data?.is_superuser),
+    groups,
+  };
 }
 
 /** @deprecated используйте fetchStaffAccess для групп; оставлен для boolean-гейтов. */
 export async function checkStaffAccess(): Promise<boolean> {
-  const access = await fetchStaffAccess();
-  return Boolean(access?.staff);
+  try {
+    const access = await fetchStaffAccess();
+    return access.staff === true;
+  } catch {
+    return false;
+  }
 }
 
 /** GET /api/v1/auth/mfa/status/ */
@@ -159,7 +166,10 @@ export async function getAdminMfaStatus(): Promise<AdminMfaStatus> {
 /** POST /api/v1/auth/mfa/verify/ — выдаёт JWT с claim admin_mfa. */
 export async function verifyAdminMfa(totp: string): Promise<TokenResponse> {
   const { data } = await apiClient.post<TokenResponse>('/auth/mfa/verify/', { totp });
-  if (!authCookiesMode() && data.access && data.refresh) {
+  if (authCookiesMode()) {
+    // B8-020: session hint после успешного MFA.
+    setAuthSessionHint(false);
+  } else if (data.access && data.refresh) {
     setAuthTokens(data.access, data.refresh);
   }
   notifyAuthSessionChanged();

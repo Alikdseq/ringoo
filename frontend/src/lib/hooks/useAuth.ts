@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { User } from '@/types';
 import { authCookiesMode, hasAuthSessionFlag, hasAuthSessionHint } from '@/lib/auth-mode';
 import { getMe, logoutAuth } from '@/lib/api/services/auth.service';
+import { CART_QUERY_KEY } from '@/lib/hooks/useCart';
 import { getAccessToken } from '@/lib/storage/token-storage';
 
 export const AUTH_ME_QUERY_KEY = ['auth', 'me'] as const;
@@ -77,10 +78,15 @@ export function useAuth() {
   });
 
   const logout = async () => {
+    // B8-014: отменить in-flight cart до смены сессии, чтобы stale ответ не вернул
+    // корзину пользователя после logout; затем подтянуть гостевую.
+    await queryClient.cancelQueries({ queryKey: CART_QUERY_KEY });
+    queryClient.removeQueries({ queryKey: CART_QUERY_KEY });
     await logoutAuth();
     queryClient.setQueryData<User | null>(AUTH_ME_QUERY_KEY, null);
     queryClient.removeQueries({ queryKey: AUTH_STAFF_ACCESS_QUERY_KEY });
     setHasToken(false);
+    void queryClient.invalidateQueries({ queryKey: CART_QUERY_KEY });
   };
 
   const setUser = (u: User | null) => {
