@@ -139,8 +139,13 @@ class ProductListSerializer(serializers.ModelSerializer):
     def get_colors(self, obj):
         """Цвета + превью первого кадра для карточки каталога (без N+1 при prefetch)."""
         imgs = list(obj.images.all())
+        # Prefetch уже отдаёт is_active=True — не вызывать .filter() (сброс кэша).
+        colors = list(obj.colors.all())
+        colors.sort(key=lambda c: (c.sort_order, c.label))
         rows = []
-        for col in obj.colors.filter(is_active=True).order_by("sort_order", "label"):
+        for col in colors:
+            if not col.is_active:
+                continue
             cand = [i for i in imgs if i.color_id == col.id]
             cand.sort(key=lambda i: (not i.is_main, i.sort_order or 0, i.created_at))
             thumb = cand[0] if cand else None
@@ -179,14 +184,14 @@ class ProductListSerializer(serializers.ModelSerializer):
         return obj.discount_percent
 
     def get_available_quantity_total(self, obj):
-        """Сумма доступного количества по всем складам (quantity - reserved_quantity)."""
+        """Сумма available по активным точкам (включая склад/Apple Room)."""
         try:
-            total = 0
-            for stock in obj.stock_items.all():
-                total += getattr(stock, "available_quantity", 0) or max(
-                    0, (stock.quantity or 0) - (stock.reserved_quantity or 0)
-                )
-            return total
+            from apps.stores.models import Stock
+
+            cache = getattr(obj, "_prefetched_objects_cache", None)
+            if cache is not None and "stock_items" in cache:
+                return Stock.available_from_stock_rows(obj.stock_items.all())
+            return Stock.available_quantity_retail(obj.pk)
         except (AttributeError, Exception):
             return 0
 
@@ -246,25 +251,36 @@ class ProductDetailSerializer(serializers.ModelSerializer):
     def get_discount_percent(self, obj):
         return obj.discount_percent
 
-    def get_stock(self, obj):
-        """Наличие в магазинах (Stock). Использует prefetch stock_items при наличии."""
+    def _public_stock_cached(self, obj):
+        cached = getattr(obj, "_block6_public_stock", None)
+        if cached is not None:
+            return cached
         try:
-            from apps.stores.serializers import StockSerializer
-            qs = obj.stock_items.select_related("store").all()
-            return StockSerializer(qs, many=True).data
+            from apps.stores.models import Stock
+
+            cache = getattr(obj, "_prefetched_objects_cache", None)
+            if cache is not None and "stock_items" in cache:
+                rows = Stock.public_stock_rows_from_prefetched(
+                    obj.stock_items.all(), product_id=obj.pk
+                )
+            else:
+                rows = Stock.aggregated_public_stock_for_product(obj.pk)
         except (ImportError, AttributeError):
-            return []
+            rows = []
+        setattr(obj, "_block6_public_stock", rows)
+        return rows
+
+    def get_stock(self, obj):
+        """
+        Наличие в активных точках (включая склад/Apple Room).
+        Одна запись на магазин: серии суммируются (ONEC-010).
+        """
+        return self._public_stock_cached(obj)
 
     def get_availability_status(self, obj):
-        """Статус наличия: in_stock | out_of_stock (влияет на кнопку «В корзину»)."""
-        total = 0
-        try:
-            for stock in obj.stock_items.all():
-                total += getattr(stock, "available_quantity", 0) or max(
-                    0, (stock.quantity or 0) - (stock.reserved_quantity or 0)
-                )
-        except (AttributeError, Exception):
-            pass
+        """Статус наличия: in_stock | out_of_stock (влияет на «В корзину»)."""
+        rows = self._public_stock_cached(obj)
+        total = sum(int(r.get("available_quantity") or 0) for r in rows)
         return "in_stock" if total > 0 else "out_of_stock"
 
     def get_is_in_user_cart(self, obj):

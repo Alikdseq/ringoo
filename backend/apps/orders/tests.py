@@ -238,7 +238,8 @@ class TestOrderCreateSerializer(TestCase):
         self.assertFalse(s.is_valid())
         self.assertIn("store", s.errors)
 
-    def test_pickup_warehouse_store_rejected(self):
+    def test_pickup_warehouse_store_allowed(self):
+        """Apple Room / «Склад»: метка is_warehouse не блокирует самовывоз."""
         wh = Store.objects.create(
             name="Склад",
             slug="wh-order",
@@ -261,8 +262,7 @@ class TestOrderCreateSerializer(TestCase):
             "consent_personal_data": True,
         }
         s = OrderCreateSerializer(data=data)
-        self.assertFalse(s.is_valid())
-        self.assertIn("store", s.errors)
+        self.assertTrue(s.is_valid(), s.errors)
 
     def test_delivery_requires_store(self):
         data = {

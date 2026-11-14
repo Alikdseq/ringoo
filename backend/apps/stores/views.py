@@ -84,10 +84,10 @@ class ManagerReviewsBySlugView(ListAPIView):
 
 def _public_store_queryset():
     """
-    Точки для покупателя: активные магазины, не чистые склады 1С.
-    Склады (is_warehouse=True) участвуют в остатках, но не в самовывозе/витрине.
+    Точки для покупателя: все активные Store.
+    is_warehouse — метка «Склад»/Apple Room для UI, не исключение из витрины.
     """
-    return Store.objects.filter(is_active=True, is_warehouse=False)
+    return Store.objects.filter(is_active=True)
 
 
 class StoreListView(ListAPIView):
@@ -100,8 +100,7 @@ class StoreListView(ListAPIView):
     throttle_classes = [AnonReadRateThrottle, UserReadRateThrottle]
 
     def get_queryset(self):
-        # Склады 1С (is_warehouse) никогда не отдаём в публичный список / checkout.
-        qs = Store.objects.filter(is_warehouse=False).order_by("city", "name")
+        qs = Store.objects.all().order_by("city", "name")
         is_active = self.request.query_params.get("is_active")
         if is_active is not None:
             if str(is_active).lower() in ("true", "1", "yes"):
@@ -142,7 +141,7 @@ class StoreDetailView(RetrieveAPIView):
 
     permission_classes = [AllowAny]
     serializer_class = StoreDetailSerializer
-    queryset = Store.objects.filter(is_warehouse=False)
+    queryset = Store.objects.all()
     throttle_classes = [AnonReadRateThrottle, UserReadRateThrottle]
 
 
@@ -155,7 +154,7 @@ class StoreProductsBySlugView(ListAPIView):
 
     def get_queryset(self):
         store = get_object_or_404(
-            Store, slug=self.kwargs["slug"], is_active=True, is_warehouse=False
+            Store, slug=self.kwargs["slug"], is_active=True
         )
         has_stock = Stock.objects.filter(
             product_id=OuterRef("pk"),
@@ -186,29 +185,49 @@ class StoreProductsBySlugView(ListAPIView):
 
 class StockListView(ListAPIView):
     """
-    Остатки в магазине (GET /api/v1/stores/{id}/stock/).
+    Публичные остатки в магазине (GET /api/v1/stores/{id}/stock/).
+
+    ONEC-012: только активный магазин (включая «Склад»/is_warehouse);
+    только активные товары; серии агрегируются; reserved не отдаётся.
     """
 
     permission_classes = [AllowAny]
     serializer_class = StockSerializer
+    throttle_classes = [AnonReadRateThrottle, UserReadRateThrottle]
 
     def get_queryset(self):
-        store_id = self.kwargs.get("pk")
+        # list() отдаёт агрегаты; queryset нужен DRF для pagination metadata.
+        store = get_object_or_404(Store, pk=self.kwargs.get("pk"), is_active=True)
         return (
-            Stock.objects.filter(store_id=store_id)
+            Stock.objects.filter(
+                store_id=store.pk,
+                product__is_active=True,
+            )
             .select_related("product", "store")
             .order_by("product__title")
         )
 
+    def list(self, request, *args, **kwargs):
+        from rest_framework.response import Response
+
+        store = get_object_or_404(Store, pk=self.kwargs.get("pk"), is_active=True)
+        rows = Stock.aggregated_public_stock_for_store(store.pk)
+        page = self.paginate_queryset(rows)
+        if page is not None:
+            return self.get_paginated_response(page)
+        return Response(rows)
+
 
 class ProductStockView(ListAPIView):
     """
-    Наличие товара во всех магазинах (GET /api/v1/products/{id}/stock/).
-    Только точки продаж (без is_warehouse) — для PDP и checkout.
+    Наличие товара во всех активных точках (GET /api/v1/products/{id}/stock/).
+    Включая Apple Room / «Склад» (is_warehouse — метка для клиента).
+    Несколько серий одного магазина агрегируются в одну строку (ONEC-010).
     """
 
     permission_classes = [AllowAny]
     serializer_class = StockSerializer
+    throttle_classes = [AnonReadRateThrottle, UserReadRateThrottle]
 
     def get_queryset(self):
         product_id = self.kwargs.get("pk")
@@ -216,8 +235,17 @@ class ProductStockView(ListAPIView):
             Stock.objects.filter(
                 product_id=product_id,
                 store__is_active=True,
-                store__is_warehouse=False,
             )
             .select_related("product", "store")
             .order_by("store__city", "store__name")
         )
+
+    def list(self, request, *args, **kwargs):
+        from rest_framework.response import Response
+
+        product_id = self.kwargs.get("pk")
+        rows = Stock.aggregated_public_stock_for_product(product_id)
+        page = self.paginate_queryset(rows)
+        if page is not None:
+            return self.get_paginated_response(page)
+        return Response(rows)

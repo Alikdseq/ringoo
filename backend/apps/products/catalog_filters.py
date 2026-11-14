@@ -66,9 +66,11 @@ def apply_catalog_filters(qs: QuerySet, params, *, exclude_model: bool = False) 
 
     in_stock = (params.get("in_stock") or "").strip().lower()
     if in_stock in ("true", "1", "yes"):
-        has_stock = Stock.objects.filter(product_id=OuterRef("pk")).filter(
-            quantity__gt=F("reserved_quantity"),
-        )
+        # Все активные точки, включая Apple Room / «Склад» (is_warehouse — только метка).
+        has_stock = Stock.objects.filter(
+            product_id=OuterRef("pk"),
+            store__is_active=True,
+        ).filter(quantity__gt=F("reserved_quantity"))
         qs = qs.filter(Exists(has_stock))
 
     rating_min = params.get("rating_min")

@@ -150,7 +150,12 @@ class ProductListView(ListAPIView):
                         "sort_order", "created_at"
                     ),
                 ),
-                "stock_items",
+                Prefetch(
+                    "stock_items",
+                    queryset=Stock.objects.filter(store__is_active=True).select_related(
+                        "store"
+                    ),
+                ),
             )
             .order_by(*base_order)
         )
@@ -294,7 +299,12 @@ class ProductDetailView(RetrieveAPIView):
                     ),
                 ),
                 "specs",
-                Prefetch("stock_items", queryset=Stock.objects.select_related("store")),
+                Prefetch(
+                    "stock_items",
+                    queryset=Stock.objects.filter(store__is_active=True).select_related(
+                        "store"
+                    ),
+                ),
             )
         )
 

@@ -77,7 +77,9 @@ class CartItemCreateSerializer(serializers.Serializer):
         from apps.stores.models import Store
 
         if not Store.objects.filter(pk=value, is_active=True).exists():
-            raise serializers.ValidationError("Магазин не найден или не активен.")
+            raise serializers.ValidationError(
+                "Магазин не найден или неактивен."
+            )
         return value
 
     def validate(self, attrs):

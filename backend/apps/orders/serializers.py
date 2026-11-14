@@ -265,9 +265,8 @@ class OrderCreateSerializer(serializers.Serializer):
                 )
 
         if store:
-            if not Store.objects.filter(
-                pk=store, is_active=True, is_warehouse=False
-            ).exists():
+            # is_warehouse — только клиентская метка («Склад»/Apple Room), заказ разрешён.
+            if not Store.objects.filter(pk=store, is_active=True).exists():
                 raise serializers.ValidationError(
                     {"store": "Магазин не найден или недоступен для заказа."}
                 )

@@ -18,6 +18,11 @@ from integrations.onec.importer import (
 )
 from integrations.onec.parser import BASE_FOLDER_CODE, OneCParseError, parse_folders_xml
 from integrations.onec.registration import register_user_in_onec
+from tests.onec_test_utils import (
+    TEST_OTHER_WH_ID,
+    TEST_RETAIL_WH_ID,
+    ensure_confirmed_stores,
+)
 
 User = get_user_model()
 
@@ -29,24 +34,37 @@ FOLDERS_XML = """<?xml version="1.0" encoding="UTF-8"?>
 </ПапкиНоменклатуры>
 """
 
-PRODUCTS_XML = """<?xml version="1.0" encoding="UTF-8"?>
+PRODUCTS_XML = f"""<?xml version="1.0" encoding="UTF-8"?>
 <Товары>
   <Товар code="00-00000126" parentCode="00-00010101" name="iPhone Test"
     type="Телефоны" typeID="t1"
-    sklad="Магазин А" skladID="wh-a" series="" seriesID=""
+    sklad="БАМ" skladID="{TEST_RETAIL_WH_ID}" series="" seriesID=""
     quantity="2.000" price="10 000.00"/>
   <Товар code="00-00000126" parentCode="00-00010101" name="iPhone Test"
     type="Телефоны" typeID="t1"
-    sklad="Магазин Б" skladID="wh-b" series="" seriesID=""
+    sklad="Беслан" skladID="{TEST_OTHER_WH_ID}" series="" seriesID=""
     quantity="0" price="10 000.00"/>
   <Товар code="00-00000127" parentCode="00-00010101" name="iPhone Empty Qty"
     type="Телефоны" typeID="t1"
-    sklad="Магазин А" skladID="wh-a" series="" seriesID=""
+    sklad="БАМ" skladID="{TEST_RETAIL_WH_ID}" series="" seriesID=""
     quantity="" price="5 000.00"/>
   <Товар code="00-00000128" parentCode="00-00010101" name="iPhone No Wh"
     type="Телефоны" typeID="t1"
     sklad="" skladID="" series="" seriesID=""
     quantity="" price="1 000.00"/>
+</Товары>
+"""
+
+PRODUCTS_XML_APPLY = f"""<?xml version="1.0" encoding="UTF-8"?>
+<Товары>
+  <Товар code="00-00000126" parentCode="00-00010101" name="iPhone Test"
+    type="Телефоны" typeID="t1"
+    sklad="БАМ" skladID="{TEST_RETAIL_WH_ID}" series="" seriesID=""
+    quantity="2.000" price="10 000.00"/>
+  <Товар code="00-00000126" parentCode="00-00010101" name="iPhone Test"
+    type="Телефоны" typeID="t1"
+    sklad="Беслан" skladID="{TEST_OTHER_WH_ID}" series="" seriesID=""
+    quantity="0" price="10 000.00"/>
 </Товары>
 """
 
@@ -236,6 +254,7 @@ class OneCParserHttpShapeTests(TestCase):
         self.assertIn("folder_duplicate_code", {i["type"] for i in plan.issues})
 
     def test_multi_warehouse_one_card_zero_vs_empty(self):
+        ensure_confirmed_stores()
         plan = plan_catalog_import_from_xml_strings(
             FOLDERS_XML, PRODUCTS_XML, mode=ImportMode.DRY_RUN
         )
@@ -243,18 +262,22 @@ class OneCParserHttpShapeTests(TestCase):
         self.assertEqual(codes.count("00-00000126"), 1)
         stocks_126 = [s for s in plan.stocks if s.onec_code == "00-00000126"]
         statuses = {s.sklad_id: s.quantity_status for s in stocks_126 if s.action == "upsert"}
-        self.assertEqual(statuses.get("wh-a"), "positive")
-        self.assertEqual(statuses.get("wh-b"), "explicit_zero")
+        self.assertEqual(statuses.get(TEST_RETAIL_WH_ID), "positive")
+        self.assertEqual(statuses.get(TEST_OTHER_WH_ID), "explicit_zero")
         empty_qty = next(s for s in plan.stocks if s.onec_code == "00-00000127")
         self.assertEqual(empty_qty.quantity_status, "missing")
         self.assertEqual(empty_qty.action, "skip")
+        # Пустой qty / нет склада → fail-closed
+        self.assertFalse(plan.apply_allowed)
 
     def test_apply_from_valid_xml(self):
         from apps.products.models import Category, Product
 
+        ensure_confirmed_stores()
         plan = plan_catalog_import_from_xml_strings(
-            FOLDERS_XML, PRODUCTS_XML, mode=ImportMode.APPLY
+            FOLDERS_XML, PRODUCTS_XML_APPLY, mode=ImportMode.APPLY
         )
+        self.assertTrue(plan.apply_allowed, plan.apply_blockers)
         result = apply_catalog_import(plan)
         self.assertGreater(result["categories"], 0)
         self.assertTrue(Product.objects.filter(onec_code="00-00000126").exists())

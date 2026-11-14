@@ -1,0 +1,66 @@
+[
+  {
+    "slug": "ardon-sovetov-1",
+    "onec_warehouse_id": "7d0745da-cea9-11f0-82e3-00155d01c802",
+    "onec_warehouse_name": "Ардон",
+    "is_warehouse": false,
+    "ringoo_label": "Ардон, Советов, 1"
+  },
+  {
+    "slug": "vladikavkazskaya-35",
+    "onec_warehouse_id": "1418e927-cea5-11f0-82e3-00155d01c802",
+    "onec_warehouse_name": "БАМ",
+    "is_warehouse": false,
+    "ringoo_label": "Владикавказская, 35"
+  },
+  {
+    "slug": "beslan-sigova-52",
+    "onec_warehouse_id": "8d9cc921-cea9-11f0-82e3-00155d01c802",
+    "onec_warehouse_name": "Беслан",
+    "is_warehouse": false,
+    "ringoo_label": "Беслан, Сигова, 52"
+  },
+  {
+    "slug": "vatutina-33",
+    "onec_warehouse_id": "9de5e8ce-cea9-11f0-82e3-00155d01c802",
+    "onec_warehouse_name": "Ватутина",
+    "is_warehouse": false,
+    "ringoo_label": "Ватутина, 33"
+  },
+  {
+    "slug": "dovatora-5",
+    "onec_warehouse_id": "710472c0-866e-11f0-82e1-00155d01c802",
+    "onec_warehouse_name": "Доватора",
+    "is_warehouse": false,
+    "ringoo_label": "Доватора, 5"
+  },
+  {
+    "slug": "kirova-41",
+    "onec_warehouse_id": "ae0d8ae3-cea9-11f0-82e3-00155d01c802",
+    "onec_warehouse_name": "Кирова",
+    "is_warehouse": false,
+    "ringoo_label": "Кирова, 41"
+  },
+  {
+    "slug": "kosta-199",
+    "onec_warehouse_id": "bd718455-cea9-11f0-82e3-00155d01c802",
+    "onec_warehouse_name": "Коста 199",
+    "is_warehouse": false,
+    "ringoo_label": "Коста, 199"
+  },
+  {
+    "slug": "kosta-288",
+    "onec_warehouse_id": "cedfb76d-cea9-11f0-82e3-00155d01c802",
+    "onec_warehouse_name": "Коста 288",
+    "is_warehouse": false,
+    "ringoo_label": "Коста, 288"
+  },
+  {
+    "slug": "tech-sklad",
+    "onec_warehouse_id": "63f7e17d-cea9-11f0-82e3-00155d01c802",
+    "onec_warehouse_name": "Склад",
+    "is_warehouse": true,
+    "is_active": true,
+    "ringoo_label": "Склад"
+  }
+]

@@ -85,8 +85,29 @@ class StockAdminUpdateView(UpdateAPIView):
         quantity = request.data.get("quantity")
         reserved = request.data.get("reserved_quantity")
 
+        # ONEC-022: резерв только через сервисы заказов (reserve/release).
+        if reserved is not None:
+            try:
+                requested_r = int(reserved)
+            except (TypeError, ValueError):
+                return Response(
+                    {"reserved_quantity": ["Некорректное значение."]},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if requested_r != instance.reserved_quantity:
+                return Response(
+                    {
+                        "detail": (
+                            "reserved_quantity нельзя менять вручную. "
+                            "Резерв ставится и снимается только сервисами заказов."
+                        ),
+                        "code": "reserved_quantity_readonly",
+                        "fields": ["reserved_quantity"],
+                    },
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
         new_q = None
-        new_r = None
         if quantity is not None:
             try:
                 new_q = int(quantity)
@@ -101,7 +122,7 @@ class StockAdminUpdateView(UpdateAPIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-        # Фактический остаток из 1С — не правим вручную; резерв Ringoo можно.
+        # Фактический остаток из 1С — не правим вручную.
         product = getattr(instance, "product", None)
         if (
             product
@@ -112,8 +133,7 @@ class StockAdminUpdateView(UpdateAPIView):
             return Response(
                 {
                     "detail": (
-                        "quantity управляется синхронизацией 1С для товара с onec_code. "
-                        "Можно менять только reserved_quantity (резерв интернет-заказов)."
+                        "quantity управляется синхронизацией 1С для товара с onec_code."
                     ),
                     "code": "onec_managed_stock_readonly",
                     "fields": ["quantity"],
@@ -121,30 +141,20 @@ class StockAdminUpdateView(UpdateAPIView):
                 },
                 status=status.HTTP_403_FORBIDDEN,
             )
-        if reserved is not None:
-            try:
-                new_r = int(reserved)
-                if new_r < 0:
-                    return Response(
-                        {"reserved_quantity": ["Не может быть отрицательным."]},
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-            except (TypeError, ValueError):
-                return Response(
-                    {"reserved_quantity": ["Некорректное значение."]},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
 
-        qty_check = new_q if new_q is not None else instance.quantity
-        res_check = new_r if new_r is not None else instance.reserved_quantity
-        if qty_check < res_check:
+        if new_q is None:
+            return Response(StockListSerializer.to_representation(instance))
+
+        if new_q < instance.reserved_quantity:
             return Response(
-                {"reserved_quantity": ["Не может превышать quantity."]},
+                {
+                    "quantity": [
+                        "Не может быть меньше reserved_quantity "
+                        f"({instance.reserved_quantity})."
+                    ]
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
-
-        if new_q is None and new_r is None:
-            return Response(StockListSerializer.to_representation(instance))
 
         from apps.stores.stock_ops import apply_quantity_correction
 
@@ -152,7 +162,7 @@ class StockAdminUpdateView(UpdateAPIView):
             instance = apply_quantity_correction(
                 instance,
                 new_quantity=new_q,
-                new_reserved=new_r,
+                new_reserved=None,
                 reason="admin_stock_patch",
                 source="admin_api.stock",
             )

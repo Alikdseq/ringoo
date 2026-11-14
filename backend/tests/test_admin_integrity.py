@@ -174,7 +174,8 @@ class TestAdminIntegrityChains(TestCase):
         self.assertEqual(ok.status_code, 200, ok.content)
         self.assertEqual(ok.json()["status"], Order.STATUS_CONFIRMED)
 
-    def test_store_warehouse_fields_and_public_exclusion(self):
+    def test_store_warehouse_fields_and_public_inclusion(self):
+        """is_warehouse — UI-метка; точка остаётся в публичном списке (BLOCK 2+)."""
         self.client.force_authenticate(user=self.staff_full)
         r = self.client.post(
             "/api/v1/admin/stores/create/",
@@ -196,9 +197,12 @@ class TestAdminIntegrityChains(TestCase):
 
         self.client.force_authenticate(user=None)
         pub = self.client.get("/api/v1/stores/?is_active=true")
-        slugs = [s["slug"] for s in pub.json()["results"]]
+        results = pub.json()["results"]
+        slugs = [s["slug"] for s in results]
         self.assertIn("center", slugs)
-        self.assertNotIn("apple-room-wh", slugs)
+        self.assertIn("apple-room-wh", slugs)
+        by_slug = {s["slug"]: s for s in results}
+        self.assertTrue(by_slug["apple-room-wh"]["is_warehouse"])
 
     def test_blocked_user_cannot_login(self):
         user = CustomUser.objects.create_user("79990000020", password="secretpass123")

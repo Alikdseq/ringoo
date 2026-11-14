@@ -262,8 +262,51 @@ class ProductAdminUpdateView(UpdateAPIView):
         )
 
     def delete(self, request, *args, **kwargs):
+        """
+        ONEC-023: безопасное удаление.
+        Активный товар → деактивация (Stock/резервы сохраняются).
+        Hard-delete только для локальных товаров без Stock / onec_code.
+        """
         instance = self.get_object()
-        instance.delete()
+        from apps.products.services.lifecycle import safe_delete_or_archive_product
+
+        decision = safe_delete_or_archive_product(instance)
+        if decision.action == "blocked":
+            return Response(
+                {
+                    "detail": decision.detail,
+                    "code": decision.code or "product_delete_blocked",
+                    "id": decision.product_id,
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
+        if decision.action == "deactivated":
+            log_admin_action(
+                request,
+                action="product_deactivate",
+                model_name="products.Product",
+                object_id=decision.product_id,
+                object_repr=getattr(instance, "title", "") or decision.product_id,
+                changes={"is_active": {"from": True, "to": False}},
+            )
+            return Response(
+                {
+                    "detail": decision.detail,
+                    "code": decision.code,
+                    "id": decision.product_id,
+                    "is_active": False,
+                    "action": "deactivated",
+                },
+                status=status.HTTP_200_OK,
+            )
+        log_admin_action(
+            request,
+            action="product_delete",
+            model_name="products.Product",
+            object_id=decision.product_id,
+            object_repr=decision.product_id,
+            changes={},
+        )
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 

@@ -238,13 +238,31 @@ def parse_catalog_files(
     folders_path: str | Path,
     products_path: str | Path,
 ) -> ParsedCatalog:
+    """
+    Разбор XML с диска. ONEC-026: пустые обязательные деревья → parse_warnings
+    (как у HTTP-строк), чтобы plan_from_parsed не планировал mass-zero.
+    """
     folders_path = Path(folders_path)
     products_path = Path(products_path)
+    folders = parse_folders_xml(folders_path)
+    products = parse_products_xml(products_path)
+    warnings: list[str] = []
+    if not folders:
+        warnings.append(
+            "В XML категорий не найдено ни одной папки "
+            f"(ожидались теги {sorted(FOLDER_TAGS)})"
+        )
+    if not products:
+        warnings.append(
+            "В XML товаров не найдено ни одной строки "
+            f"(ожидались теги {sorted(PRODUCT_TAGS)})"
+        )
     return ParsedCatalog(
-        folders=parse_folders_xml(folders_path),
-        product_rows=parse_products_xml(products_path),
+        folders=folders,
+        product_rows=products,
         source_folders_path=str(folders_path.resolve()),
         source_products_path=str(products_path.resolve()),
+        parse_warnings=warnings,
     )
 
 

@@ -132,6 +132,30 @@ class ProductAdmin(admin.ModelAdmin):
                         setattr(obj, field, getattr(original, field))
         super().save_model(request, obj, form, change)
 
+    def has_delete_permission(self, request, obj=None):
+        """ONEC-023: hard-delete только без Stock / onec_code / резервов."""
+        if obj is None:
+            return super().has_delete_permission(request, obj)
+        from apps.products.services.lifecycle import product_hard_delete_blocked
+
+        blocked, _ = product_hard_delete_blocked(obj)
+        if blocked:
+            return False
+        return super().has_delete_permission(request, obj)
+
+    def delete_model(self, request, obj):
+        """При риске целостности — архивация вместо CASCADE/PROTECT ошибки."""
+        from apps.products.services.lifecycle import (
+            product_hard_delete_blocked,
+            archive_product,
+        )
+
+        blocked, _ = product_hard_delete_blocked(obj)
+        if blocked:
+            archive_product(obj)
+            return
+        super().delete_model(request, obj)
+
 
 @admin.register(ProductColor)
 class ProductColorAdmin(admin.ModelAdmin):

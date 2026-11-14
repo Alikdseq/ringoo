@@ -258,6 +258,15 @@ class TestCartItemDetailViewAPI(TestCase):
             category=self.category,
             is_active=True,
         )
+        store = Store.objects.create(
+            name="М",
+            slug="cart-detail-store",
+            address="А",
+            city="Б",
+            is_active=True,
+            is_warehouse=False,
+        )
+        Stock.objects.create(product=self.product, store=store, quantity=20)
         self._ensure_cart_with_item()
 
     def _ensure_cart_with_item(self):
@@ -322,6 +331,15 @@ class TestCartClearViewAPI(TestCase):
             category=self.category,
             is_active=True,
         )
+        store = Store.objects.create(
+            name="М",
+            slug="cart-clear-store",
+            address="А",
+            city="Б",
+            is_active=True,
+            is_warehouse=False,
+        )
+        Stock.objects.create(product=self.product, store=store, quantity=10)
         self.client.get(reverse("api_v1:cart:cart"))
         self.client.post(
             reverse("api_v1:cart:cart-item-create"),

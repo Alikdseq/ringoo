@@ -18,11 +18,19 @@ from .serializers import (
 
 
 def _get_cart_queryset():
-    """Корзина с prefetch items -> product (category), store, color."""
+    """Корзина с prefetch items -> product (category/images/colors/stock), store, color."""
+    from django.db.models import Prefetch
+
+    from apps.stores.models import Stock
+
     return Cart.objects.prefetch_related(
         "items__product__category",
         "items__product__images",
         "items__product__colors",
+        Prefetch(
+            "items__product__stock_items",
+            queryset=Stock.objects.filter(store__is_active=True).select_related("store"),
+        ),
         "items__store",
         "items__color",
     )
@@ -69,13 +77,19 @@ class CartItemCreateView(APIView):
         from apps.stores.models import Stock
 
         product = Product.objects.get(pk=product_id)
+        # Backend — источник истины: нельзя добавить при нулевом розничном available.
         if store_id:
-            stock = Stock.objects.filter(
-                product=product, store_id=store_id
-            ).first()
-            if not stock or stock.available_quantity < quantity:
+            available = Stock.available_quantity_retail(product.pk, store_id=store_id)
+            if available < quantity:
                 return Response(
                     {"detail": "Недостаточно товара в выбранном магазине."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        else:
+            available = Stock.available_quantity_retail(product.pk)
+            if available < quantity:
+                return Response(
+                    {"detail": "Товара нет в наличии."},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
@@ -94,12 +108,16 @@ class CartItemCreateView(APIView):
         if not created:
             item.quantity += quantity
             if store_id:
-                stock = Stock.objects.get(product=product, store_id=store_id)
-                if stock.available_quantity < item.quantity:
-                    return Response(
-                        {"detail": "Недостаточно товара в выбранном магазине."},
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
+                available = Stock.available_quantity_retail(
+                    product.pk, store_id=store_id
+                )
+            else:
+                available = Stock.available_quantity_retail(product.pk)
+            if available < item.quantity:
+                return Response(
+                    {"detail": "Недостаточно товара в наличии."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
             item.save(update_fields=["quantity", "updated_at"])
 
         cart = _get_cart_queryset().get(pk=cart.pk)
@@ -139,17 +157,19 @@ class CartItemDetailView(APIView):
             cart = _get_cart_queryset().get(pk=cart.pk)
             return Response(CartSerializer(cart).data)
 
-        if item.store_id:
-            from apps.stores.models import Stock
+        from apps.stores.models import Stock
 
-            stock = Stock.objects.filter(
-                product=item.product, store=item.store
-            ).first()
-            if stock and stock.available_quantity < new_quantity:
-                return Response(
-                    {"detail": "Недостаточно товара в выбранном магазине."},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+        if item.store_id:
+            available = Stock.available_quantity_retail(
+                item.product_id, store_id=item.store_id
+            )
+        else:
+            available = Stock.available_quantity_retail(item.product_id)
+        if available < new_quantity:
+            return Response(
+                {"detail": "Недостаточно товара в наличии."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         serializer.save()
         cart = _get_cart_queryset().get(pk=cart.pk)

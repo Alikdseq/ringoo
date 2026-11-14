@@ -18,11 +18,23 @@ def _image_sort_key(img: ProductImage, color_order: dict) -> tuple:
 
 def ordered_product_images(product: Product) -> list:
     """Все изображения товара, сгруппированные по активным цветам."""
-    qs = list(product.images.select_related("color").order_by("sort_order", "created_at"))
+    pref = getattr(product, "_prefetched_objects_cache", {}) or {}
+    if "images" in pref:
+        qs = list(product.images.all())
+    else:
+        qs = list(
+            product.images.select_related("color").order_by("sort_order", "created_at")
+        )
     if not qs:
         return []
 
-    colors = list(product.colors.filter(is_active=True).order_by("sort_order", "label"))
+    if "colors" in pref:
+        colors = [c for c in product.colors.all() if c.is_active]
+        colors.sort(key=lambda c: (c.sort_order, c.label))
+    else:
+        colors = list(
+            product.colors.filter(is_active=True).order_by("sort_order", "label")
+        )
     color_order = {c.id: idx for idx, c in enumerate(colors)}
 
     if colors:

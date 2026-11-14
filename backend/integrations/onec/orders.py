@@ -261,7 +261,9 @@ def plan_and_reserve_at_store(
 ) -> list[dict[str, Any]]:
     """
     Планирует строки заказа и атомарно резервирует остаток ТОЛЬКО в store_id.
-    Серийные единицы — отдельные строки quantity=1 с конкретным seriesId.
+    Серийные единицы с available>0 — отдельные строки quantity=1 с seriesId.
+    Нулевые серийные строки не блокируют безсерийный остаток (ONEC-009).
+    Недостающее после серий берётся из blank-series.
     Не ищет товар в других магазинах.
     """
     from apps.stores import stock_ops
@@ -270,72 +272,94 @@ def plan_and_reserve_at_store(
     if quantity <= 0:
         return []
 
+    def _available(row) -> int:
+        return max(0, int(row.quantity) - int(row.reserved_quantity))
+
     code = (getattr(product, "onec_code", None) or "").strip()
     rows = list(
         Stock.objects.select_for_update()
         .filter(product_id=product.pk, store_id=store_id)
         .order_by("onec_series_id", "pk")
     )
-    serial_rows = [r for r in rows if (r.onec_series_id or "").strip()]
 
-    if serial_rows:
-        picked: list[str] = []
-        for row in serial_rows:
-            if len(picked) >= quantity:
-                break
-            available = int(row.quantity) - int(row.reserved_quantity)
-            take = min(max(0, available), quantity - len(picked))
-            for _ in range(take):
-                picked.append(row.onec_series_id)
-        if len(picked) < quantity:
-            raise InsufficientStockAtStore()
-        lines = []
-        for sid in picked:
-            if not stock_ops.reserve_at_store(
-                product.pk,
-                store_id,
-                1,
-                series_id=sid,
-                reason="checkout_reserve",
-                source="plan_and_reserve_at_store",
-            ):
-                raise InsufficientStockAtStore()
-            lines.append(
-                {
-                    "quantity": 1,
-                    "price": price,
-                    "item_total": price,
-                    "onec_product_code": code,
-                    "onec_series_id": sid,
-                }
-            )
-        return lines
-
-    if not stock_ops.reserve_at_store(
-        product.pk,
-        store_id,
-        quantity,
-        reason="checkout_reserve",
-        source="plan_and_reserve_at_store",
-    ):
-        raise InsufficientStockAtStore()
-    return [
-        {
-            "quantity": quantity,
-            "price": price,
-            "item_total": price * quantity,
-            "onec_product_code": code,
-            "onec_series_id": "",
-        }
+    serial_with_stock = [
+        r for r in rows if (r.onec_series_id or "").strip() and _available(r) > 0
     ]
+    blank_available = sum(
+        _available(r) for r in rows if not (r.onec_series_id or "").strip()
+    )
+
+    remaining = int(quantity)
+    picked_serials: list[str] = []
+    for row in serial_with_stock:
+        if remaining <= 0:
+            break
+        take = min(_available(row), remaining)
+        for _ in range(take):
+            picked_serials.append(row.onec_series_id)
+        remaining -= take
+
+    blank_need = remaining
+    if blank_need > blank_available:
+        raise InsufficientStockAtStore()
+
+    lines: list[dict[str, Any]] = []
+    for sid in picked_serials:
+        if not stock_ops.reserve_at_store(
+            product.pk,
+            store_id,
+            1,
+            series_id=sid,
+            reason="checkout_reserve",
+            source="plan_and_reserve_at_store",
+        ):
+            raise InsufficientStockAtStore()
+        lines.append(
+            {
+                "quantity": 1,
+                "price": price,
+                "item_total": price,
+                "onec_product_code": code,
+                "onec_series_id": sid,
+            }
+        )
+
+    if blank_need > 0:
+        if not stock_ops.reserve_at_store(
+            product.pk,
+            store_id,
+            blank_need,
+            reason="checkout_reserve",
+            source="plan_and_reserve_at_store",
+        ):
+            raise InsufficientStockAtStore()
+        lines.append(
+            {
+                "quantity": blank_need,
+                "price": price,
+                "item_total": price * blank_need,
+                "onec_product_code": code,
+                "onec_series_id": "",
+            }
+        )
+
+    if not lines:
+        raise InsufficientStockAtStore()
+    return lines
 
 
 class InsufficientStockAtStore(Exception):
     """Недостаточно остатка в выбранном магазине."""
 
 
-def release_order_item_reservations(order) -> None:
-    """Снимает резерв по позициям в магазине заказа (без подмены склада). INT-009 ledger."""
+def release_order_item_reservations(
+    order, *, reason: str = "order_release"
+) -> None:
+    """
+    Снимает резерв по позициям в магазине заказа (без подмены склада).
+    Идемпотентно: ключ release:order:{order}:item:{item} — один раз за жизнь позиции.
+    Не списывает quantity (источник физического остатка — 1С / reconciliation).
+    """
     from apps.stores import stock_ops
 
     store_id = order.store_id
@@ -352,7 +376,7 @@ def release_order_item_reservations(order) -> None:
             idempotency_key=f"release:order:{order.pk}:item:{item.pk}",
             order_id=order.pk,
             order_item_id=item.pk,
-            reason="order_cancel_release",
+            reason=(reason or "order_release")[:255],
             source="release_order_item_reservations",
         )
 

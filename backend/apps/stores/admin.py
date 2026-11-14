@@ -1,5 +1,8 @@
 """
 Админ-панель магазинов (задача 1.3.5).
+
+ONEC-022: Stock в Django Admin — только просмотр.
+Изменение quantity/reserved — через Admin API (stock_ops + StockMovement) или 1С.
 """
 
 from django.contrib import admin
@@ -22,10 +25,24 @@ class ManagerInline(admin.TabularInline):
 
 
 class StockInline(admin.TabularInline):
+    """Только просмотр остатков на карточке магазина (ONEC-022)."""
+
     model = Stock
     extra = 0
-    fields = ("product", "quantity", "reserved_quantity")
+    can_delete = False
+    fields = (
+        "product",
+        "onec_series_id",
+        "onec_series_name",
+        "quantity",
+        "reserved_quantity",
+        "updated_at",
+    )
+    readonly_fields = fields
     raw_id_fields = ("product",)
+
+    def has_add_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(Store)
@@ -73,7 +90,8 @@ class StoreAdmin(admin.ModelAdmin):
                 ),
                 "description": (
                     "onec_warehouse_id обязателен для синхронизации заказов. "
-                    "is_warehouse=True — склад без самовывоза (не показывается покупателям)."
+                    "is_warehouse=True — метка «Склад»/Apple Room для клиентов; "
+                    "точка участвует в наличии, корзине и заказе как обычный магазин."
                 ),
             },
         ),
@@ -125,11 +143,47 @@ class ManagerAdmin(admin.ModelAdmin):
 
 @admin.register(Stock)
 class StockAdmin(admin.ModelAdmin):
-    list_display = ("product", "store", "quantity", "reserved_quantity", "available_quantity_display", "updated_at")
+    """
+    ONEC-022: остатки только для просмотра.
+    Ручная правка quantity — Admin API → apply_quantity_correction (с StockMovement).
+    reserved_quantity — только через сервисы заказов (reserve/release).
+    """
+
+    list_display = (
+        "product",
+        "store",
+        "onec_series_id",
+        "quantity",
+        "reserved_quantity",
+        "available_quantity_display",
+        "updated_at",
+    )
     list_filter = ("store",)
-    search_fields = ("product__title", "store__name")
-    raw_id_fields = ("product", "store")
+    search_fields = ("product__title", "store__name", "onec_series_id")
+    readonly_fields = (
+        "id",
+        "product",
+        "store",
+        "onec_series_id",
+        "onec_series_name",
+        "quantity",
+        "reserved_quantity",
+        "available_quantity_display",
+        "updated_at",
+    )
+    fields = readonly_fields
 
     @admin.display(description="Доступно")
     def available_quantity_display(self, obj):
         return obj.available_quantity
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        # Не удаляем складские записи из Admin: история / резервы / sync 1С.
+        return False
+
+    def save_model(self, request, obj, form, change):
+        # Readonly UI + no-op на случай обхода формы.
+        return

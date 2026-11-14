@@ -261,65 +261,113 @@ def run_catalog_import(
                 Path(folders_path), Path(products_path), mode=mode
             )
 
+        from integrations.onec.reporting import (
+            build_issue_counts,
+            issue_for_log,
+            partition_issues,
+        )
+
+        # Корреляция SyncLog.run_id ↔ idempotency ключей apply
+        plan.run_id = run_id
+
         s = plan.summary or {}
+        partitioned = partition_issues(plan.issues or [])
+        issue_counts = build_issue_counts(partitioned)
+
         log.records_received = int(plan.product_row_count or 0) + int(
             plan.folder_count or 0
         )
+        # Сначала — planned (dry-run и до apply). После APPLY перезапишем фактом.
         log.categories_created = int(s.get("categories_create") or 0)
         log.categories_updated = int(s.get("categories_update") or 0)
         log.categories_skipped = int(s.get("categories_skip") or 0)
         log.products_created = int(s.get("products_create") or 0)
         log.products_updated = int(s.get("products_update") or 0)
         log.products_skipped = int(s.get("products_skip") or 0)
-        log.stocks_upserted = int(s.get("stocks_upsert") or 0)
+        # ONEC-015: не писать planned stocks_upsert как «факт» до apply
+        log.stocks_upserted = 0 if not dry_run else int(s.get("stocks_upsert") or 0)
         log.stocks_skipped = int(s.get("stocks_skip") or 0)
 
-        issues = plan.issues or []
-        log.errors_count = len(issues)
-        log.error_messages = [
-            {
-                "type": i.get("type"),
-                "onec_code": i.get("onec_code") or "",
-                "field": i.get("field") or "",
-                "value": str(i.get("value") if i.get("value") is not None else "")[:64],
-                "reason": i.get("reason") or "",
-                "message": (i.get("message") or i.get("notes") or str(i))[:400],
-            }
-            for i in issues[:100]
-            if isinstance(i, dict)
-        ]
+        # ONEC-016: series_present / info не раздувают errors_count
+        log.errors_count = int(issue_counts["errors_count"])
+        log_msgs: list[Any] = []
+        for i in (partitioned["blocker"] + partitioned["error"])[:80]:
+            log_msgs.append(issue_for_log(i))
+        for i in partitioned["warning"][:40]:
+            log_msgs.append(issue_for_log(i))
+        # info (series_present): только счётчик + до 5 примеров
+        for i in partitioned["info"][:5]:
+            log_msgs.append(issue_for_log(i))
+        log.error_messages = log_msgs
+
         log.summary = {
             "folder_count": plan.folder_count,
             "product_row_count": plan.product_row_count,
             "unique_product_count": plan.unique_product_count,
             "mode": plan.mode,
+            "plan_run_id": plan.run_id,
+            "counters_source": "planned",
+            "planned_stocks_upsert": int(s.get("stocks_upsert") or 0),
+            "planned_stocks_to_zero": int(s.get("stocks_to_zero") or 0),
+            "stock_series_rows": int(s.get("stock_series_rows") or 0),
+            "warnings_count": issue_counts["warnings_count"],
+            "info_count": issue_counts["info_count"],
+            "blockers_count": issue_counts["blockers_count"],
+            "anomalies_count": 0,
+            "stocks_zeroed": 0,
+            "stocks_skipped_idempotent": 0,
             **{k: s.get(k) for k in s},
+            **issue_counts,
         }
 
+        apply_result: dict[str, Any] | None = None
         if not dry_run:
+            if getattr(plan, "apply_blockers", None):
+                raise RuntimeError(
+                    "Apply заблокирован: "
+                    + "; ".join(
+                        (b.get("message") or b.get("type") or "blocker")
+                        for b in plan.apply_blockers[:5]
+                    )
+                )
             with transaction.atomic():
-                apply_catalog_import(plan)
+                apply_result = apply_catalog_import(plan)
 
-        if log.errors_count and (
-            log.products_created or log.products_updated or log.categories_created
-        ):
+            # Фактические счётчики batch apply (ONEC-015)
+            log.products_created = int(apply_result.get("products_created") or 0)
+            log.products_updated = int(apply_result.get("products_updated") or 0)
+            log.stocks_upserted = int(apply_result.get("stocks_upserted") or 0)
+            stock_zeroed = int(apply_result.get("stocks_zeroed") or 0)
+            stock_idem = int(apply_result.get("stocks_skipped_idempotent") or 0)
+            log.stocks_skipped = int(s.get("stocks_skip") or 0) + stock_idem
+            anomalies = int(apply_result.get("reserved_over_quantity_count") or 0)
+            log.summary = {
+                **(log.summary or {}),
+                "counters_source": "applied",
+                "stocks_zeroed": stock_zeroed,
+                "stocks_skipped_idempotent": stock_idem,
+                "stocks_upserted_applied": log.stocks_upserted,
+                "anomalies_count": anomalies,
+                "reserved_over_quantity_count": anomalies,
+                "apply_run_id": apply_result.get("run_id") or plan.run_id,
+            }
+
+        # Статус: blockers → уже exception; info/warnings не делают PARTIAL
+        if log.errors_count > 0:
             log.status = OneCCatalogSyncLog.STATUS_PARTIAL
-        elif log.errors_count and not (
-            log.products_created or log.products_updated or log.categories_updated
-        ):
-            # dry-run с issues всё ещё success плана; failed только при исключениях
-            log.status = (
-                OneCCatalogSyncLog.STATUS_PARTIAL
-                if issues
-                else OneCCatalogSyncLog.STATUS_SUCCESS
-            )
         else:
             log.status = OneCCatalogSyncLog.STATUS_SUCCESS
     except Exception as exc:  # noqa: BLE001
         logger.exception("onec catalog sync failed run=%s", log.run_id)
         log.status = OneCCatalogSyncLog.STATUS_FAILED
-        log.errors_count = max(log.errors_count, 1)
-        log.error_messages = list(log.error_messages or []) + [str(exc)[:500]]
+        log.errors_count = max(int(log.errors_count or 0), 1)
+        stop_reason = str(exc)[:500]
+        log.error_messages = list(log.error_messages or []) + [
+            {"type": "stop", "class": "blocker", "message": stop_reason}
+        ]
+        summary = dict(log.summary or {})
+        summary["stop_reason"] = stop_reason
+        log.summary = summary
     finally:
         log.finished_at = timezone.now()
         log.duration_ms = int((log.finished_at - started).total_seconds() * 1000)
@@ -331,6 +379,7 @@ def run_catalog_import(
 
 
 def serialize_sync_log(log) -> dict[str, Any]:
+    summary = log.summary or {}
     return {
         "id": str(log.pk),
         "run_id": log.run_id,
@@ -350,7 +399,13 @@ def serialize_sync_log(log) -> dict[str, Any]:
         "products_skipped": log.products_skipped,
         "stocks_upserted": log.stocks_upserted,
         "stocks_skipped": log.stocks_skipped,
+        "stocks_zeroed": int(summary.get("stocks_zeroed") or 0),
+        "stocks_skipped_idempotent": int(summary.get("stocks_skipped_idempotent") or 0),
+        "warnings_count": int(summary.get("warnings_count") or 0),
+        "info_count": int(summary.get("info_count") or 0),
+        "anomalies_count": int(summary.get("anomalies_count") or 0),
         "errors_count": log.errors_count,
+        "stop_reason": summary.get("stop_reason") or None,
         "error_messages": log.error_messages,
         "summary": log.summary,
         "celery_task_id": log.celery_task_id,

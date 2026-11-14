@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import json
+import uuid
 from collections import defaultdict
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
@@ -35,14 +36,16 @@ from .parser import (
     parse_catalog_xml_strings,
     unique_product_codes,
 )
+from .warehouse_map import (
+    CONFIRMED_BY_ID,
+    CONFIRMED_WAREHOUSE_IDS,
+    is_confirmed_warehouse_id,
+)
 
 
 class ImportMode(str, Enum):
     DRY_RUN = "dry_run"
     APPLY = "apply"
-
-
-APPLE_ROOM_NAMES = frozenset({"apple room", "appleroom"})
 
 
 @dataclass
@@ -75,11 +78,13 @@ class StockAction:
     sklad: str
     sklad_id: str
     quantity: str | None
-    quantity_status: str  # explicit_zero | positive | missing | invalid | rejected
-    action: str  # upsert | skip
+    quantity_status: str  # explicit_zero | positive | missing | invalid | rejected | zeroed
+    action: str  # upsert | skip | zero
     notes: str = ""
     series: str = ""
     series_id: str = ""
+    site_product_id: str | None = None
+    site_store_id: str | None = None
 
 
 @dataclass
@@ -88,20 +93,30 @@ class CatalogImportPlan:
     generated_at: str
     source_folders_path: str
     source_products_path: str
+    # Уникальный id запуска плана: стабилен при повторном APPLY того же объекта плана,
+    # новый UUID при каждом plan_from_parsed (новый прогон синхронизации).
+    run_id: str = ""
     folder_count: int = 0
     product_row_count: int = 0
     unique_product_count: int = 0
     categories: list[CategoryAction] = field(default_factory=list)
     products: list[ProductAction] = field(default_factory=list)
     stocks: list[StockAction] = field(default_factory=list)
+    stocks_to_zero: list[StockAction] = field(default_factory=list)
     warehouses: list[dict[str, Any]] = field(default_factory=list)
     issues: list[dict[str, Any]] = field(default_factory=list)
+    apply_blockers: list[dict[str, Any]] = field(default_factory=list)
     summary: dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def apply_allowed(self) -> bool:
+        return not self.apply_blockers
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "mode": self.mode,
             "generated_at": self.generated_at,
+            "run_id": self.run_id,
             "source_folders_path": self.source_folders_path,
             "source_products_path": self.source_products_path,
             "folder_count": self.folder_count,
@@ -110,10 +125,19 @@ class CatalogImportPlan:
             "summary": self.summary,
             "warehouses": self.warehouses,
             "issues": self.issues,
+            "apply_blockers": self.apply_blockers,
+            "apply_allowed": self.apply_allowed,
             "categories": [asdict(c) for c in self.categories],
             "products": [asdict(p) for p in self.products],
             "stocks": [asdict(s) for s in self.stocks],
+            "stocks_to_zero": [asdict(s) for s in self.stocks_to_zero],
         }
+
+    def ensure_run_id(self) -> str:
+        """Гарантирует run_id на плане (для старых объектов / тестов без поля)."""
+        if not (self.run_id or "").strip():
+            self.run_id = str(uuid.uuid4())
+        return self.run_id
 
 
 def _now_iso() -> str:
@@ -493,6 +517,11 @@ def _plan_products(
                     )
                 )
 
+        # Карточка: ошибка цены блокирует create/update цены, но не всегда остатки.
+        existing_for_stock = None
+        if matched and matched_by in ("onec_code", "sku_equals_onec_code"):
+            existing_for_stock = matched
+
         if price_blocked:
             for action in product_actions:
                 if action.onec_code == code and action.action in ("create", "update"):
@@ -504,20 +533,26 @@ def _plan_products(
 
         # Остатки / склады / серии по строкам
         for row in data["rows"]:
+            sklad_id = (row.sklad_id or "").strip()
             if row.has_warehouse:
-                key = row.sklad_id or row.sklad
+                key = sklad_id or row.sklad
+                meta = CONFIRMED_BY_ID.get(sklad_id)
                 warehouses.setdefault(
                     key,
                     {
                         "sklad": row.sklad,
-                        "sklad_id": row.sklad_id,
-                        "is_apple_room": row.sklad.strip().lower() in APPLE_ROOM_NAMES,
+                        "sklad_id": sklad_id,
+                        "is_warehouse": bool(meta.is_warehouse) if meta else False,
+                        "is_confirmed": is_confirmed_warehouse_id(sklad_id),
                         "row_count": 0,
                     },
                 )
                 warehouses[key]["row_count"] += 1
 
             qty_str, qty_status = _quantity_status(row)
+            series_id = (row.series_id or "").strip()
+            series_name = (row.series or "").strip()
+
             if not row.has_warehouse:
                 stock_actions.append(
                     StockAction(
@@ -527,10 +562,95 @@ def _plan_products(
                         quantity=None,
                         quantity_status="missing",
                         action="skip",
-                        notes="Нет склада и количества — не трактуем как ноль",
-                        series=row.series,
-                        series_id=row.series_id,
+                        notes="Нет склада — строка не участвует в снимке",
+                        series=series_name,
+                        series_id=series_id,
                     )
+                )
+                issues.append(
+                    {
+                        "type": "stock_row_no_warehouse",
+                        "severity": True,
+                        "onec_code": code,
+                        "message": "Строка без склада — нельзя безопасно сверить снимок",
+                    }
+                )
+                continue
+
+            if not sklad_id:
+                stock_actions.append(
+                    StockAction(
+                        onec_code=code,
+                        sklad=row.sklad,
+                        sklad_id="",
+                        quantity=None,
+                        quantity_status=qty_status,
+                        action="skip",
+                        notes="Склад без warehouseId — сопоставление запрещено",
+                        series=series_name,
+                        series_id=series_id,
+                    )
+                )
+                issues.append(
+                    {
+                        "type": "warehouse_missing_id",
+                        "severity": True,
+                        "onec_code": code,
+                        "sklad": row.sklad,
+                        "message": f"Склад без warehouseId: {row.sklad!r}",
+                    }
+                )
+                continue
+
+            if not is_confirmed_warehouse_id(sklad_id):
+                stock_actions.append(
+                    StockAction(
+                        onec_code=code,
+                        sklad=row.sklad,
+                        sklad_id=sklad_id,
+                        quantity=None,
+                        quantity_status=qty_status,
+                        action="skip",
+                        notes="Неизвестный warehouseId — Store не создаём",
+                        series=series_name,
+                        series_id=series_id,
+                    )
+                )
+                issues.append(
+                    {
+                        "type": "unknown_warehouse",
+                        "severity": True,
+                        "onec_code": code,
+                        "sklad": row.sklad,
+                        "sklad_id": sklad_id,
+                        "message": f"Неизвестный warehouseId: {sklad_id}",
+                    }
+                )
+                continue
+
+            if series_name and not series_id:
+                stock_actions.append(
+                    StockAction(
+                        onec_code=code,
+                        sklad=row.sklad,
+                        sklad_id=sklad_id,
+                        quantity=None,
+                        quantity_status=qty_status,
+                        action="skip",
+                        notes="Серия без seriesId — неоднозначно",
+                        series=series_name,
+                        series_id="",
+                    )
+                )
+                issues.append(
+                    {
+                        "type": "series_missing_id",
+                        "severity": True,
+                        "onec_code": code,
+                        "sklad_id": sklad_id,
+                        "series": series_name,
+                        "message": "series без seriesId",
+                    }
                 )
                 continue
 
@@ -539,14 +659,23 @@ def _plan_products(
                     StockAction(
                         onec_code=code,
                         sklad=row.sklad,
-                        sklad_id=row.sklad_id,
+                        sklad_id=sklad_id,
                         quantity=None,
                         quantity_status=qty_status,
                         action="skip",
-                        notes="Склад указан, количество пустое — не пишем ноль",
-                        series=row.series,
-                        series_id=row.series_id,
+                        notes="Склад указан, количество пустое — не пишем ноль из строки",
+                        series=series_name,
+                        series_id=series_id,
                     )
+                )
+                issues.append(
+                    {
+                        "type": "quantity_empty_with_warehouse",
+                        "severity": True,
+                        "onec_code": code,
+                        "sklad_id": sklad_id,
+                        "message": "Пустое quantity при указанном складе",
+                    }
                 )
                 continue
 
@@ -556,13 +685,13 @@ def _plan_products(
                     StockAction(
                         onec_code=code,
                         sklad=row.sklad,
-                        sklad_id=row.sklad_id,
+                        sklad_id=sklad_id,
                         quantity=None,
                         quantity_status=qty_status,
                         action="skip",
                         notes=f"Количество отклонено: {row.quantity_raw!r}",
-                        series=row.series,
-                        series_id=row.series_id,
+                        series=series_name,
+                        series_id=series_id,
                     )
                 )
                 issues.append(
@@ -570,44 +699,77 @@ def _plan_products(
                         "type": "rejected_quantity"
                         if qty_status == "rejected"
                         else "invalid_quantity",
+                        "severity": True,
                         "onec_code": code,
                         "field": "quantity",
                         "value": (row.quantity_raw or "")[:64],
                         "reason": reason,
                         "sklad": row.sklad,
+                        "sklad_id": sklad_id,
                         "message": f"Количество отклонено ({reason}): {row.quantity_raw}",
                     }
                 )
                 continue
 
-            if price_blocked:
+            # Новый товар без цены: нельзя создать Product → нельзя писать Stock.
+            # Существующая карточка: остатки обновляем даже при price_blocked.
+            if price_blocked and existing_for_stock is None:
                 stock_actions.append(
                     StockAction(
                         onec_code=code,
                         sklad=row.sklad,
-                        sklad_id=row.sklad_id,
+                        sklad_id=sklad_id,
                         quantity=None,
                         quantity_status=qty_status,
                         action="skip",
-                        notes="Остаток не пишем: цена этой позиции отклонена",
-                        series=row.series,
-                        series_id=row.series_id,
+                        notes="Нет карточки и цена отклонена — Stock не создаём",
+                        series=series_name,
+                        series_id=series_id,
                     )
                 )
                 continue
 
+            # Нет сопоставленной/создаваемой карточки (ambiguous / missing category)
+            can_create = any(
+                a.onec_code == code and a.action == "create" for a in product_actions
+            )
+            if existing_for_stock is None and not can_create:
+                stock_actions.append(
+                    StockAction(
+                        onec_code=code,
+                        sklad=row.sklad,
+                        sklad_id=sklad_id,
+                        quantity=qty_str,
+                        quantity_status=qty_status,
+                        action="skip",
+                        notes="Нет Product для остатка — строка в снимке не учитывается",
+                        series=series_name,
+                        series_id=series_id,
+                    )
+                )
+                issues.append(
+                    {
+                        "type": "stock_without_product",
+                        "severity": True,
+                        "onec_code": code,
+                        "sklad_id": sklad_id,
+                        "message": "Остаток без сопоставленной карточки",
+                    }
+                )
+                continue
+
             note = ""
-            if row.has_series:
+            if series_id:
                 note = (
-                    f"Серия: {row.series} (seriesID={row.series_id}); "
+                    f"Серия: {series_name} (seriesID={series_id}); "
                     "остаток по серии отдельно от карточки товара"
                 )
                 issues.append(
                     {
                         "type": "series_present",
                         "onec_code": code,
-                        "series": row.series,
-                        "series_id": row.series_id,
+                        "series": series_name,
+                        "series_id": series_id,
                         "sklad": row.sklad,
                     }
                 )
@@ -616,17 +778,131 @@ def _plan_products(
                 StockAction(
                     onec_code=code,
                     sklad=row.sklad,
-                    sklad_id=row.sklad_id,
+                    sklad_id=sklad_id,
                     quantity=qty_str,
                     quantity_status=qty_status,
                     action="upsert",
                     notes=note,
-                    series=row.series or "",
-                    series_id=(row.series_id or "").strip(),
+                    series=series_name,
+                    series_id=series_id,
+                    site_product_id=str(existing_for_stock.pk)
+                    if existing_for_stock is not None
+                    else None,
                 )
             )
 
     return product_actions, stock_actions, list(warehouses.values()), issues
+
+
+def _stores_by_confirmed_warehouse_id() -> dict[str, Store]:
+    return {
+        (s.onec_warehouse_id or "").strip(): s
+        for s in Store.objects.filter(onec_warehouse_id__in=CONFIRMED_WAREHOUSE_IDS)
+        if (s.onec_warehouse_id or "").strip()
+    }
+
+
+def _collect_apply_blockers(
+    *,
+    issues: list[dict[str, Any]],
+    warehouses: list[dict[str, Any]],
+    store_by_wid: dict[str, Store],
+) -> list[dict[str, Any]]:
+    blockers: list[dict[str, Any]] = []
+    for issue in issues:
+        # Issues may mark fail-closed rows as blocker=True or severity=True.
+        if issue.get("blocker") or issue.get("severity"):
+            blockers.append(
+                {
+                    "type": issue.get("type") or "blocker",
+                    "message": issue.get("message") or str(issue),
+                    "sklad_id": issue.get("sklad_id") or "",
+                    "onec_code": issue.get("onec_code") or "",
+                }
+            )
+
+    for wid in sorted(CONFIRMED_WAREHOUSE_IDS):
+        if wid not in store_by_wid:
+            meta = CONFIRMED_BY_ID[wid]
+            blockers.append(
+                {
+                    "type": "confirmed_warehouse_unmapped",
+                    "message": (
+                        f"Склад 1С «{meta.onec_name}» ({wid}) не привязан к Store. "
+                        f"Выполните list_onec_warehouses --apply "
+                        f"(suggested slug={meta.suggested_slug})."
+                    ),
+                    "sklad_id": wid,
+                }
+            )
+
+    for wh in warehouses:
+        wid = (wh.get("sklad_id") or "").strip()
+        if wid and wid not in CONFIRMED_WAREHOUSE_IDS:
+            blockers.append(
+                {
+                    "type": "unknown_warehouse",
+                    "message": f"Неизвестный warehouseId в выгрузке: {wid}",
+                    "sklad_id": wid,
+                }
+            )
+
+    # Уникализируем по (type, sklad_id, onec_code, message)
+    uniq: list[dict[str, Any]] = []
+    seen: set[tuple] = set()
+    for b in blockers:
+        key = (b.get("type"), b.get("sklad_id"), b.get("onec_code"), b.get("message"))
+        if key in seen:
+            continue
+        seen.add(key)
+        uniq.append(b)
+    return uniq
+
+
+def _plan_stocks_to_zero(
+    *,
+    seen_keys: set[tuple[str, str, str]],
+    store_by_wid: dict[str, Store],
+) -> list[StockAction]:
+    """
+    Позиции Stock на подтверждённых складах, которых нет в полном снимке.
+    Карточки Product не трогаем.
+    """
+    if not store_by_wid:
+        return []
+    store_ids = [s.pk for s in store_by_wid.values()]
+    zeros: list[StockAction] = []
+    qs = (
+        Stock.objects.filter(store_id__in=store_ids)
+        .exclude(product__onec_code__isnull=True)
+        .exclude(product__onec_code="")
+        .filter(quantity__gt=0)
+        .select_related("product", "store")
+    )
+    for row in qs.iterator():
+        key = (
+            str(row.product_id),
+            str(row.store_id),
+            (row.onec_series_id or "").strip(),
+        )
+        if key in seen_keys:
+            continue
+        zeros.append(
+            StockAction(
+                onec_code=row.product.onec_code or "",
+                sklad=row.store.onec_warehouse_name or row.store.name,
+                sklad_id=row.store.onec_warehouse_id or "",
+                quantity="0",
+                quantity_status="zeroed",
+                action="zero",
+                notes="Отсутствует в полном снимке 1С — обнуляем физический остаток",
+                series=row.onec_series_name or "",
+                series_id=(row.onec_series_id or "").strip(),
+                site_product_id=str(row.product_id),
+                site_store_id=str(row.store_id),
+            )
+        )
+    return zeros
 
 
 def plan_from_parsed(
@@ -644,8 +920,58 @@ def plan_from_parsed(
     prod_actions, stock_actions, warehouses, prod_issues = _plan_products(
         parsed.product_rows, folder_codes
     )
+    all_issues = cat_issues + prod_issues
 
+    store_by_wid = _stores_by_confirmed_warehouse_id()
+    apply_blockers = _collect_apply_blockers(
+        issues=all_issues, warehouses=warehouses, store_by_wid=store_by_wid
+    )
+
+    # Привязка upsert → site ids для seen_keys
+    products_by_onec = {
+        p.onec_code: p
+        for p in Product.objects.exclude(onec_code__isnull=True).exclude(onec_code="")
+    }
+    seen_keys: set[tuple[str, str, str]] = set()
+    for st in stock_actions:
+        if st.action != "upsert":
+            continue
+        product = None
+        if st.site_product_id:
+            product = products_by_onec.get(st.onec_code)
+        else:
+            product = products_by_onec.get(st.onec_code)
+        # Новые create ещё без PK — seen после apply; для плана zero учитываем
+        # только уже существующие product+store. Create+upsert в том же apply
+        # не порождает «stale» до первого появления.
+        if product is None:
+            continue
+        store = store_by_wid.get((st.sklad_id or "").strip())
+        if store is None:
+            continue
+        st.site_product_id = str(product.pk)
+        st.site_store_id = str(store.pk)
+        seen_keys.add(
+            (str(product.pk), str(store.pk), (st.series_id or "").strip())
+        )
+
+    stocks_to_zero: list[StockAction] = []
+    if not apply_blockers:
+        stocks_to_zero = _plan_stocks_to_zero(
+            seen_keys=seen_keys, store_by_wid=store_by_wid
+        )
+
+    from integrations.onec.reporting import partition_issues, build_issue_counts
+
+    partitioned = partition_issues(all_issues)
+    issue_counts = build_issue_counts(partitioned)
+    series_stock_rows = sum(
+        1
+        for a in stock_actions
+        if a.action == "upsert" and (a.series_id or "").strip()
+    )
     summary = {
+        # Planned (ожидаемые действия плана; для APPLY фактические — из apply_result)
         "categories_create": sum(1 for a in cat_actions if a.action == "create"),
         "categories_update": sum(1 for a in cat_actions if a.action == "update"),
         "categories_skip": sum(1 for a in cat_actions if a.action == "skip"),
@@ -655,22 +981,32 @@ def plan_from_parsed(
         "products_ambiguous": sum(1 for a in prod_actions if a.action == "ambiguous"),
         "stocks_upsert": sum(1 for a in stock_actions if a.action == "upsert"),
         "stocks_skip": sum(1 for a in stock_actions if a.action == "skip"),
+        "stocks_to_zero": len(stocks_to_zero),
+        "stock_series_rows": series_stock_rows,
+        "seen_keys": len(seen_keys),
         "warehouses": len(warehouses),
-        "issues": len(cat_issues) + len(prod_issues),
+        "xml_product_rows": len(parsed.product_rows),
+        "xml_folder_rows": len(parsed.folders),
+        "unique_products": len(unique_product_codes(parsed.product_rows)),
+        "apply_allowed": not apply_blockers,
+        "apply_blockers": len(apply_blockers),
+        "issues": len(all_issues),
         "rejected_positions": sum(
             1
-            for i in cat_issues + prod_issues
+            for i in all_issues
             if i.get("type") in ("rejected_price", "rejected_quantity", "invalid_quantity")
         ),
-        "series_rows": sum(1 for i in prod_issues if i.get("type") == "series_present"),
+        "series_rows": issue_counts["series_rows"],
         "missing_category_products": sum(
-            1 for i in prod_issues if i.get("type") == "product_missing_category"
+            1 for i in all_issues if i.get("type") == "product_missing_category"
         ),
+        **issue_counts,
     }
 
     return CatalogImportPlan(
         mode=mode.value,
         generated_at=_now_iso(),
+        run_id=str(uuid.uuid4()),
         source_folders_path=parsed.source_folders_path,
         source_products_path=parsed.source_products_path,
         folder_count=len(parsed.folders),
@@ -679,8 +1015,10 @@ def plan_from_parsed(
         categories=cat_actions,
         products=prod_actions,
         stocks=stock_actions,
+        stocks_to_zero=stocks_to_zero,
         warehouses=warehouses,
-        issues=cat_issues + prod_issues,
+        issues=all_issues,
+        apply_blockers=apply_blockers,
         summary=summary,
     )
 
@@ -760,13 +1098,27 @@ def _unique_category_slug(base: str, *, exclude_id=None) -> str:
 @transaction.atomic
 def apply_catalog_import(plan: CatalogImportPlan) -> dict[str, Any]:
     """
-    Применяет план к БД. Не удаляет сущности, отсутствующие в выгрузке.
-    Остатки пишутся только для строк action=upsert с известным складом и товаром.
+    Применяет план к БД.
+    Не удаляет/не деактивирует карточки Product.
+    Store не создаёт — только склады с подтверждённым onec_warehouse_id.
+    После upsert выполняет zero-phase по отсутствующим в снимке позициям.
+
+    ONEC-014: одна atomic на весь apply сохраняет согласованность полного снимка
+    (upsert + zero). Дробить транзакцию без отдельного безопасного протокола
+    нельзя — иначе частичный apply + zero исказят наличие. Параллельный apply
+    сериализуется lock'ом catalog_sync (ONEC-013).
     """
     if plan.mode != ImportMode.APPLY.value:
         raise ValueError("apply_catalog_import требует plan.mode=apply")
+    if plan.apply_blockers:
+        raise ValueError(
+            "apply_catalog_import заблокирован: "
+            + "; ".join(
+                (b.get("message") or b.get("type") or "blocker")
+                for b in plan.apply_blockers[:5]
+            )
+        )
 
-    folder_by_code = {c.onec_code: c for c in plan.categories if c.action in ("create", "update")}
     # Создаём/обновляем категории в порядке плана (уже топологический из планировщика)
     code_to_category: dict[str, Category] = {}
     for action in plan.categories:
@@ -833,94 +1185,101 @@ def apply_catalog_import(plan: CatalogImportPlan) -> dict[str, Any]:
             )
             created_products += 1
 
-    # Склады
-    store_by_wh: dict[str, Store] = {}
+    # Склады: только по подтверждённому warehouseId, без create и без match по имени.
+    store_by_wid = _stores_by_confirmed_warehouse_id()
     for wh in plan.warehouses:
         sklad_id = (wh.get("sklad_id") or "").strip()
-        sklad = (wh.get("sklad") or "").strip()
-        if not sklad_id and not sklad:
+        if not sklad_id or sklad_id not in store_by_wid:
             continue
-        store = None
-        if sklad_id:
-            store = Store.objects.filter(onec_warehouse_id=sklad_id).first()
-        if not store and sklad:
-            store = Store.objects.filter(onec_warehouse_name__iexact=sklad).first()
-        if not store and sklad:
-            store = Store.objects.filter(name__iexact=sklad).first()
-        is_wh = bool(wh.get("is_apple_room"))
-        if store:
-            dirty = []
-            if sklad_id and store.onec_warehouse_id != sklad_id:
-                store.onec_warehouse_id = sklad_id
-                dirty.append("onec_warehouse_id")
-            if sklad and store.onec_warehouse_name != sklad:
-                store.onec_warehouse_name = sklad
-                dirty.append("onec_warehouse_name")
-            if is_wh and not store.is_warehouse:
-                store.is_warehouse = True
-                dirty.append("is_warehouse")
-            if dirty:
-                store.save(update_fields=[*dirty, "updated_at"])
-        else:
-            base_slug = slugify(sklad or sklad_id) or "warehouse"
-            slug = base_slug
-            n = 2
-            while Store.objects.filter(slug=slug).exists():
-                slug = f"{base_slug}-{n}"
-                n += 1
-            store = Store.objects.create(
-                name=sklad or sklad_id,
-                slug=slug,
-                address="Уточнить адрес",
-                city="Уточнить",
-                onec_warehouse_id=sklad_id or None,
-                onec_warehouse_name=sklad or None,
-                is_warehouse=is_wh,
-                is_active=not is_wh,
-            )
-        key = sklad_id or sklad
-        store_by_wh[key] = store
+        store = store_by_wid[sklad_id]
+        sklad = (wh.get("sklad") or "").strip()
+        meta = CONFIRMED_BY_ID.get(sklad_id)
+        dirty: list[str] = []
+        if sklad and store.onec_warehouse_name != sklad:
+            store.onec_warehouse_name = sklad
+            dirty.append("onec_warehouse_name")
+        if meta and store.is_warehouse != meta.is_warehouse:
+            store.is_warehouse = meta.is_warehouse
+            dirty.append("is_warehouse")
+        if dirty:
+            store.save(update_fields=[*dirty, "updated_at"])
 
     stock_upserts = 0
+    stock_zeros = 0
+    stock_skipped_idempotent = 0
+    run_id = plan.ensure_run_id()
     products_by_onec = {
         p.onec_code: p
         for p in Product.objects.exclude(onec_code__isnull=True).exclude(onec_code="")
     }
+    from apps.stores.stock_ops import (
+        OnecStockUpsertItem,
+        apply_onec_stock_upserts_batch,
+    )
+
+    # BLOCK 6: batch upsert/zero внутри той же atomic (ONEC-014), без построчного
+    # N+1 (StockMovement lookup + update_or_create + movement insert).
+    upsert_items: list[OnecStockUpsertItem] = []
     for st in plan.stocks:
         if st.action != "upsert":
             continue
         product = products_by_onec.get(st.onec_code)
         if not product:
             continue
-        key = st.sklad_id or st.sklad
-        store = store_by_wh.get(key)
+        store = store_by_wid.get((st.sklad_id or "").strip())
         if not store:
             continue
         qty = writable_quantity(st.quantity)
         if qty is None:
             continue
-        series_id = (getattr(st, "series_id", None) or "").strip()
-        series_name = (getattr(st, "series", None) or "").strip()
-        from apps.stores.stock_ops import apply_onec_stock_upsert
-
-        apply_onec_stock_upsert(
-            product_id=product.pk,
-            store_id=store.pk,
-            series_id=series_id,
-            series_name=series_name,
-            quantity=qty,
-            idempotency_key=(
-                f"onec_import:{product.pk}:{store.pk}:{series_id}:q{qty}"
-            ),
+        upsert_items.append(
+            OnecStockUpsertItem(
+                product_id=product.pk,
+                store_id=store.pk,
+                series_id=(getattr(st, "series_id", None) or "").strip(),
+                series_name=(getattr(st, "series", None) or "").strip(),
+                quantity=qty,
+            )
         )
-        stock_upserts += 1
 
+    zero_items: list[OnecStockUpsertItem] = []
+    for st in plan.stocks_to_zero:
+        if st.action != "zero":
+            continue
+        product_id = st.site_product_id
+        store_id = st.site_store_id
+        if not product_id or not store_id:
+            continue
+        zero_items.append(
+            OnecStockUpsertItem(
+                product_id=product_id,
+                store_id=store_id,
+                series_id=(st.series_id or "").strip(),
+                series_name=(st.series or "").strip(),
+                quantity=0,
+            )
+        )
+
+    if upsert_items:
+        up = apply_onec_stock_upserts_batch(upsert_items, run_id=run_id)
+        stock_upserts = up["applied"]
+        stock_skipped_idempotent += up["skipped_idempotent"]
+    if zero_items:
+        zr = apply_onec_stock_upserts_batch(zero_items, run_id=run_id)
+        stock_zeros = zr["applied"]
+        stock_skipped_idempotent += zr["skipped_idempotent"]
+
+    reserved_over = diagnose_reserved_over_quantity()
     return {
         "categories": len(code_to_category),
         "products_created": created_products,
         "products_updated": updated_products,
         "stocks_upserted": stock_upserts,
-        "stores_linked": len(store_by_wh),
+        "stocks_zeroed": stock_zeros,
+        "stocks_skipped_idempotent": stock_skipped_idempotent,
+        "stores_linked": len(store_by_wid),
+        "run_id": run_id,
+        "reserved_over_quantity_count": reserved_over["anomaly_count"],
     }
 
 
@@ -968,5 +1327,53 @@ def diagnose_stale_blank_series_stocks() -> dict[str, Any]:
         "action": "report_only",
         "message": (
             "Автоочистка не выполняется. Сверьте с выгрузкой 1С перед правкой данных."
+        ),
+    }
+
+
+def diagnose_reserved_over_quantity() -> dict[str, Any]:
+    """
+    ONEC-004: Stock, где reserved_quantity > quantity.
+    Только отчёт — резерв не режем и не затираем автоматически.
+    """
+    from django.db.models import F
+
+    from apps.stores.models import Stock
+
+    rows = []
+    qs = (
+        Stock.objects.filter(reserved_quantity__gt=F("quantity"))
+        .select_related("product", "store")
+        .order_by("store__slug", "product__onec_code")
+    )
+    for row in qs.iterator():
+        qty = int(row.quantity)
+        reserved = int(row.reserved_quantity)
+        rows.append(
+            {
+                "stock_id": str(row.pk),
+                "product_id": str(row.product_id),
+                "product_onec_code": getattr(row.product, "onec_code", None),
+                "product_title": getattr(row.product, "title", ""),
+                "store_id": str(row.store_id),
+                "store_slug": getattr(row.store, "slug", ""),
+                "onec_series_id": (row.onec_series_id or "").strip(),
+                "quantity": qty,
+                "reserved_quantity": reserved,
+                "available_quantity": max(0, qty - reserved),
+                "deficit": reserved - qty,
+                "note": (
+                    "reserved > quantity; available=0 до пополнения. "
+                    "Резерв не уменьшается автоматически."
+                ),
+            }
+        )
+    return {
+        "anomaly_count": len(rows),
+        "anomalies": rows,
+        "action": "report_only",
+        "message": (
+            "Автоисправление резерва не выполняется. "
+            "Проверьте незакрытые заказы / sync после продажи."
         ),
     }

@@ -63,12 +63,14 @@ class StockLedgerCompleteTests(TestCase):
         self.assertEqual(move.stock_quantity_after, 7)
 
     def test_onec_upsert_reconciliation(self):
+        run_id = "int009-run-1"
         apply_onec_stock_upsert(
             product_id=self.product.pk,
             store_id=self.store.pk,
             series_id="",
             series_name="",
             quantity=42,
+            run_id=run_id,
         )
         self.stock.refresh_from_db()
         self.assertEqual(self.stock.quantity, 42)
@@ -77,14 +79,16 @@ class StockLedgerCompleteTests(TestCase):
                 operation=StockMovement.OP_RECONCILIATION, success=True
             ).exists()
         )
-        # idempotent same qty
-        apply_onec_stock_upsert(
+        # Повтор того же run_id — без второго движения
+        _row, applied = apply_onec_stock_upsert(
             product_id=self.product.pk,
             store_id=self.store.pk,
             series_id="",
             series_name="",
             quantity=42,
+            run_id=run_id,
         )
+        self.assertFalse(applied)
         self.assertEqual(
             StockMovement.objects.filter(
                 operation=StockMovement.OP_RECONCILIATION

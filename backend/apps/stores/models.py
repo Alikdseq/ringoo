@@ -48,8 +48,11 @@ class Store(models.Model):
     )
     is_warehouse = models.BooleanField(
         default=False,
-        verbose_name="Склад (не точка самовывоза)",
-        help_text="True для складов вроде Apple Room: остаток учитывается, самовывоз не предлагается.",
+        verbose_name="Склад (метка для клиентов)",
+        help_text=(
+            "True для точек вроде Apple Room / «Склад»: для клиента показывается как склад, "
+            "но это полноценная точка — остатки, корзина и заказ учитываются как у магазина."
+        ),
     )
     address = models.CharField(max_length=500, verbose_name="Адрес")
     city = models.CharField(max_length=255, verbose_name="Город")
@@ -201,7 +204,9 @@ class Stock(models.Model):
     )
     product = models.ForeignKey(
         "products.Product",
-        on_delete=models.CASCADE,
+        # ONEC-023: CASCADE терял остатки/резервы при удалении Product.
+        # PROTECT + архивация (is_active=False) сохраняют складскую целостность.
+        on_delete=models.PROTECT,
         related_name="stock_items",
         verbose_name="Товар",
     )
@@ -269,12 +274,140 @@ class Stock(models.Model):
         self.save(update_fields=["reserved_quantity", "updated_at"])
 
     @classmethod
-    def available_quantity_at_store(cls, product_id, store_id) -> int:
-        """Суммарный доступный остаток товара в конкретном магазине (все серии)."""
+    def available_from_stock_rows(cls, rows) -> int:
+        """Сумма available по уже загруженным строкам Stock (prefetch-friendly)."""
         total = 0
-        for row in cls.objects.filter(product_id=product_id, store_id=store_id):
+        for row in rows:
             total += max(0, int(row.quantity) - int(row.reserved_quantity))
         return total
+
+    @classmethod
+    def available_quantity_at_store(cls, product_id, store_id) -> int:
+        """Суммарный доступный остаток товара в конкретном магазине (все серии)."""
+        from apps.stores.stock_ops import sum_available_quantity
+
+        return sum_available_quantity(
+            cls.objects.filter(product_id=product_id, store_id=store_id)
+        )
+
+    @classmethod
+    def available_quantity_retail(cls, product_id, store_id=None) -> int:
+        """
+        Доступный остаток для покупателя по активным точкам (включая is_warehouse /
+        Apple Room — метка «склад», но участие в наличии то же, что у магазина).
+        Суммирует все серии product+store. Одна SQL-агрегация (BLOCK 6).
+        """
+        from apps.stores.stock_ops import sum_available_quantity
+
+        qs = cls.objects.filter(
+            product_id=product_id,
+            store__is_active=True,
+        )
+        if store_id is not None:
+            qs = qs.filter(store_id=store_id)
+        return sum_available_quantity(qs)
+
+    @classmethod
+    def public_stock_rows_from_prefetched(cls, rows, *, product_id) -> list[dict]:
+        """Агрегация серий по магазинам из prefetch (ONEC-010, без доп. SQL)."""
+        buckets: dict[str, dict] = {}
+        order: list[str] = []
+        for row in rows:
+            store = getattr(row, "store", None)
+            if store is not None and not getattr(store, "is_active", True):
+                continue
+            sid = str(row.store_id)
+            if sid not in buckets:
+                buckets[sid] = {
+                    "product": str(product_id),
+                    "store": sid,
+                    "quantity": 0,
+                    "available_quantity": 0,
+                    "_city": getattr(store, "city", "") if store else "",
+                    "_name": getattr(store, "name", "") if store else "",
+                }
+                order.append(sid)
+            buckets[sid]["quantity"] += int(row.quantity)
+            buckets[sid]["available_quantity"] += max(
+                0, int(row.quantity) - int(row.reserved_quantity)
+            )
+        order.sort(
+            key=lambda sid: (buckets[sid]["_city"], buckets[sid]["_name"], sid)
+        )
+        out = []
+        for sid in order:
+            row = buckets[sid]
+            out.append(
+                {
+                    "product": row["product"],
+                    "store": row["store"],
+                    "quantity": row["quantity"],
+                    "available_quantity": row["available_quantity"],
+                }
+            )
+        return out
+
+    @classmethod
+    def aggregated_public_stock_for_product(cls, product_id) -> list[dict]:
+        """
+        ONEC-010: одна строка на активный магазин с суммой quantity / available
+        по всем сериям. Порядок: city, name.
+        """
+        qs = (
+            cls.objects.filter(product_id=product_id, store__is_active=True)
+            .select_related("store")
+            .order_by("store__city", "store__name", "onec_series_id", "pk")
+        )
+        buckets: dict[str, dict] = {}
+        order: list[str] = []
+        for row in qs:
+            sid = str(row.store_id)
+            if sid not in buckets:
+                buckets[sid] = {
+                    "product": str(row.product_id),
+                    "store": sid,
+                    "quantity": 0,
+                    "available_quantity": 0,
+                }
+                order.append(sid)
+            buckets[sid]["quantity"] += int(row.quantity)
+            buckets[sid]["available_quantity"] += max(
+                0, int(row.quantity) - int(row.reserved_quantity)
+            )
+        return [buckets[sid] for sid in order]
+
+    @classmethod
+    def aggregated_public_stock_for_store(cls, store_id) -> list[dict]:
+        """
+        Публичные остатки магазина: одна строка на активный товар,
+        сумма по сериям (без reserved / seriesId). «Склад» не исключается.
+        """
+        qs = (
+            cls.objects.filter(
+                store_id=store_id,
+                store__is_active=True,
+                product__is_active=True,
+            )
+            .select_related("product", "store")
+            .order_by("product__title", "onec_series_id", "pk")
+        )
+        buckets: dict[str, dict] = {}
+        order: list[str] = []
+        for row in qs:
+            pid = str(row.product_id)
+            if pid not in buckets:
+                buckets[pid] = {
+                    "product": pid,
+                    "store": str(row.store_id),
+                    "quantity": 0,
+                    "available_quantity": 0,
+                }
+                order.append(pid)
+            buckets[pid]["quantity"] += int(row.quantity)
+            buckets[pid]["available_quantity"] += max(
+                0, int(row.quantity) - int(row.reserved_quantity)
+            )
+        return [buckets[pid] for pid in order]
 
     @classmethod
     def reserve_series_atomic(cls, product_id, store_id, series_id, amount=1):

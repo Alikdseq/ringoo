@@ -32,6 +32,7 @@ class StoreSerializer(serializers.ModelSerializer):
             "phone",
             "coordinates",
             "working_hours",
+            "is_warehouse",
         )
         read_only_fields = fields
 
@@ -63,6 +64,7 @@ class StoreDetailSerializer(StoreSerializer):
             "coordinates",
             "working_hours",
             "is_active",
+            "is_warehouse",
             "created_at",
             "updated_at",
         )
@@ -122,6 +124,7 @@ class StorePageSerializer(StoreSerializer):
             "email",
             "coordinates",
             "working_hours",
+            "is_warehouse",
             "description",
             "meta_title",
             "meta_description",

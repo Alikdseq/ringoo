@@ -151,9 +151,9 @@ class TestStoreListView(TestCase):
         results = response.json()["results"]
         self.assertIsNotNone(results[0].get("coordinates"))
 
-    def test_list_excludes_is_warehouse(self):
+    def test_list_includes_is_warehouse_with_flag(self):
         Store.objects.create(
-            name="Склад 1С",
+            name="Склад",
             slug="wh-only",
             address="В",
             city="Москва",
@@ -164,9 +164,12 @@ class TestStoreListView(TestCase):
         url = reverse("api_v1:stores:store-list")
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
-        slugs = [s["slug"] for s in response.json()["results"]]
-        self.assertIn("active-store", slugs)
-        self.assertNotIn("wh-only", slugs)
+        results = response.json()["results"]
+        by_slug = {s["slug"]: s for s in results}
+        self.assertIn("active-store", by_slug)
+        self.assertIn("wh-only", by_slug)
+        self.assertTrue(by_slug["wh-only"]["is_warehouse"])
+        self.assertFalse(by_slug["active-store"]["is_warehouse"])
 
 
 class TestStoreDetailView(TestCase):
@@ -188,7 +191,7 @@ class TestStoreDetailView(TestCase):
         self.assertEqual(data["slug"], "detail-store")
         self.assertIn("coordinates", data)
 
-    def test_retrieve_warehouse_returns_404(self):
+    def test_retrieve_warehouse_returns_200_with_flag(self):
         wh = Store.objects.create(
             name="Склад",
             slug="only-wh",
@@ -200,7 +203,8 @@ class TestStoreDetailView(TestCase):
         )
         url = reverse("api_v1:stores:store-detail", kwargs={"pk": wh.pk})
         response = self.client.get(url)
-        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()["is_warehouse"])
 
 
 class TestStockListView(TestCase):
@@ -252,7 +256,7 @@ class TestProductStockView(TestCase):
         self.assertEqual(quantities[str(self.store1.id)], 3)
         self.assertEqual(quantities[str(self.store2.id)], 7)
 
-    def test_list_product_stock_excludes_warehouse(self):
+    def test_list_product_stock_includes_warehouse(self):
         wh = Store.objects.create(
             name="WH",
             slug="m-wh",
@@ -268,4 +272,4 @@ class TestProductStockView(TestCase):
         self.assertEqual(response.status_code, 200)
         store_ids = {r["store"] for r in response.json()["results"]}
         self.assertIn(str(self.store1.id), store_ids)
-        self.assertNotIn(str(wh.id), store_ids)
+        self.assertIn(str(wh.id), store_ids)
