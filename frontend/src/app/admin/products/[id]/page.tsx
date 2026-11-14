@@ -21,6 +21,7 @@ import {
 import { getAdminCategories, type AdminCategory } from '@/lib/api/services/adminCatalog.service';
 import { slugifyProductTitle } from '@/lib/slugify';
 import type { ProductDetail, ProductSpec } from '@/types';
+import { AdminQueryError } from '@/components/admin/AdminQueryError';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Loading, Spinner } from '@/components/ui/Loading';
@@ -44,10 +45,16 @@ export default function AdminProductEditPage() {
     data: product,
     isLoading: productLoading,
     isError: productError,
+    error: productQueryError,
     refetch: refetchProduct,
   } = useQuery({
     queryKey: ['admin', 'product', productId],
     queryFn: () => getAdminProduct(productId),
+    retry: (failureCount, err) => {
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      if (status === 404 || status === 403 || status === 401) return false;
+      return failureCount < 1;
+    },
   });
 
   const {
@@ -210,18 +217,24 @@ export default function AdminProductEditPage() {
     updateStockMutation.mutate({ id, payload: { [field]: num } });
   };
 
+  // B8-007: ошибка раньше `!product`, иначе вечный spinner.
+  if (productError) {
+    return (
+      <AdminQueryError
+        error={productQueryError}
+        resourceLabel="товар"
+        backHref="/admin/products"
+        onRetry={() => {
+          void refetchProduct();
+        }}
+      />
+    );
+  }
+
   if (productLoading || !product || !form) {
     return (
       <div className="flex min-h-[400px] items-center justify-center">
         <Loading />
-      </div>
-    );
-  }
-
-  if (productError) {
-    return (
-      <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-        Не удалось загрузить товар.
       </div>
     );
   }

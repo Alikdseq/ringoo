@@ -3,6 +3,7 @@
 import { useParams } from 'next/navigation';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import Link from 'next/link';
+import { AdminQueryError } from '@/components/admin/AdminQueryError';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Loading } from '@/components/ui/Loading';
@@ -25,10 +26,16 @@ export default function AdminUserDetailPage() {
     data: user,
     isLoading,
     isError,
+    error,
     refetch,
   } = useQuery({
     queryKey: ['admin', 'user', userId],
     queryFn: () => getAdminUser(userId),
+    retry: (failureCount, err) => {
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      if (status === 404 || status === 403 || status === 401) return false;
+      return failureCount < 1;
+    },
   });
 
   const updateMutation = useMutation({
@@ -44,18 +51,24 @@ export default function AdminUserDetailPage() {
 
   const [draftGroups, setDraftGroups] = useState<string[] | null>(null);
 
+  // B8-007: isError до `!user`, иначе spinner навсегда.
+  if (isError) {
+    return (
+      <AdminQueryError
+        error={error}
+        resourceLabel="пользователь"
+        backHref="/admin/users"
+        onRetry={() => {
+          void refetch();
+        }}
+      />
+    );
+  }
+
   if (isLoading || !user) {
     return (
       <div className="flex min-h-[300px] items-center justify-center">
         <Loading />
-      </div>
-    );
-  }
-
-  if (isError) {
-    return (
-      <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-        Не удалось загрузить пользователя.
       </div>
     );
   }

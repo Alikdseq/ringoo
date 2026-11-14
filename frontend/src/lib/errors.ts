@@ -64,3 +64,11 @@ export function getFriendlyErrorMessage(error: unknown): string {
   }
   return 'Не удалось выполнить действие. Проверьте подключение к интернету и попробуйте снова.';
 }
+
+/** HTTP status из axios/DRF ошибки (если есть). */
+export function getApiErrorStatus(error: unknown): number | undefined {
+  if (error == null || typeof error !== 'object') return undefined;
+  const err = error as { status?: number; response?: { status?: number } };
+  const status = err.response?.status ?? err.status;
+  return typeof status === 'number' ? status : undefined;
+}

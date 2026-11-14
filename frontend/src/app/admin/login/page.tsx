@@ -34,12 +34,18 @@ function AdminLoginContent() {
       queryKey: AUTH_ME_QUERY_KEY,
       queryFn: authMeQueryFn,
     });
-    const access = await queryClient.fetchQuery({
-      queryKey: AUTH_STAFF_ACCESS_QUERY_KEY,
-      queryFn: () => fetchStaffAccess(),
-    });
-    const allowed = access?.staff === true;
-    if (!allowed) {
+    try {
+      const access = await queryClient.fetchQuery({
+        queryKey: AUTH_STAFF_ACCESS_QUERY_KEY,
+        queryFn: () => fetchStaffAccess(),
+      });
+      if (access.staff !== true) {
+        setError(
+          'Доступ только для сотрудников с подтверждённым вторым фактором (TOTP).'
+        );
+        return;
+      }
+    } catch {
       setError(
         'Доступ только для сотрудников с подтверждённым вторым фактором (TOTP).'
       );

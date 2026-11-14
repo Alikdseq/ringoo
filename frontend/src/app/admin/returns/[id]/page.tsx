@@ -3,6 +3,7 @@
 import { notFound, useParams } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api/client';
+import { AdminQueryError } from '@/components/admin/AdminQueryError';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Loading } from '@/components/ui/Loading';
@@ -17,12 +18,23 @@ export default function AdminReturnDetailPage() {
   const qc = useQueryClient();
   const [error, setError] = useState<string | null>(null);
 
-  const { data, isLoading } = useQuery({
+  const {
+    data,
+    isLoading,
+    isError,
+    error: queryError,
+    refetch,
+  } = useQuery({
     queryKey: ['admin', 'returns', id],
     enabled: enabled && Boolean(id),
     queryFn: async () => {
       const { data } = await apiClient.get(`/admin/returns/${id}/`);
       return data;
+    },
+    retry: (failureCount, err) => {
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      if (status === 404 || status === 403 || status === 401) return false;
+      return failureCount < 1;
     },
   });
 
@@ -46,6 +58,22 @@ export default function AdminReturnDetailPage() {
 
   if (!enabled) {
     notFound();
+  }
+
+  // B8-007: не держать Loading при завершившемся error.
+  if (isError) {
+    return (
+      <div className="mx-auto max-w-3xl p-6">
+        <AdminQueryError
+          error={queryError}
+          resourceLabel="заявка на возврат"
+          backHref="/admin/returns"
+          onRetry={() => {
+            void refetch();
+          }}
+        />
+      </div>
+    );
   }
 
   if (isLoading || !data) return <Loading />;
