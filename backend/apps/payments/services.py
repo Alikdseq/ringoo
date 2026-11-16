@@ -182,9 +182,7 @@ def online_payment_provider() -> str | None:
     yk = bool(getattr(settings, "YOOKASSA_ENABLED", False))
     sber = bool(getattr(settings, "SBER_ECOM_ENABLED", False))
     if yk and sber:
-        logger.warning(
-            "Both YOOKASSA_ENABLED and SBER_ECOM_ENABLED are set; using YooKassa only"
-        )
+        logger.warning("Both YOOKASSA_ENABLED and SBER_ECOM_ENABLED are set; using YooKassa only")
     if yk:
         return Payment.PROVIDER_YOOKASSA
     if sber:
@@ -359,9 +357,7 @@ def apply_late_payment_policy(payment_id, *, client: SberEcomClient | None = Non
                 payment.error_message = "Заказ восстановлен после поздней оплаты"
             else:
                 payment.status = Payment.STATUS_NEEDS_REVIEW
-                payment.error_message = (
-                    "Оплата есть, заказ confirmed, резерв остатков неполный — сверка"
-                )
+                payment.error_message = "Оплата есть, заказ confirmed, резерв остатков неполный — сверка"
             payment.save(
                 update_fields=[
                     "status",
@@ -380,9 +376,7 @@ def apply_late_payment_policy(payment_id, *, client: SberEcomClient | None = Non
                     from apps.orders.tasks import enqueue_order_sync
 
                     try:
-                        clear_cart_after_successful_payment(
-                            OrderModel.objects.get(pk=order_pk)
-                        )
+                        clear_cart_after_successful_payment(OrderModel.objects.get(pk=order_pk))
                     except Exception:
                         logger.exception(
                             "Cart clear failed after late-payment revive order=%s",
@@ -396,8 +390,7 @@ def apply_late_payment_policy(payment_id, *, client: SberEcomClient | None = Non
         if policy == "manual":
             payment.status = Payment.STATUS_NEEDS_REVIEW
             payment.error_message = (
-                "Оплата после отмены заказа — ручная сверка "
-                "(LATE_ONLINE_PAYMENT_POLICY=revive|reverse)"
+                "Оплата после отмены заказа — ручная сверка " "(LATE_ONLINE_PAYMENT_POLICY=revive|reverse)"
             )[:512]
             payment.save(update_fields=["status", "error_message", "updated_at"])
             return payment
@@ -409,6 +402,20 @@ def apply_late_payment_policy(payment_id, *, client: SberEcomClient | None = Non
         payment.save(update_fields=["status", "error_message", "updated_at"])
 
     if policy == "reverse" and sber_id:
+        from apps.payments.refund_policy import (
+            RefundInitiationDisabled,
+            refund_initiation_allowed,
+        )
+
+        if not refund_initiation_allowed():
+            with transaction.atomic():
+                p = Payment.objects.select_for_update().get(pk=payment_id)
+                p.status = Payment.STATUS_NEEDS_REVIEW
+                p.error_message = (
+                    "Авто-reverse отключён (PAYMENTS_REFUND_INITIATION_ENABLED=0); " "нужна ручная сверка"
+                )[:512]
+                p.save(update_fields=["status", "error_message", "updated_at"])
+                return p
         api = client or SberEcomClient()
         try:
             api.reverse_order(order_id=sber_id)
@@ -416,6 +423,13 @@ def apply_late_payment_policy(payment_id, *, client: SberEcomClient | None = Non
                 p = Payment.objects.select_for_update().get(pk=payment_id)
                 p.status = Payment.STATUS_REVERSED
                 p.error_message = "Авто-reverse после оплаты отменённого заказа"
+                p.save(update_fields=["status", "error_message", "updated_at"])
+                return p
+        except RefundInitiationDisabled:
+            with transaction.atomic():
+                p = Payment.objects.select_for_update().get(pk=payment_id)
+                p.status = Payment.STATUS_NEEDS_REVIEW
+                p.error_message = "Авто-reverse отключён политикой возвратов"[:512]
                 p.save(update_fields=["status", "error_message", "updated_at"])
                 return p
         except SberEcomError as exc:
@@ -475,9 +489,7 @@ def sync_payment_from_bank(
             locked.error_message = str(exc)[:512]
             locked.last_status_checked_at = timezone.now()
             if from_callback:
-                locked.callback_received_at = (
-                    locked.callback_received_at or timezone.now()
-                )
+                locked.callback_received_at = locked.callback_received_at or timezone.now()
             locked.save(
                 update_fields=[
                     "error_message",
@@ -492,9 +504,7 @@ def sync_payment_from_bank(
         ) from exc
 
     with transaction.atomic():
-        locked = Payment.objects.select_for_update().select_related("order").get(
-            pk=payment_pk
-        )
+        locked = Payment.objects.select_for_update().select_related("order").get(pk=payment_pk)
         if locked.status == Payment.STATUS_PAID:
             return locked
         if locked.status in (Payment.STATUS_REVERSED, Payment.STATUS_REFUNDED):
@@ -508,9 +518,7 @@ def sync_payment_from_bank(
         order_status = data.get("orderStatus")
         action_code = data.get("actionCode")
         try:
-            locked.sber_order_status = (
-                int(order_status) if order_status is not None else None
-            )
+            locked.sber_order_status = int(order_status) if order_status is not None else None
         except (TypeError, ValueError):
             locked.sber_order_status = None
         try:
@@ -545,9 +553,7 @@ def sync_payment_from_bank(
             order_status=locked.sber_order_status,
             action_code=locked.action_code,
         ):
-            binding_error = _reject_untrusted_paid_payload(
-                locked, data, amount_kopecks
-            )
+            binding_error = _reject_untrusted_paid_payload(locked, data, amount_kopecks)
             if binding_error:
                 logger.warning(
                     "Sber paid rejected payment=%s reason=%s",
@@ -644,9 +650,7 @@ def sync_payment_from_bank(
         if is_terminal_failure(order_status=locked.sber_order_status):
             locked.status = Payment.STATUS_FAILED
             locked.error_message = str(
-                data.get("actionCodeDescription")
-                or data.get("errorMessage")
-                or "Оплата отклонена"
+                data.get("actionCodeDescription") or data.get("errorMessage") or "Оплата отклонена"
             )[:512]
             locked.save()
             return locked
@@ -769,15 +773,7 @@ def find_hung_payments(*, pending_minutes: int = 30) -> dict[str, Any]:
                 Payment.STATUS_CREATED,
             ),
             created_at__lt=pending_cut,
-        ).values(
-            "id",
-            "order_id",
-            "merchant_order_number",
-            "sber_order_id",
-            "status",
-            "created_at",
-            "amount",
-        )[:200]
+        ).values("id", "order_id", "merchant_order_number", "sber_order_id", "status", "created_at", "amount",)[:200]
     )
     needs_review = list(
         Payment.objects.filter(status=Payment.STATUS_NEEDS_REVIEW).values(
@@ -826,8 +822,7 @@ def expire_unpaid_online_orders(
                 Payment.STATUS_PAID,
                 Payment.STATUS_NEEDS_REVIEW,
             )
-        )
-        .distinct()
+        ).distinct()
     )
 
     cancelled = 0
@@ -910,6 +905,7 @@ def expire_unpaid_online_orders(
                 ),
             ).update(
                 status=Payment.STATUS_EXPIRED,
+                form_url="",
                 updated_at=now,
                 error_message="Истёк срок оплаты",
             )

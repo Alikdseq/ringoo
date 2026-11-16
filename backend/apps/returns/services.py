@@ -139,11 +139,7 @@ def transition_return(
 
 
 def paid_amount_for_order(order) -> Decimal:
-    paid = (
-        Payment.objects.filter(order=order, status=Payment.STATUS_PAID)
-        .order_by("-created_at")
-        .first()
-    )
+    paid = Payment.objects.filter(order=order, status=Payment.STATUS_PAID).order_by("-created_at").first()
     if not paid:
         # already fully refunded payment still caps by original amount
         paid = (
@@ -160,9 +156,7 @@ def paid_amount_for_order(order) -> Decimal:
 
 
 def refunded_so_far(payment: Payment) -> Decimal:
-    agg = MoneyRefund.objects.filter(
-        payment=payment, status=MoneyRefund.STATUS_SUCCEEDED
-    ).aggregate(s=Sum("amount"))
+    agg = MoneyRefund.objects.filter(payment=payment, status=MoneyRefund.STATUS_SUCCEEDED).aggregate(s=Sum("amount"))
     return Decimal(str(agg["s"] or 0))
 
 
@@ -226,6 +220,10 @@ def initiate_money_refund(
         _event(rr, "", "", actor, "money_refund_dry_run", money_refund_id=str(mr.pk))
         return mr
 
+    from apps.payments.refund_policy import assert_refund_initiation_allowed
+
+    assert_refund_initiation_allowed()
+
     if provider == MoneyRefund.PROVIDER_YOOKASSA:
         from integrations.yookassa.client import YooKassaClient
 
@@ -238,9 +236,7 @@ def initiate_money_refund(
             return mr
         mr.status = MoneyRefund.STATUS_PROCESSING
         mr.save(update_fields=["status", "updated_at"])
-        data = client.create_refund(
-            payment_id=yk_id, amount=amount, idempotence_key=mr.idempotency_key
-        )
+        data = client.create_refund(payment_id=yk_id, amount=amount, idempotence_key=mr.idempotency_key)
         mr.provider_refund_id = str(data.get("id") or "")
         st = str(data.get("status") or "")
         if st == "succeeded":
@@ -283,9 +279,7 @@ def inspect_and_maybe_restock(
             raise ValueError("Проверка возможна после получения товара")
 
     for upd in item_updates:
-        item = ReturnItem.objects.select_for_update().get(
-            pk=upd["return_item_id"], return_request=rr
-        )
+        item = ReturnItem.objects.select_for_update().get(pk=upd["return_item_id"], return_request=rr)
         condition = upd["condition"]
         item.condition = condition
         restock_qty = int(upd.get("restock_qty") or 0)

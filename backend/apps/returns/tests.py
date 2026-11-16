@@ -6,6 +6,7 @@ from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
+
 from rest_framework.test import APIClient
 
 from apps.orders.models import Order, OrderItem
@@ -27,19 +28,11 @@ User = get_user_model()
 class ReturnFlowTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(phone="+79002223344", password="pass")
-        self.admin = User.objects.create_user(
-            phone="+79002223355", password="pass", is_staff=True, is_superuser=True
-        )
+        self.admin = User.objects.create_user(phone="+79002223355", password="pass", is_staff=True, is_superuser=True)
         cat = Category.objects.create(title="C", slug="c-ret")
-        self.product = Product.objects.create(
-            title="Phone", slug="phone-ret", price=Decimal("1000.00"), category=cat
-        )
-        self.color = ProductColor.objects.create(
-            product=self.product, slug="black", label="Чёрный", hex="#000"
-        )
-        self.store = Store.objects.create(
-            name="S", slug="s-ret", address="a", city="Москва", is_active=True
-        )
+        self.product = Product.objects.create(title="Phone", slug="phone-ret", price=Decimal("1000.00"), category=cat)
+        self.color = ProductColor.objects.create(product=self.product, slug="black", label="Чёрный", hex="#000")
+        self.store = Store.objects.create(name="S", slug="s-ret", address="a", city="Москва", is_active=True)
         Stock.objects.create(product=self.product, store=self.store, quantity=5)
         self.order = Order.objects.create(
             user=self.user,
@@ -182,11 +175,7 @@ class ReturnFlowTests(TestCase):
             Stock.objects.get(product=self.product, store=self.store).quantity,
             stock_before + 1,
         )
-        self.assertTrue(
-            StockMovement.objects.filter(
-                operation=StockMovement.OP_RESTOCK, success=True
-            ).exists()
-        )
+        self.assertTrue(StockMovement.objects.filter(operation=StockMovement.OP_RESTOCK, success=True).exists())
 
     @override_settings(RETURNS_ENABLED=True)
     def test_customer_api_create(self):

@@ -30,9 +30,7 @@ def _order(amount="1000.00"):
         category=cat,
         is_active=True,
     )
-    store = Store.objects.create(
-        name="S", slug=f"int45s-{Store.objects.count()}", address="a", city="c"
-    )
+    store = Store.objects.create(name="S", slug=f"int45s-{Store.objects.count()}", address="a", city="c")
     Stock.objects.create(product=product, store=store, quantity=5, reserved_quantity=0)
     order = Order.objects.create(
         full_name="Buyer",
@@ -77,12 +75,14 @@ def _yk_payment_payload(payment, *, status="succeeded", meta=None, amount=None, 
             "value": amount or str(payment.amount),
             "currency": currency,
         },
-        "metadata": meta
-        if meta is not None
-        else {
-            "order_id": str(payment.order_id),
-            "payment_id": str(payment.id),
-        },
+        "metadata": (
+            meta
+            if meta is not None
+            else {
+                "order_id": str(payment.order_id),
+                "payment_id": str(payment.id),
+            }
+        ),
         "test": True,
     }
 
@@ -122,7 +122,8 @@ class Int004RefundSucceededTests(TestCase):
         self.order = _order()
         self.payment = _payment(self.order)
 
-    def test_refund_succeeded_marks_refunded(self):
+    def test_refund_succeeded_marks_needs_review_without_cancel(self):
+        order_status_before = self.order.status
         client = MagicMock()
         client.get_refund.return_value = _yk_refund_payload(self.payment, refund_id="rf-ok")
         result = handle_yookassa_webhook(
@@ -130,15 +131,14 @@ class Int004RefundSucceededTests(TestCase):
             client=client,
         )
         self.payment.refresh_from_db()
-        self.assertEqual(result.status, Payment.STATUS_REFUNDED)
-        self.assertEqual(self.payment.status, Payment.STATUS_REFUNDED)
+        self.assertEqual(result.status, Payment.STATUS_NEEDS_REVIEW)
+        self.assertEqual(self.payment.status, Payment.STATUS_NEEDS_REVIEW)
         self.assertEqual(self.payment.yookassa_refund_id, "rf-ok")
         self.assertEqual(self.payment.refunded_amount, Decimal("1000.00"))
         self.assertIsNotNone(self.payment.refunded_at)
         self.order.refresh_from_db()
-        from tests.order_fsm_assertions import assert_order_cancelled
-
-        assert_order_cancelled(self, self.order)
+        self.assertEqual(self.order.status, order_status_before)
+        client.create_refund.assert_not_called()
 
     def test_refund_idempotent(self):
         client = MagicMock()
@@ -152,15 +152,13 @@ class Int004RefundSucceededTests(TestCase):
             client=client,
         )
         self.payment.refresh_from_db()
-        self.assertEqual(self.payment.status, Payment.STATUS_REFUNDED)
-        # Повтор использует yookassa_refund_id — без повторного GET
+        self.assertEqual(self.payment.status, Payment.STATUS_NEEDS_REVIEW)
+        # Повтор использует PaymentRefund / yookassa_refund_id — без повторного GET
         self.assertEqual(client.get_refund.call_count, 1)
 
     def test_unknown_refund_payment(self):
         client = MagicMock()
-        client.get_refund.return_value = _yk_refund_payload(
-            self.payment, refund_id="rf-x", payment_id="unknown-pay"
-        )
+        client.get_refund.return_value = _yk_refund_payload(self.payment, refund_id="rf-x", payment_id="unknown-pay")
         result = handle_yookassa_webhook(
             {"event": "refund.succeeded", "object": {"id": "rf-x"}},
             client=client,
@@ -194,9 +192,7 @@ class Int004RefundSucceededTests(TestCase):
 
     def test_partial_refund_keeps_payment_open(self):
         client = MagicMock()
-        client.get_refund.return_value = _yk_refund_payload(
-            self.payment, refund_id="rf-part", amount="100.00"
-        )
+        client.get_refund.return_value = _yk_refund_payload(self.payment, refund_id="rf-part", amount="100.00")
         result = sync_refund_from_yookassa("rf-part", client=client)
         self.payment.refresh_from_db()
         self.order.refresh_from_db()
@@ -215,9 +211,7 @@ class Int004RefundSucceededTests(TestCase):
 
     def test_refund_pending_status(self):
         client = MagicMock()
-        client.get_refund.return_value = _yk_refund_payload(
-            self.payment, refund_id="rf-pend", status="pending"
-        )
+        client.get_refund.return_value = _yk_refund_payload(self.payment, refund_id="rf-pend", status="pending")
         result = sync_refund_from_yookassa("rf-pend", client=client)
         self.payment.refresh_from_db()
         self.assertEqual(result.status, Payment.STATUS_NEEDS_REVIEW)
@@ -240,7 +234,7 @@ class Int004RefundSucceededTests(TestCase):
         )
         client.get_refund.assert_called_once_with("rf-api")
         self.payment.refresh_from_db()
-        self.assertEqual(self.payment.status, Payment.STATUS_REFUNDED)
+        self.assertEqual(self.payment.status, Payment.STATUS_NEEDS_REVIEW)
 
 
 @override_settings(
@@ -286,7 +280,7 @@ class Int005MetadataRequiredTests(TestCase):
         self.assertEqual(self.payment.status, Payment.STATUS_NEEDS_REVIEW)
 
     def test_absent_metadata_key(self):
-        result = self._sync(
+        self._sync(
             {
                 "id": self.payment.yookassa_payment_id,
                 "status": "succeeded",
@@ -298,7 +292,7 @@ class Int005MetadataRequiredTests(TestCase):
         self.assertEqual(self.payment.status, Payment.STATUS_NEEDS_REVIEW)
 
     def test_missing_order_id(self):
-        result = self._sync(
+        self._sync(
             _yk_payment_payload(
                 self.payment,
                 meta={"payment_id": str(self.payment.id)},
@@ -308,7 +302,7 @@ class Int005MetadataRequiredTests(TestCase):
         self.assertEqual(self.payment.status, Payment.STATUS_NEEDS_REVIEW)
 
     def test_wrong_order_id(self):
-        result = self._sync(
+        self._sync(
             _yk_payment_payload(
                 self.payment,
                 meta={
@@ -321,7 +315,7 @@ class Int005MetadataRequiredTests(TestCase):
         self.assertEqual(self.payment.status, Payment.STATUS_NEEDS_REVIEW)
 
     def test_wrong_payment_id(self):
-        result = self._sync(
+        self._sync(
             _yk_payment_payload(
                 self.payment,
                 meta={
@@ -334,12 +328,12 @@ class Int005MetadataRequiredTests(TestCase):
         self.assertEqual(self.payment.status, Payment.STATUS_NEEDS_REVIEW)
 
     def test_amount_mismatch(self):
-        result = self._sync(_yk_payment_payload(self.payment, amount="999.00"))
+        self._sync(_yk_payment_payload(self.payment, amount="999.00"))
         self.payment.refresh_from_db()
         self.assertEqual(self.payment.status, Payment.STATUS_NEEDS_REVIEW)
 
     def test_currency_mismatch(self):
-        result = self._sync(_yk_payment_payload(self.payment, currency="USD"))
+        self._sync(_yk_payment_payload(self.payment, currency="USD"))
         self.payment.refresh_from_db()
         self.assertEqual(self.payment.status, Payment.STATUS_NEEDS_REVIEW)
 
@@ -350,9 +344,7 @@ class Int005MetadataRequiredTests(TestCase):
         ):
             # cart clear imported inside on_commit — patch enqueue/cart via path used
             with patch("apps.orders.tasks.enqueue_order_sync"):
-                with patch(
-                    "apps.cart.checkout_clear.clear_cart_after_successful_payment"
-                ):
+                with patch("apps.cart.checkout_clear.clear_cart_after_successful_payment"):
                     result = self._sync(_yk_payment_payload(self.payment))
         self.payment.refresh_from_db()
         self.assertEqual(result.status, Payment.STATUS_PAID)

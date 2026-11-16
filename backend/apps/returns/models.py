@@ -138,18 +138,12 @@ class ReturnRequest(models.Model):
         related_name="return_requests",
     )
     ground = models.CharField(max_length=32, choices=GROUND_CHOICES)
-    demand = models.CharField(
-        max_length=32, choices=DEMAND_CHOICES, default=DEMAND_REFUND
-    )
+    demand = models.CharField(max_length=32, choices=DEMAND_CHOICES, default=DEMAND_REFUND)
     description = models.TextField(blank=True, default="")
-    return_method = models.CharField(
-        max_length=32, choices=RETURN_METHOD_CHOICES, blank=True, default=""
-    )
+    return_method = models.CharField(max_length=32, choices=RETURN_METHOD_CHOICES, blank=True, default="")
     contact_phone = models.CharField(max_length=32, blank=True, default="")
     contact_email = models.EmailField(blank=True, default="")
-    status = models.CharField(
-        max_length=32, choices=STATUS_CHOICES, default=STATUS_REQUESTED, db_index=True
-    )
+    status = models.CharField(max_length=32, choices=STATUS_CHOICES, default=STATUS_REQUESTED, db_index=True)
     rejection_reason = models.TextField(blank=True, default="")
     assigned_to = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -158,12 +152,8 @@ class ReturnRequest(models.Model):
         blank=True,
         related_name="assigned_returns",
     )
-    requested_refund_amount = models.DecimalField(
-        max_digits=12, decimal_places=2, default=0
-    )
-    approved_refund_amount = models.DecimalField(
-        max_digits=12, decimal_places=2, default=0
-    )
+    requested_refund_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    approved_refund_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     goods_handed_over_at = models.DateTimeField(
         null=True,
         blank=True,
@@ -202,12 +192,8 @@ class ReturnItem(models.Model):
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    return_request = models.ForeignKey(
-        ReturnRequest, on_delete=models.CASCADE, related_name="items"
-    )
-    order_item = models.ForeignKey(
-        "orders.OrderItem", on_delete=models.PROTECT, related_name="return_items"
-    )
+    return_request = models.ForeignKey(ReturnRequest, on_delete=models.CASCADE, related_name="items")
+    order_item = models.ForeignKey("orders.OrderItem", on_delete=models.PROTECT, related_name="return_items")
     quantity = models.PositiveIntegerField()
     unit_price = models.DecimalField(max_digits=12, decimal_places=2)
     line_refund_amount = models.DecimalField(max_digits=12, decimal_places=2)
@@ -216,9 +202,7 @@ class ReturnItem(models.Model):
     color_label = models.CharField(max_length=255, blank=True, default="")
     color_id = models.UUIDField(null=True, blank=True)
     onec_series_id = models.CharField(max_length=64, blank=True, default="")
-    condition = models.CharField(
-        max_length=32, choices=CONDITION_CHOICES, default=CONDITION_PENDING
-    )
+    condition = models.CharField(max_length=32, choices=CONDITION_CHOICES, default=CONDITION_PENDING)
     restocked_quantity = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -240,9 +224,7 @@ class ReturnItem(models.Model):
 
 class ReturnEvent(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    return_request = models.ForeignKey(
-        ReturnRequest, on_delete=models.CASCADE, related_name="events"
-    )
+    return_request = models.ForeignKey(ReturnRequest, on_delete=models.CASCADE, related_name="events")
     from_status = models.CharField(max_length=32, blank=True, default="")
     to_status = models.CharField(max_length=32, blank=True, default="")
     actor = models.ForeignKey(
@@ -284,9 +266,7 @@ class MoneyRefund(models.Model):
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    return_request = models.ForeignKey(
-        ReturnRequest, on_delete=models.CASCADE, related_name="money_refunds"
-    )
+    return_request = models.ForeignKey(ReturnRequest, on_delete=models.CASCADE, related_name="money_refunds")
     payment = models.ForeignKey(
         "payments.Payment",
         on_delete=models.PROTECT,
@@ -295,9 +275,7 @@ class MoneyRefund(models.Model):
     amount = models.DecimalField(max_digits=12, decimal_places=2)
     currency = models.CharField(max_length=3, default="RUB")
     provider = models.CharField(max_length=16, choices=PROVIDER_CHOICES)
-    status = models.CharField(
-        max_length=16, choices=STATUS_CHOICES, default=STATUS_PENDING, db_index=True
-    )
+    status = models.CharField(max_length=16, choices=STATUS_CHOICES, default=STATUS_PENDING, db_index=True)
     provider_refund_id = models.CharField(max_length=128, blank=True, default="")
     idempotency_key = models.CharField(max_length=128, unique=True, db_index=True)
     error_message = models.CharField(max_length=512, blank=True, default="")

@@ -47,7 +47,11 @@ class FullAndPartialRefundTests(TestCase):
         )
         return client
 
-    def test_full_refund_cancels_unshipped_order_and_releases_reserve_once(self):
+    def test_full_refund_records_needs_review_without_cancel(self):
+        """R39: внешний full refund — запись + needs_review, без отмены/резерва."""
+        self.order.payment_status = Order.PAYMENT_STATUS_PAID
+        self.order.save(update_fields=["payment_status"])
+        order_status_before = self.order.status
         client = self._refund("rf-full", "1000.00")
         handle_yookassa_webhook(
             {"event": "refund.succeeded", "object": {"id": "rf-full", "status": "succeeded"}},
@@ -60,39 +64,56 @@ class FullAndPartialRefundTests(TestCase):
         self.payment.refresh_from_db()
         self.order.refresh_from_db()
         self.stock.refresh_from_db()
-        self.assertEqual(self.payment.status, Payment.STATUS_REFUNDED)
+        self.assertEqual(self.payment.status, Payment.STATUS_NEEDS_REVIEW)
         self.assertEqual(self.payment.amount, Decimal("1000.00"))
         self.assertEqual(self.payment.refunded_amount, Decimal("1000.00"))
-        from tests.order_fsm_assertions import assert_order_cancelled
-
-        assert_order_cancelled(self, self.order)
-        self.assertEqual(self.stock.reserved_quantity, 0)
+        self.assertEqual(self.order.status, order_status_before)
+        self.assertEqual(self.order.payment_status, Order.PAYMENT_STATUS_PAID)
+        self.assertEqual(self.stock.reserved_quantity, 1)
         self.assertEqual(self.stock.quantity, 5)
         self.assertEqual(PaymentRefund.objects.filter(payment=self.payment).count(), 1)
         self.assertEqual(client.get_refund.call_count, 1)
+        client.create_refund.assert_not_called()
 
-    def test_two_partials_then_stop_at_paid_amount(self):
+    def test_full_refund_when_order_payment_status_already_paid(self):
+        """R37/R39: payment_status=paid не откатывает запись внешнего refund."""
+        self.order.payment_status = Order.PAYMENT_STATUS_PAID
+        self.order.save(update_fields=["payment_status"])
+        client = self._refund("rf-paid-order", "1000.00")
+        result = handle_yookassa_webhook(
+            {"event": "refund.succeeded", "object": {"id": "rf-paid-order", "status": "succeeded"}},
+            client=client,
+        )
+        self.payment.refresh_from_db()
+        self.order.refresh_from_db()
+        self.stock.refresh_from_db()
+        self.assertIsNotNone(result)
+        self.assertEqual(self.payment.status, Payment.STATUS_NEEDS_REVIEW)
+        self.assertEqual(self.payment.refunded_amount, Decimal("1000.00"))
+        self.assertEqual(self.order.payment_status, Order.PAYMENT_STATUS_PAID)
+        self.assertEqual(self.stock.reserved_quantity, 1)
+        self.assertEqual(self.stock.quantity, 5)
+
+    def test_two_partials_then_full_needs_review(self):
         sync_refund_from_yookassa("rf-a", client=self._refund("rf-a", "400.00"))
         sync_refund_from_yookassa("rf-b", client=self._refund("rf-b", "600.00"))
         self.payment.refresh_from_db()
         self.order.refresh_from_db()
         self.stock.refresh_from_db()
-        self.assertEqual(self.payment.status, Payment.STATUS_REFUNDED)
+        self.assertEqual(self.payment.status, Payment.STATUS_NEEDS_REVIEW)
         self.assertEqual(self.payment.amount, Decimal("1000.00"))
         self.assertEqual(self.payment.refunded_amount, Decimal("1000.00"))
-        from tests.order_fsm_assertions import assert_order_cancelled
-
-        assert_order_cancelled(self, self.order)
+        self.assertEqual(self.order.status, Order.STATUS_CONFIRMED)
         self.assertEqual(self.stock.quantity, 5)
-        self.assertEqual(self.stock.reserved_quantity, 0)
+        self.assertEqual(self.stock.reserved_quantity, 1)
         third = sync_refund_from_yookassa("rf-c", client=self._refund("rf-c", "1.00"))
         self.payment.refresh_from_db()
         self.stock.refresh_from_db()
-        self.assertEqual(third.status, Payment.STATUS_REFUNDED)
+        self.assertEqual(third.status, Payment.STATUS_NEEDS_REVIEW)
         self.assertEqual(self.payment.refunded_amount, Decimal("1000.00"))
         self.assertEqual(PaymentRefund.objects.count(), 2)
         self.assertEqual(self.stock.quantity, 5)
-        self.assertEqual(self.stock.reserved_quantity, 0)
+        self.assertEqual(self.stock.reserved_quantity, 1)
 
     def test_partial_does_not_move_stock_or_order(self):
         sync_refund_from_yookassa("rf-p", client=self._refund("rf-p", "250.00"))
@@ -128,7 +149,7 @@ class FullAndPartialRefundTests(TestCase):
         self.payment.refresh_from_db()
         self.order.refresh_from_db()
         self.stock.refresh_from_db()
-        self.assertEqual(self.payment.status, Payment.STATUS_REFUNDED)
+        self.assertEqual(self.payment.status, Payment.STATUS_NEEDS_REVIEW)
         self.assertEqual(self.order.status, Order.STATUS_COMPLETED)
         self.assertEqual(self.stock.quantity, 5)
         self.assertEqual(self.stock.reserved_quantity, 1)
@@ -143,34 +164,12 @@ class FullAndPartialRefundTests(TestCase):
         self.assertEqual(self.payment.status, Payment.STATUS_PAID)
         self.assertEqual(self.stock.reserved_quantity, 1)
         client.get_refund.side_effect = None
-        client.get_refund.return_value = _yk_refund_payload(
-            self.payment, refund_id="rf-down", amount="1000.00"
-        )
+        client.get_refund.return_value = _yk_refund_payload(self.payment, refund_id="rf-down", amount="1000.00")
         sync_refund_from_yookassa("rf-down", client=client)
         self.payment.refresh_from_db()
         self.order.refresh_from_db()
         self.stock.refresh_from_db()
-        self.assertEqual(self.payment.status, Payment.STATUS_REFUNDED)
-        from tests.order_fsm_assertions import assert_order_cancelled
-
-        assert_order_cancelled(self, self.order)
-        self.assertEqual(self.stock.quantity, 5)
-        self.assertEqual(self.stock.reserved_quantity, 0)
-
-    def test_local_failure_rolls_back_payment_and_stock(self):
-        client = self._refund("rf-boom", "1000.00")
-        with patch(
-            "apps.orders.services.cancel_order_and_release_stock",
-            side_effect=RuntimeError("disk"),
-        ):
-            with self.assertRaises(RuntimeError):
-                sync_refund_from_yookassa("rf-boom", client=client)
-        self.payment.refresh_from_db()
-        self.order.refresh_from_db()
-        self.stock.refresh_from_db()
-        self.assertEqual(self.payment.status, Payment.STATUS_PAID)
-        self.assertIsNone(self.payment.refunded_amount)
+        self.assertEqual(self.payment.status, Payment.STATUS_NEEDS_REVIEW)
         self.assertEqual(self.order.status, Order.STATUS_CONFIRMED)
-        self.assertEqual(self.stock.reserved_quantity, 1)
         self.assertEqual(self.stock.quantity, 5)
-        self.assertEqual(PaymentRefund.objects.count(), 0)
+        self.assertEqual(self.stock.reserved_quantity, 1)

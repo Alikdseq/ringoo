@@ -12,7 +12,6 @@ from django.contrib import admin
 
 from apps.returns.models import MoneyRefund, ReturnEvent, ReturnItem, ReturnRequest
 
-
 if getattr(settings, "RETURNS_ENABLED", False):
 
     class ReturnItemInline(admin.TabularInline):

@@ -8,6 +8,7 @@ from unittest.mock import MagicMock, patch
 
 from django.test import TestCase, override_settings
 from django.utils import timezone
+
 from rest_framework.test import APIClient
 
 from apps.orders.models import Order, OrderItem
@@ -26,12 +27,8 @@ def _online_order(*, minutes_ago=60):
         category=cat,
         is_active=True,
     )
-    store = Store.objects.create(
-        name="S", slug=f"f1s-{Store.objects.count()}", address="a", city="c"
-    )
-    Stock.objects.create(
-        product=product, store=store, quantity=5, reserved_quantity=1
-    )
+    store = Store.objects.create(name="S", slug=f"f1s-{Store.objects.count()}", address="a", city="c")
+    Stock.objects.create(product=product, store=store, quantity=5, reserved_quantity=1)
     order = Order.objects.create(
         full_name="Buyer",
         phone="79001110001",
@@ -50,9 +47,7 @@ def _online_order(*, minutes_ago=60):
         price=Decimal("1000.00"),
         item_total=Decimal("1000.00"),
     )
-    Order.objects.filter(pk=order.pk).update(
-        created_at=timezone.now() - timedelta(minutes=minutes_ago)
-    )
+    Order.objects.filter(pk=order.pk).update(created_at=timezone.now() - timedelta(minutes=minutes_ago))
     order.refresh_from_db()
     return order, product, store
 

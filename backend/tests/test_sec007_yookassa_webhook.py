@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, patch
 
 from django.core.cache import cache
 from django.test import TestCase, override_settings
+
 from rest_framework.test import APIClient
 
 from apps.orders.models import Order, OrderItem
@@ -25,9 +26,7 @@ def _order():
         category=cat,
         is_active=True,
     )
-    store = Store.objects.create(
-        name="S", slug=f"yk7s-{Store.objects.count()}", address="a", city="c"
-    )
+    store = Store.objects.create(name="S", slug=f"yk7s-{Store.objects.count()}", address="a", city="c")
     Stock.objects.create(product=product, store=store, quantity=5, reserved_quantity=0)
     order = Order.objects.create(
         full_name="Buyer",
@@ -126,9 +125,7 @@ class Sec007YooKassaWebhookTests(TestCase):
     def test_wrong_amount_rejected(self, MockClient):
         order = _order()
         payment = self._pending_payment(order)
-        MockClient.return_value.get_payment.return_value = _yk_ok(
-            payment, amount="1.00"
-        )
+        MockClient.return_value.get_payment.return_value = _yk_ok(payment, amount="1.00")
         handle_yookassa_webhook(
             {
                 "event": "payment.succeeded",
@@ -143,9 +140,7 @@ class Sec007YooKassaWebhookTests(TestCase):
     def test_wrong_currency_rejected(self, MockClient):
         order = _order()
         payment = self._pending_payment(order, yk_id="yk-cur")
-        MockClient.return_value.get_payment.return_value = _yk_ok(
-            payment, currency="USD"
-        )
+        MockClient.return_value.get_payment.return_value = _yk_ok(payment, currency="USD")
         handle_yookassa_webhook(
             {"event": "payment.succeeded", "object": {"id": "yk-cur"}},
             client=MockClient.return_value,
@@ -284,9 +279,7 @@ class Sec007YooKassaWebhookTests(TestCase):
     def test_empty_allowlist_does_not_pretend_to_filter(self, MockClient):
         order = _order()
         payment = self._pending_payment(order, yk_id="yk-ip-off")
-        MockClient.return_value.get_payment.return_value = _yk_ok(
-            payment, status="pending"
-        )
+        MockClient.return_value.get_payment.return_value = _yk_ok(payment, status="pending")
         with override_settings(
             YOOKASSA_WEBHOOK_IP_ALLOWLIST=[],
             YOOKASSA_WEBHOOK_IP_FILTER_ENABLED=False,

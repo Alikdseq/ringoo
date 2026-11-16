@@ -13,6 +13,7 @@ from unittest.mock import MagicMock, patch
 from django.contrib.auth.models import Group
 from django.test import TestCase, override_settings
 from django.utils import timezone
+
 from rest_framework.test import APIClient
 
 from apps.admin_api.permissions import RINGOO_GROUP_USERS
@@ -34,9 +35,7 @@ def _catalog_order(**kwargs):
         category=cat,
         is_active=True,
     )
-    store = Store.objects.create(
-        name="S", slug=f"sec-s-{Store.objects.count()}", address="a", city="c"
-    )
+    store = Store.objects.create(name="S", slug=f"sec-s-{Store.objects.count()}", address="a", city="c")
     Stock.objects.create(product=product, store=store, quantity=10, reserved_quantity=0)
     from tests.order_fsm_assertions import fsm_v2_create_kwargs
 
@@ -221,9 +220,7 @@ class PaymentForgerySecurityTests(TestCase):
         order, _, _ = _catalog_order()
         payment = _pending_payment(order, merchant="e500")
         mock_client = MagicMock()
-        mock_client.get_order_status.side_effect = SberEcomError(
-            "bank 500", error_code="7", payload={"errorCode": "7"}
-        )
+        mock_client.get_order_status.side_effect = SberEcomError("bank 500", error_code="7", payload={"errorCode": "7"})
         with self.assertRaises(Exception):
             sync_payment_from_bank(payment, client=mock_client)
         payment.refresh_from_db()
@@ -266,9 +263,7 @@ class PaymentForgerySecurityTests(TestCase):
         )
         payment.refresh_from_db()
         self.assertEqual(payment.status, Payment.STATUS_PAID)
-        self.assertEqual(
-            Payment.objects.filter(order=order, status=Payment.STATUS_PAID).count(), 1
-        )
+        self.assertEqual(Payment.objects.filter(order=order, status=Payment.STATUS_PAID).count(), 1)
         order.refresh_from_db()
         self.assertEqual(order.status, Order.STATUS_CONFIRMED)
 
@@ -304,9 +299,7 @@ class PaymentForgerySecurityTests(TestCase):
         }
         updated = sync_payment_from_bank(duplicate, client=mock_client)
         self.assertEqual(updated.status, Payment.STATUS_FAILED)
-        self.assertEqual(
-            Payment.objects.filter(order=order, status=Payment.STATUS_PAID).count(), 1
-        )
+        self.assertEqual(Payment.objects.filter(order=order, status=Payment.STATUS_PAID).count(), 1)
 
     def test_pay_endpoint_ignores_client_amount_and_status(self):
         from apps.orders.guest_access import issue_guest_access_token
@@ -338,9 +331,7 @@ class PaymentForgerySecurityTests(TestCase):
         payment = Payment.objects.get(order=order)
         self.assertEqual(payment.amount_kopecks, 100000)
         self.assertEqual(payment.status, Payment.STATUS_REGISTERED)
-        self.assertEqual(
-            mock_client.register_order.call_args.kwargs["amount_kopecks"], 100000
-        )
+        self.assertEqual(mock_client.register_order.call_args.kwargs["amount_kopecks"], 100000)
 
     def test_payment_status_get_does_not_accept_paid_query(self):
         from apps.orders.guest_access import issue_guest_access_token
@@ -503,12 +494,8 @@ class PaymentForgerySecurityTests(TestCase):
 class OrderPaymentAccessSecurityTests(TestCase):
     def setUp(self):
         self.api = APIClient()
-        self.owner = CustomUser.objects.create_user(
-            phone="79001110001", password="pass12345"
-        )
-        self.other = CustomUser.objects.create_user(
-            phone="79001110002", password="pass12345"
-        )
+        self.owner = CustomUser.objects.create_user(phone="79001110001", password="pass12345")
+        self.other = CustomUser.objects.create_user(phone="79001110002", password="pass12345")
 
     def test_user_b_cannot_read_user_a_order_detail(self):
         order, _, _ = _catalog_order(user=self.owner, phone=self.owner.phone)
@@ -597,16 +584,10 @@ class StaffEscalationSecurityTests(TestCase):
     def setUp(self):
         self.api = APIClient()
         Group.objects.get_or_create(name=RINGOO_GROUP_USERS)
-        self.staff = CustomUser.objects.create_user(
-            phone="79002000001", password="pass12345", is_staff=True
-        )
+        self.staff = CustomUser.objects.create_user(phone="79002000001", password="pass12345", is_staff=True)
         self.staff.groups.add(Group.objects.get(name=RINGOO_GROUP_USERS))
-        self.victim = CustomUser.objects.create_user(
-            phone="79002000002", password="pass12345", is_staff=False
-        )
-        self.super = CustomUser.objects.create_superuser(
-            phone="79002000003", password="pass12345"
-        )
+        self.victim = CustomUser.objects.create_user(phone="79002000002", password="pass12345", is_staff=False)
+        self.super = CustomUser.objects.create_superuser(phone="79002000003", password="pass12345")
 
     def test_non_superuser_staff_cannot_grant_is_staff(self):
         self.api.force_authenticate(user=self.staff)

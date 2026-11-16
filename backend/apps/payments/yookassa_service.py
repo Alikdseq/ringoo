@@ -11,7 +11,7 @@ from decimal import Decimal
 from typing import Any
 
 from django.conf import settings
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError, models, transaction
 from django.utils import timezone
 
 from apps.orders.models import Order
@@ -37,6 +37,103 @@ def _return_url(order: Order) -> str:
 def _sanitize(data: dict[str, Any]) -> dict[str, Any]:
     blocked = {"password", "secret", "authorization", "card", "payment_method"}
     return {k: v for k, v in data.items() if k.lower() not in blocked}
+
+
+def _confirmation_url_from_status_payload(data: dict[str, Any] | None) -> str:
+    if not isinstance(data, dict):
+        return ""
+    confirmation = data.get("confirmation") or {}
+    if not isinstance(confirmation, dict):
+        return ""
+    return str(confirmation.get("confirmation_url") or "").strip()
+
+
+def _restore_form_url_if_needed(payment: Payment) -> Payment:
+    """Если sync обновил статус, но form_url пуст — восстановить из last_status_response."""
+    if payment.form_url:
+        return payment
+    url = _confirmation_url_from_status_payload(payment.last_status_response)
+    if not url:
+        return payment
+    Payment.objects.filter(pk=payment.pk).update(form_url=url)
+    payment.form_url = url
+    return payment
+
+
+def _resolve_prior_yookassa_sessions(
+    order: Order,
+    *,
+    client: YooKassaClient | None,
+) -> Payment | None:
+    """
+    R39 / R38-R1: до создания новой сессии сверяем все Payment с yookassa_payment_id.
+
+    - remote pending/waiting → reuse (не создавать вторую ссылку);
+    - remote canceled → сессия закрыта, можно идти к новому create;
+    - unreachable / неизвестно → PaymentError(payment_status_unknown), без нового create;
+    - succeeded → already_paid.
+
+    Клиент ЮKassa в репозитории не содержит cancel payment — не изобретаем API.
+    """
+    candidates = list(
+        Payment.objects.filter(
+            order_id=order.pk,
+            provider=Payment.PROVIDER_YOOKASSA,
+        )
+        .exclude(yookassa_payment_id__isnull=True)
+        .exclude(yookassa_payment_id="")
+        .filter(
+            status__in=(
+                Payment.STATUS_REGISTERED,
+                Payment.STATUS_PENDING,
+                Payment.STATUS_FAILED,
+                Payment.STATUS_EXPIRED,
+            )
+        )
+        .order_by("-created_at")
+    )
+    for prior in candidates:
+        try:
+            synced = sync_payment_from_yookassa(prior, client=client)
+        except PaymentError as exc:
+            if exc.code in (
+                "yookassa_status_failed",
+                "yookassa_unreachable",
+                "yookassa_no_id",
+            ):
+                raise PaymentError(
+                    "Не удалось проверить статус текущего платежа. Попробуйте позже.",
+                    code="payment_status_unknown",
+                ) from exc
+            raise
+
+        if synced.status == Payment.STATUS_PAID:
+            raise PaymentError("Заказ уже оплачен", code="already_paid")
+        if synced.status in (
+            Payment.STATUS_NEEDS_REVIEW,
+            Payment.STATUS_REVERSED,
+            Payment.STATUS_REFUNDED,
+        ):
+            raise PaymentError(
+                "Оплата этого заказа недоступна",
+                code="payment_blocked",
+            )
+        if synced.status in (Payment.STATUS_REGISTERED, Payment.STATUS_PENDING):
+            synced = _restore_form_url_if_needed(synced)
+            if synced.form_url and synced.yookassa_payment_id:
+                logger.info(
+                    "payment_session_reused order_id=%s payment_id=%s",
+                    order.pk,
+                    synced.pk,
+                )
+                return synced
+            raise PaymentError(
+                "Платёжная сессия ещё активна у провайдера. Повторите проверку позже.",
+                code="payment_session_active",
+            )
+        # FAILED после sync = remote canceled — локальный form_url уже очищен в sync.
+        # EXPIRED не должен остаться, если remote ещё pending (sync → PENDING).
+    return None
 
 
 def _create_yookassa_payment_row(order: Order) -> Payment:
@@ -66,13 +163,41 @@ def _create_yookassa_payment_row(order: Order) -> Payment:
                 order=locked,
                 provider=Payment.PROVIDER_YOOKASSA,
                 status=Payment.STATUS_CREATED,
-                yookassa_payment_id__isnull=True,
             )
+            .filter(models.Q(yookassa_payment_id__isnull=True) | models.Q(yookassa_payment_id=""))
             .order_by("-created_at")
             .first()
         )
         if dangling:
             return dangling
+
+        # Timeout/ошибка create без yk_id: тот же Payment.id = тот же Idempotence-Key.
+        retryable = (
+            Payment.objects.select_for_update()
+            .filter(
+                order=locked,
+                provider=Payment.PROVIDER_YOOKASSA,
+                status=Payment.STATUS_FAILED,
+            )
+            .filter(models.Q(yookassa_payment_id__isnull=True) | models.Q(yookassa_payment_id=""))
+            .order_by("-created_at")
+            .first()
+        )
+        if retryable:
+            retryable.status = Payment.STATUS_CREATED
+            retryable.form_url = ""
+            retryable.error_code = ""
+            retryable.error_message = ""
+            retryable.save(
+                update_fields=[
+                    "status",
+                    "form_url",
+                    "error_code",
+                    "error_message",
+                    "updated_at",
+                ]
+            )
+            return retryable
 
         amount = Decimal(locked.total_amount)
         if amount <= 0:
@@ -100,7 +225,8 @@ def initiate_yookassa_payment(
 ) -> InitiateResult:
     """
     Создаёт платёж в ЮKassa (redirect) и возвращает confirmation_url как form_url.
-    HTTP — вне DB-транзакции. Повторный вызов переиспользует активный платёж.
+    HTTP — вне DB-транзакции. Повторный вызов переиспользует активную сессию провайдера.
+    Новая сессия — только если все прежние с yookassa_payment_id подтверждённо canceled.
     """
     if client is None and not bool(getattr(settings, "YOOKASSA_ENABLED", False)):
         raise PaymentError(
@@ -112,13 +238,18 @@ def initiate_yookassa_payment(
         "payment_creation_started order_id=%s provider=yookassa",
         order.pk,
     )
+
+    reused = _resolve_prior_yookassa_sessions(order, client=client)
+    if reused is not None:
+        return InitiateResult(payment=reused, form_url=reused.form_url, reused=True)
+
     payment = _create_yookassa_payment_row(order)
     if (
         payment.status in (Payment.STATUS_REGISTERED, Payment.STATUS_PENDING)
         and payment.form_url
         and payment.yookassa_payment_id
     ):
-        # Перед reuse — сверка с ЮKassa (не создаём второй платёж вслепую).
+        # Row create нашёл локально-активный — ещё раз сверить (гонка с webhook).
         try:
             synced = sync_payment_from_yookassa(payment, client=client)
         except PaymentError as exc:
@@ -145,18 +276,22 @@ def initiate_yookassa_payment(
                 code="payment_blocked",
             )
         if synced.status in (Payment.STATUS_FAILED, Payment.STATUS_EXPIRED):
-            # Предыдущий платёж закрыт — не отдаём старый form_url; создаём новый ниже.
             if synced.form_url:
                 Payment.objects.filter(pk=synced.pk).update(form_url="")
+            # Только после confirmed canceled (sync→FAILED) — новая строка.
             payment = _create_yookassa_payment_row(order)
-        elif synced.form_url and synced.yookassa_payment_id:
-            logger.info(
-                "payment_created order_id=%s payment_id=%s reused=1",
-                order.pk,
-                synced.pk,
-            )
-            return InitiateResult(
-                payment=synced, form_url=synced.form_url, reused=True
+        else:
+            synced = _restore_form_url_if_needed(synced)
+            if synced.form_url and synced.yookassa_payment_id:
+                logger.info(
+                    "payment_created order_id=%s payment_id=%s reused=1",
+                    order.pk,
+                    synced.pk,
+                )
+                return InitiateResult(payment=synced, form_url=synced.form_url, reused=True)
+            raise PaymentError(
+                "Платёжная сессия ещё активна у провайдера. Повторите проверку позже.",
+                code="payment_session_active",
             )
 
     order_ref = Order.objects.get(pk=order.pk)
@@ -244,9 +379,7 @@ def initiate_yookassa_payment(
     with transaction.atomic():
         p = Payment.objects.select_for_update().get(pk=payment.pk)
         if p.status == Payment.STATUS_PAID:
-            return InitiateResult(
-                payment=p, form_url=p.form_url or confirmation_url, reused=True
-            )
+            return InitiateResult(payment=p, form_url=p.form_url or confirmation_url, reused=True)
         p.yookassa_payment_id = yk_id
         p.form_url = confirmation_url
         p.status = Payment.STATUS_REGISTERED
@@ -279,9 +412,7 @@ def _amount_matches(local: Decimal, remote_value: str | None) -> bool:
     if remote_value is None:
         return False
     try:
-        return Decimal(str(local)).quantize(Decimal("0.01")) == Decimal(
-            str(remote_value)
-        ).quantize(Decimal("0.01"))
+        return Decimal(str(local)).quantize(Decimal("0.01")) == Decimal(str(remote_value)).quantize(Decimal("0.01"))
     except Exception:
         return False
 
@@ -367,9 +498,7 @@ def sync_payment_from_yookassa(
             locked.error_message = str(exc.message)[:512]
             locked.last_status_checked_at = timezone.now()
             if from_webhook:
-                locked.callback_received_at = (
-                    locked.callback_received_at or timezone.now()
-                )
+                locked.callback_received_at = locked.callback_received_at or timezone.now()
             locked.save(
                 update_fields=[
                     "error_message",
@@ -386,11 +515,7 @@ def sync_payment_from_yookassa(
     remote_status = str(data.get("status") or "").strip().lower()
 
     with transaction.atomic():
-        locked = (
-            Payment.objects.select_for_update()
-            .select_related("order")
-            .get(pk=payment_pk)
-        )
+        locked = Payment.objects.select_for_update().select_related("order").get(pk=payment_pk)
         if locked.status == Payment.STATUS_PAID:
             return locked
         if locked.status in (Payment.STATUS_REVERSED, Payment.STATUS_REFUNDED):
@@ -507,9 +632,7 @@ def sync_payment_from_yookassa(
             reason = str(cancellation.get("reason") or "Платёж отменён")
             party = str(cancellation.get("party") or "")
             locked.error_code = reason[:32]
-            locked.error_message = (
-                f"{reason}" + (f" (party={party})" if party else "")
-            )[:512]
+            locked.error_message = (f"{reason}" + (f" (party={party})" if party else ""))[:512]
             locked.save()
             logger.info(
                 "payment_canceled order_id=%s payment_id=%s reason=%s party=%s",
@@ -615,6 +738,9 @@ def _release_reservation_after_full_refund(order: Order) -> None:
     Полный возврат денег по заказу, который ещё не ушёл покупателю:
     отмена и одно снятие резерва. Quantity склада не увеличивается.
     Уже выданный заказ (in_progress / completed) не трогаем.
+
+    allow_paid=True: деньги уже возвращены провайдером; guard cancel_order
+    иначе блокирует отмену при Order.payment_status=paid и откатывает запись refund.
     """
     if order.status not in (Order.STATUS_NEW, Order.STATUS_CONFIRMED):
         logger.info(
@@ -628,7 +754,7 @@ def _release_reservation_after_full_refund(order: Order) -> None:
     cancel_order_and_release_stock(
         order,
         reason="yookassa_full_refund",
-        allow_paid=False,
+        allow_paid=True,
     )
 
 
@@ -639,11 +765,11 @@ def sync_refund_from_yookassa(
     from_webhook: bool = False,
 ) -> Payment | None:
     """
-    Подтверждает возврат через GET /refunds/{id}.
-    Полная сумма → платёж refunded. Если заказ ещё new/confirmed, он отменяется
-    и резерв снимается один раз. Quantity склада не растёт.
-    Частичная сумма копится в refunded_amount, исходная amount не меняется,
-    заказ и резерв не трогаются. Повтор того же refund_id ничего не добавляет.
+    Подтверждает внешний возврат через GET /refunds/{id} (не create_refund).
+
+    R39: фиксирует PaymentRefund + помечает Payment needs_review при полной сумме.
+    Не отменяет заказ, не освобождает резерв, не меняет quantity склада.
+    Частичная сумма копится в refunded_amount. Повтор того же refund_id — no-op.
     """
     from .models import PaymentRefund
 
@@ -652,11 +778,7 @@ def sync_refund_from_yookassa(
         logger.warning("YooKassa refund sync: invalid refund_id")
         return None
 
-    prior = (
-        PaymentRefund.objects.filter(provider_refund_id=rid)
-        .select_related("payment")
-        .first()
-    )
+    prior = PaymentRefund.objects.filter(provider_refund_id=rid).select_related("payment").first()
     if prior is not None:
         return prior.payment
 
@@ -710,13 +832,9 @@ def sync_refund_from_yookassa(
             return None
 
         if from_webhook:
-            locked.callback_received_at = (
-                locked.callback_received_at or timezone.now()
-            )
+            locked.callback_received_at = locked.callback_received_at or timezone.now()
         locked.last_status_checked_at = timezone.now()
-        locked.last_status_response = _sanitize(
-            {"refund": data, "event": "refund.sync"}
-        )
+        locked.last_status_response = _sanitize({"refund": data, "event": "refund.sync"})
 
         if PaymentRefund.objects.filter(provider_refund_id=rid).exists():
             return locked
@@ -763,9 +881,7 @@ def sync_refund_from_yookassa(
             Payment.STATUS_PAID,
             Payment.STATUS_NEEDS_REVIEW,
         ):
-            locked.error_message = (
-                f"Refund при статусе платежа {locked.status}"[:512]
-            )
+            locked.error_message = f"Refund при статусе платежа {locked.status}"[:512]
             locked.status = Payment.STATUS_NEEDS_REVIEW
             locked.save()
             return locked
@@ -807,21 +923,25 @@ def sync_refund_from_yookassa(
         locked.error_code = ""
         locked.error_message = ""
         full = total == cap
+        # R39 / R38-R2: внешний refund только фиксируем для ручной сверки.
+        # Не отменяем заказ, не трогаем резерв/склад, не вызываем create_refund.
         if full:
-            locked.status = Payment.STATUS_REFUNDED
+            locked.status = Payment.STATUS_NEEDS_REVIEW
+            locked.error_message = (
+                "Внешний возврат провайдера зафиксирован; требуется ручная сверка " "(без авто-отмены заказа)"
+            )[:512]
         elif locked.status == Payment.STATUS_NEEDS_REVIEW:
-            locked.status = Payment.STATUS_PAID
+            # частичный при уже needs_review — оставляем на сверке
+            pass
+        # частичный при paid: статус остаётся paid, сумма копится в refunded_amount
         locked.save()
         logger.info(
-            "payment_refund_applied order_id=%s payment_id=%s refund_id=%s full=%s",
+            "payment_refund_recorded order_id=%s payment_id=%s refund_id=%s full=%s " "auto_cancel=0",
             locked.order_id,
             locked.pk,
             rid,
             int(full),
         )
-        if full:
-            order = Order.objects.select_for_update().get(pk=locked.order_id)
-            _release_reservation_after_full_refund(order)
         return locked
 
 
@@ -855,9 +975,7 @@ def handle_yookassa_webhook(
     # INT-004: refund object.id — это refund_id, не payment_id
     if event == "refund.succeeded":
         try:
-            return sync_refund_from_yookassa(
-                yk_id, client=client, from_webhook=True
-            )
+            return sync_refund_from_yookassa(yk_id, client=client, from_webhook=True)
         except PaymentError:
             logger.warning("YooKassa refund webhook sync failed refund_id=%s", yk_id)
             return None
@@ -880,9 +998,7 @@ def handle_yookassa_webhook(
         if isinstance(meta, dict):
             local_pid = str(meta.get("payment_id") or "").strip()
             if local_pid:
-                payment = Payment.objects.filter(
-                    provider=Payment.PROVIDER_YOOKASSA, pk=local_pid
-                ).first()
+                payment = Payment.objects.filter(provider=Payment.PROVIDER_YOOKASSA, pk=local_pid).first()
 
     if payment is None:
         logger.warning("YooKassa webhook: payment not found yk_id=%s event=%s", yk_id, event)
@@ -892,9 +1008,7 @@ def handle_yookassa_webhook(
     from django.conf import settings as dj_settings
     from django.core.cache import cache
 
-    debounce = int(
-        getattr(dj_settings, "YOOKASSA_WEBHOOK_SYNC_DEBOUNCE_SECONDS", 2) or 0
-    )
+    debounce = int(getattr(dj_settings, "YOOKASSA_WEBHOOK_SYNC_DEBOUNCE_SECONDS", 2) or 0)
     if debounce > 0:
         cache_key = f"yk_webhook_sync:{payment.pk}"
         if cache.get(cache_key):
@@ -911,9 +1025,7 @@ def handle_yookassa_webhook(
         cache.set(cache_key, "1", timeout=debounce)
 
     try:
-        return sync_payment_from_yookassa(
-            payment, client=client, from_webhook=True
-        )
+        return sync_payment_from_yookassa(payment, client=client, from_webhook=True)
     except PaymentError:
         logger.warning("YooKassa webhook sync failed payment=%s", payment.pk)
         return payment

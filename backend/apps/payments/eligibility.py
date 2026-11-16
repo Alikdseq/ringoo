@@ -13,7 +13,6 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from apps.orders.models import Order
-    from apps.payments.models import Payment
 
 
 @dataclass(frozen=True)
@@ -56,19 +55,13 @@ def evaluate_order_payment_eligibility(order: "Order") -> PaymentEligibility:
         )
 
     if order.is_cancelled():
-        return PaymentEligibility(
-            False, "order_cancelled", "Заказ отменён", latest_status
-        )
+        return PaymentEligibility(False, "order_cancelled", "Заказ отменён", latest_status)
 
     if order.is_fulfilled() or normalize_status(order.status) == Order.STATUS_CLOSED:
-        return PaymentEligibility(
-            False, "order_completed", "Заказ уже завершён", latest_status
-        )
+        return PaymentEligibility(False, "order_completed", "Заказ уже завершён", latest_status)
 
     if order.payment_status == Order.PAYMENT_STATUS_PAID:
-        return PaymentEligibility(
-            False, "already_paid", "Заказ уже оплачен", latest_status
-        )
+        return PaymentEligibility(False, "already_paid", "Заказ уже оплачен", latest_status)
 
     if normalize_status(order.status) == Order.STATUS_READY:
         return PaymentEligibility(
@@ -78,9 +71,10 @@ def evaluate_order_payment_eligibility(order: "Order") -> PaymentEligibility:
             latest_status,
         )
 
-    if order.status not in PAYABLE_ORDER_STATUSES and normalize_status(
-        order.status
-    ) not in (Order.STATUS_NEW, Order.STATUS_PROCESSING):
+    if order.status not in PAYABLE_ORDER_STATUSES and normalize_status(order.status) not in (
+        Order.STATUS_NEW,
+        Order.STATUS_PROCESSING,
+    ):
         return PaymentEligibility(
             False,
             "order_status",
@@ -96,16 +90,10 @@ def evaluate_order_payment_eligibility(order: "Order") -> PaymentEligibility:
             latest_status,
         )
 
-    blocking = (
-        order.payments.filter(status__in=BLOCKING_PAYMENT_STATUSES)
-        .order_by("-created_at")
-        .first()
-    )
+    blocking = order.payments.filter(status__in=BLOCKING_PAYMENT_STATUSES).order_by("-created_at").first()
     if blocking:
         if blocking.status == Payment.STATUS_PAID:
-            return PaymentEligibility(
-                False, "already_paid", "Заказ уже оплачен", blocking.status
-            )
+            return PaymentEligibility(False, "already_paid", "Заказ уже оплачен", blocking.status)
         return PaymentEligibility(
             False,
             "payment_blocked",
@@ -114,9 +102,7 @@ def evaluate_order_payment_eligibility(order: "Order") -> PaymentEligibility:
         )
 
     if latest and latest.status in RESUMABLE_PAYMENT_STATUSES:
-        return PaymentEligibility(
-            True, "ok", "Можно продолжить оплату", latest.status
-        )
+        return PaymentEligibility(True, "ok", "Можно продолжить оплату", latest.status)
 
     return PaymentEligibility(True, "ok", "Можно оплатить", latest_status)
 

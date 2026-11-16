@@ -6,19 +6,20 @@ from decimal import Decimal
 from unittest.mock import patch
 
 from django.test import TestCase, override_settings
+
 from rest_framework.test import APIClient
 
 from apps.cart.checkout_clear import clear_cart_after_successful_payment
 from apps.cart.models import Cart, CartItem
 from apps.orders.models import Order
 from apps.payments.models import Payment
+from apps.payments.services import PaymentError
 from apps.payments.yookassa_service import (
     initiate_yookassa_payment,
     sync_payment_from_yookassa,
 )
 from apps.products.models import Category, Product
 from apps.stores.models import Stock, Store
-from apps.payments.services import PaymentError
 
 
 def _catalog():
@@ -30,9 +31,7 @@ def _catalog():
         category=cat,
         is_active=True,
     )
-    store = Store.objects.create(
-        name="S", slug=f"s-{Store.objects.count()}", address="a", city="c"
-    )
+    store = Store.objects.create(name="S", slug=f"s-{Store.objects.count()}", address="a", city="c")
     Stock.objects.create(product=product, store=store, quantity=10, reserved_quantity=0)
     return product, store
 
@@ -86,9 +85,7 @@ class OnlineCartRetentionTests(TestCase):
 
     def _create_online_order_with_cart(self):
         cart = self._seed_session_cart()
-        resp = self.api.post(
-            "/api/v1/orders/", self._order_payload(payment_type="online"), format="json"
-        )
+        resp = self.api.post("/api/v1/orders/", self._order_payload(payment_type="online"), format="json")
         self.assertEqual(resp.status_code, 201, resp.content)
         order = Order.objects.get(pk=resp.data["id"])
         return cart, order
@@ -96,9 +93,7 @@ class OnlineCartRetentionTests(TestCase):
     def test_cash_order_clears_cart(self):
         cart = self._seed_session_cart()
         self.assertEqual(cart.items.count(), 1)
-        resp = self.api.post(
-            "/api/v1/orders/", self._order_payload(payment_type="cash"), format="json"
-        )
+        resp = self.api.post("/api/v1/orders/", self._order_payload(payment_type="cash"), format="json")
         self.assertEqual(resp.status_code, 201, resp.content)
         cart.refresh_from_db()
         self.assertEqual(cart.items.count(), 0)
@@ -204,9 +199,7 @@ class OnlineCartRetentionTests(TestCase):
             yookassa_payment_id="yk-err",
             form_url="https://pay.example/x",
         )
-        MockClient.return_value.get_payment.side_effect = YooKassaError(
-            "timeout", code="yookassa_http_error"
-        )
+        MockClient.return_value.get_payment.side_effect = YooKassaError("timeout", code="yookassa_http_error")
         with self.assertRaises(PaymentError):
             sync_payment_from_yookassa(payment, client=MockClient.return_value)
         cart.refresh_from_db()
@@ -314,9 +307,7 @@ class OnlineCartRetentionTests(TestCase):
             category=self.product.category,
             is_active=True,
         )
-        Stock.objects.create(
-            product=product_b, store=self.store, quantity=10, reserved_quantity=0
-        )
+        Stock.objects.create(product=product_b, store=self.store, quantity=10, reserved_quantity=0)
         cart, order = self._create_online_order_with_cart()
         # После заказа добавили новый товар
         CartItem.objects.create(
@@ -359,9 +350,7 @@ class OnlineCartRetentionTests(TestCase):
             category=self.product.category,
             is_active=True,
         )
-        Stock.objects.create(
-            product=product_b, store=self.store, quantity=5, reserved_quantity=0
-        )
+        Stock.objects.create(product=product_b, store=self.store, quantity=5, reserved_quantity=0)
         cart, order = self._create_online_order_with_cart()
         cart.items.all().delete()
         CartItem.objects.create(
@@ -383,9 +372,7 @@ class OnlineCartRetentionTests(TestCase):
         """Два неоплаченных заказа: оплата второго вычитает только его qty."""
         cart, order1 = self._create_online_order_with_cart()
         # Второй заказ из той же корзины (qty всё ещё 2)
-        resp2 = self.api.post(
-            "/api/v1/orders/", self._order_payload(payment_type="online"), format="json"
-        )
+        resp2 = self.api.post("/api/v1/orders/", self._order_payload(payment_type="online"), format="json")
         self.assertEqual(resp2.status_code, 201, resp2.content)
         order2 = Order.objects.get(pk=resp2.data["id"])
         self.assertEqual(order2.checkout_cart_id, cart.id)
@@ -402,17 +389,16 @@ class OnlineCartRetentionTests(TestCase):
         self.assertEqual(order1.checkout_cart_id, cart.id)
 
     def test_merge_retargets_checkout_cart_id(self):
+        from rest_framework.test import APIRequestFactory
+
         from apps.cart.services import merge_guest_cart_into_user
         from apps.users.models import CustomUser
-        from rest_framework.test import APIRequestFactory
 
         cart, order = self._create_online_order_with_cart()
         user = CustomUser.objects.create_user("79005556677", password="pass12345")
         factory = APIRequestFactory()
         request = factory.get("/")
-        request.session = type(
-            "S", (), {"session_key": self.api.session.session_key}
-        )()
+        request.session = type("S", (), {"session_key": self.api.session.session_key})()
         merge_guest_cart_into_user(request, user)
         order.refresh_from_db()
         user_cart = Cart.objects.get(user=user)

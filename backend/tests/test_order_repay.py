@@ -6,6 +6,7 @@ from decimal import Decimal
 from unittest.mock import patch
 
 from django.test import TestCase, override_settings
+
 from rest_framework.test import APIClient
 
 from apps.orders.models import Order, OrderItem
@@ -28,9 +29,7 @@ def _catalog():
         category=cat,
         is_active=True,
     )
-    store = Store.objects.create(
-        name="S", slug=f"s-{Store.objects.count()}", address="a", city="c"
-    )
+    store = Store.objects.create(name="S", slug=f"s-{Store.objects.count()}", address="a", city="c")
     Stock.objects.create(product=product, store=store, quantity=20, reserved_quantity=0)
     return product, store
 
@@ -211,9 +210,7 @@ class OrderRepayApiTests(TestCase):
             yookassa_payment_id="yk-unknown",
             form_url="https://pay.example/x",
         )
-        MockClient.return_value.get_payment.side_effect = YooKassaError(
-            "down", code="yookassa_http_error"
-        )
+        MockClient.return_value.get_payment.side_effect = YooKassaError("down", code="yookassa_http_error")
         with self.assertRaises(PaymentError) as ctx:
             initiate_yookassa_payment(order, client=MockClient.return_value)
         self.assertEqual(ctx.exception.code, "payment_status_unknown")
@@ -224,7 +221,7 @@ class OrderRepayApiTests(TestCase):
     @patch("apps.payments.yookassa_service.YooKassaClient")
     def test_failed_payment_allows_new_payment(self, MockClient):
         order, _, _ = _make_order(user=self.user)
-        Payment.objects.create(
+        old = Payment.objects.create(
             order=order,
             provider=Payment.PROVIDER_YOOKASSA,
             status=Payment.STATUS_FAILED,
@@ -236,6 +233,15 @@ class OrderRepayApiTests(TestCase):
             form_url="https://pay.example/old",
         )
         api = MockClient.return_value
+        # R39: новый платёж только после confirmed canceled у провайдера.
+        api.get_payment.return_value = {
+            "id": "yk-old-fail",
+            "status": "canceled",
+            "amount": {"value": "1000.00", "currency": "RUB"},
+            "cancellation_details": {"reason": "expired_on_timeout"},
+            "metadata": {"order_id": str(order.id), "payment_id": str(old.id)},
+            "test": True,
+        }
 
         def create_payment(**kwargs):
             p = Payment.objects.filter(order=order).latest("created_at")
@@ -256,3 +262,4 @@ class OrderRepayApiTests(TestCase):
         result = initiate_online_payment(order)
         self.assertFalse(result.reused)
         self.assertEqual(Payment.objects.filter(order=order).count(), 2)
+        api.get_payment.assert_called()

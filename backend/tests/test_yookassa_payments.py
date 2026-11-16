@@ -7,6 +7,7 @@ from decimal import Decimal
 from unittest.mock import patch
 
 from django.test import TestCase, override_settings
+
 from rest_framework.test import APIClient
 
 from apps.orders.models import Order, OrderItem
@@ -31,9 +32,7 @@ def _order(**kwargs):
         category=cat,
         is_active=True,
     )
-    store = Store.objects.create(
-        name="S", slug=f"s-{Store.objects.count()}", address="a", city="c"
-    )
+    store = Store.objects.create(name="S", slug=f"s-{Store.objects.count()}", address="a", city="c")
     Stock.objects.create(product=product, store=store, quantity=10, reserved_quantity=1)
     defaults = dict(
         full_name="Иван Иванов",
@@ -133,12 +132,8 @@ class YooKassaClientTests(TestCase):
         def fake_urlopen(req, timeout=None, context=None):
             captured["url"] = req.full_url
             captured["method"] = req.get_method()
-            captured["auth"] = req.headers.get("Authorization") or req.get_header(
-                "Authorization"
-            )
-            captured["idem"] = req.headers.get("Idempotence-Key") or req.get_header(
-                "Idempotence-key"
-            )
+            captured["auth"] = req.headers.get("Authorization") or req.get_header("Authorization")
+            captured["idem"] = req.headers.get("Idempotence-Key") or req.get_header("Idempotence-key")
             body = json.loads(req.data.decode("utf-8"))
             captured["body"] = body
 
@@ -146,9 +141,7 @@ class YooKassaClientTests(TestCase):
                 status = 200
 
                 def read(self):
-                    return json.dumps(
-                        _yk_payment_response(local_payment_id="p1", order_id="o1")
-                    ).encode()
+                    return json.dumps(_yk_payment_response(local_payment_id="p1", order_id="o1")).encode()
 
                 def __enter__(self):
                     return self

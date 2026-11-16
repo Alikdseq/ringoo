@@ -5,6 +5,7 @@ from __future__ import annotations
 from decimal import Decimal
 
 from django.shortcuts import get_object_or_404
+
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -26,8 +27,7 @@ from apps.returns.services import (
 
 RETURNS_DISABLED_PAYLOAD = {
     "detail": (
-        "Функциональность возвратов временно отключена. "
-        "Обратитесь в магазин для решения вопроса о возврате."
+        "Функциональность возвратов временно отключена. " "Обратитесь в магазин для решения вопроса о возврате."
     ),
     "code": "returns_temporarily_disabled",
 }
@@ -127,9 +127,7 @@ class CustomerReturnDetailView(APIView):
     def get(self, request, pk):
         if not returns_enabled():
             return _returns_disabled_response()
-        rr = get_object_or_404(
-            ReturnRequest.objects.prefetch_related("items", "events"), pk=pk
-        )
+        rr = get_object_or_404(ReturnRequest.objects.prefetch_related("items", "events"), pk=pk)
         if rr.user_id != request.user.pk and not request.user.is_staff:
             return Response({"detail": "Запрещено."}, status=status.HTTP_403_FORBIDDEN)
         return Response(_serialize_return(rr))
@@ -234,6 +232,13 @@ class AdminReturnRefundView(APIView):
                 dry_run=bool(dry_run),
             )
         except Exception as exc:
+            from apps.payments.refund_policy import RefundInitiationDisabled
+
+            if isinstance(exc, RefundInitiationDisabled):
+                return Response(
+                    {"detail": exc.message, "code": exc.code},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(
             {

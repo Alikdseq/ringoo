@@ -9,6 +9,7 @@ from unittest.mock import MagicMock, patch
 
 from django.test import TestCase, override_settings
 from django.utils import timezone
+
 from rest_framework.test import APIClient
 
 from apps.orders.models import Order, OrderItem
@@ -55,9 +56,7 @@ def _order(**kwargs):
         category=cat,
         is_active=True,
     )
-    store = Store.objects.create(
-        name="S", slug=f"s-{Store.objects.count()}", address="a", city="c"
-    )
+    store = Store.objects.create(name="S", slug=f"s-{Store.objects.count()}", address="a", city="c")
     Stock.objects.create(product=product, store=store, quantity=10, reserved_quantity=1)
     defaults = dict(
         full_name="Иван Иванов",
@@ -170,9 +169,7 @@ class SberClientTests(TestCase):
         self.assertEqual(captured["payload"]["password"], "p")
 
     def test_register_gateway_error(self):
-        client = SberEcomClient(
-            enabled=True, base_url="https://ecomtest.sberbank.ru", username="u", password="p"
-        )
+        client = SberEcomClient(enabled=True, base_url="https://ecomtest.sberbank.ru", username="u", password="p")
         body = {"errorCode": "5", "errorMessage": "Доступ запрещен"}
         with patch(
             "urllib.request.urlopen",
@@ -186,10 +183,9 @@ class SberClientTests(TestCase):
                 )
         self.assertEqual(ctx.exception.error_code, "5")
 
+    @override_settings(PAYMENTS_REFUND_INITIATION_ENABLED=True)
     def test_reverse_success(self):
-        client = SberEcomClient(
-            enabled=True, base_url="https://ecomtest.sberbank.ru", username="u", password="p"
-        )
+        client = SberEcomClient(enabled=True, base_url="https://ecomtest.sberbank.ru", username="u", password="p")
         body = {"errorCode": "0"}
         with patch(
             "urllib.request.urlopen",
@@ -356,9 +352,7 @@ class PaymentServiceTests(TestCase):
         stock = Stock.objects.get(product=product, store=store)
         stock.reserved_quantity = 1
         stock.save()
-        Order.objects.filter(pk=order.pk).update(
-            created_at=timezone.now() - timedelta(minutes=30)
-        )
+        Order.objects.filter(pk=order.pk).update(created_at=timezone.now() - timedelta(minutes=30))
         result = expire_unpaid_online_orders()
         self.assertEqual(result["cancelled"], 1)
         order.refresh_from_db()
@@ -378,9 +372,7 @@ class PaymentServiceTests(TestCase):
             merchant_order_number="expay",
             paid_at=timezone.now(),
         )
-        Order.objects.filter(pk=order.pk).update(
-            created_at=timezone.now() - timedelta(minutes=60)
-        )
+        Order.objects.filter(pk=order.pk).update(created_at=timezone.now() - timedelta(minutes=60))
         result = expire_unpaid_online_orders()
         self.assertEqual(result["cancelled"], 0)
         order.refresh_from_db()
@@ -397,9 +389,7 @@ class PaymentServiceTests(TestCase):
             sber_order_id="aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
             form_url="https://ecomtest.sberbank.ru/pp/x",
         )
-        Order.objects.filter(pk=order.pk).update(
-            created_at=timezone.now() - timedelta(minutes=60)
-        )
+        Order.objects.filter(pk=order.pk).update(created_at=timezone.now() - timedelta(minutes=60))
         mock_client = MagicMock()
         mock_client.get_order_status.return_value = {
             "errorCode": "0",
@@ -465,10 +455,33 @@ class PaymentServiceTests(TestCase):
         )
         mock_client = MagicMock()
         mock_client.reverse_order.return_value = {"errorCode": "0"}
-        with override_settings(LATE_ONLINE_PAYMENT_POLICY="reverse"):
+        with override_settings(
+            LATE_ONLINE_PAYMENT_POLICY="reverse",
+            PAYMENTS_REFUND_INITIATION_ENABLED=True,
+        ):
             updated = apply_late_payment_policy(payment.pk, client=mock_client)
         self.assertEqual(updated.status, Payment.STATUS_REVERSED)
         mock_client.reverse_order.assert_called_once()
+
+    def test_late_policy_reverse_blocked_when_initiation_disabled(self):
+        order, _, _ = _order(status=Order.STATUS_CANCELLED)
+        payment = Payment.objects.create(
+            order=order,
+            status=Payment.STATUS_NEEDS_REVIEW,
+            amount=order.total_amount,
+            amount_kopecks=100000,
+            merchant_order_number="late2b",
+            sber_order_id="dddddddd-dddd-dddd-dddd-dddddddddddd",
+        )
+        mock_client = MagicMock()
+        with override_settings(
+            LATE_ONLINE_PAYMENT_POLICY="reverse",
+            PAYMENTS_REFUND_INITIATION_ENABLED=False,
+        ):
+            updated = apply_late_payment_policy(payment.pk, client=mock_client)
+        self.assertEqual(updated.status, Payment.STATUS_NEEDS_REVIEW)
+        mock_client.reverse_order.assert_not_called()
+        self.assertIn("отключ", updated.error_message.lower())
 
     def test_late_policy_revive(self):
         order, product, store = _order(status=Order.STATUS_CANCELLED)
@@ -500,9 +513,7 @@ class PaymentServiceTests(TestCase):
             sber_order_id="ffffffff-ffff-ffff-ffff-ffffffffffff",
             form_url="https://ecomtest.sberbank.ru/pp/x",
         )
-        Payment.objects.filter(pk=payment.pk).update(
-            created_at=timezone.now() - timedelta(minutes=10)
-        )
+        Payment.objects.filter(pk=payment.pk).update(created_at=timezone.now() - timedelta(minutes=10))
         mock_client = MagicMock()
         mock_client.get_order_status.return_value = {
             "errorCode": "0",
@@ -512,9 +523,7 @@ class PaymentServiceTests(TestCase):
             "orderNumber": payment.merchant_order_number,
             "currency": "643",
         }
-        result = reconcile_open_payments(
-            client=mock_client, older_than_minutes=2, limit=50
-        )
+        result = reconcile_open_payments(client=mock_client, older_than_minutes=2, limit=50)
         self.assertEqual(result["synced"], 1)
         payment.refresh_from_db()
         self.assertEqual(payment.status, Payment.STATUS_PAID)
@@ -533,9 +542,7 @@ class PaymentServiceTests(TestCase):
     def test_register_http_outside_long_txn_marks_failed(self):
         order, _, _ = _order()
         mock_client = MagicMock()
-        mock_client.register_order.side_effect = SberEcomError(
-            "fail", error_code="7", payload={"errorCode": "7"}
-        )
+        mock_client.register_order.side_effect = SberEcomError("fail", error_code="7", payload={"errorCode": "7"})
         with self.assertRaises(PaymentError):
             initiate_sber_payment(order, client=mock_client)
         payment = Payment.objects.filter(order=order).latest("created_at")
@@ -562,9 +569,7 @@ class PaymentApiTests(TestCase):
             "formUrl": "https://ecomtest.sberbank.ru/pp/pay",
             "raw": {"errorCode": "0"},
         }
-        with patch(
-            "apps.payments.services.SberEcomClient", return_value=mock_client
-        ):
+        with patch("apps.payments.services.SberEcomClient", return_value=mock_client):
             resp = self.client.post(
                 f"/api/v1/orders/{order.id}/pay/",
                 {
@@ -581,9 +586,7 @@ class PaymentApiTests(TestCase):
         self.assertEqual(payment.status, Payment.STATUS_REGISTERED)
         self.assertEqual(payment.amount_kopecks, 100000)
         mock_client.register_order.assert_called_once()
-        self.assertEqual(
-            mock_client.register_order.call_args.kwargs["amount_kopecks"], 100000
-        )
+        self.assertEqual(mock_client.register_order.call_args.kwargs["amount_kopecks"], 100000)
 
     def test_callback_endpoint_wires_to_sync(self):
         """Callback view вызывает реальный handle → sync с мок-клиентом банка."""
@@ -606,9 +609,7 @@ class PaymentApiTests(TestCase):
             "orderNumber": payment.merchant_order_number,
             "currency": "643",
         }
-        with patch(
-            "apps.payments.services.SberEcomClient", return_value=mock_client
-        ):
+        with patch("apps.payments.services.SberEcomClient", return_value=mock_client):
             resp = self.client.post(
                 "/api/v1/payments/sber/callback/",
                 {
@@ -647,13 +648,7 @@ class PaymentMigrationFileTests(TestCase):
     def test_initial_migration_lists_needs_review(self):
         from pathlib import Path
 
-        path = (
-            Path(__file__).resolve().parents[1]
-            / "apps"
-            / "payments"
-            / "migrations"
-            / "0001_initial.py"
-        )
+        path = Path(__file__).resolve().parents[1] / "apps" / "payments" / "migrations" / "0001_initial.py"
         text = path.read_text(encoding="utf-8")
         self.assertIn("needs_review", text)
         self.assertIn("orders", text)

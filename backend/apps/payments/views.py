@@ -10,6 +10,7 @@ import secrets
 from django.conf import settings
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+
 from rest_framework import status
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
@@ -59,9 +60,7 @@ def yookassa_webhook_ip_allowed(request) -> bool:
             )
         return True
     if not allowlist and enabled:
-        logger.warning(
-            "YooKassa webhook rejected: IP filter is enabled but allowlist is empty"
-        )
+        logger.warning("YooKassa webhook rejected: IP filter is enabled but allowlist is empty")
         return False
     remote = (request.META.get("REMOTE_ADDR") or "").strip()
     if remote not in allowlist:
@@ -117,20 +116,9 @@ def _can_access_order(request, order: Order) -> bool:
             return True
     from apps.orders.guest_access import guest_may_access_order
 
-    phone = (
-        str(request.data.get("phone") or request.query_params.get("phone") or "")
-        .strip()
-    )
-    order_number = (
-        str(
-            request.data.get("order_number")
-            or request.query_params.get("order_number")
-            or ""
-        ).strip()
-    )
-    return guest_may_access_order(
-        request, order, phone=phone, order_number=order_number
-    )
+    phone = str(request.data.get("phone") or request.query_params.get("phone") or "").strip()
+    order_number = str(request.data.get("order_number") or request.query_params.get("order_number") or "").strip()
+    return guest_may_access_order(request, order, phone=phone, order_number=order_number)
 
 
 class OrderPayView(APIView):
@@ -167,6 +155,7 @@ class OrderPayView(APIView):
                 "order_status",
                 "not_online",
                 "payment_blocked",
+                "payment_session_active",
             ):
                 http = status.HTTP_409_CONFLICT
             elif exc.code == "payment_status_unknown":
@@ -221,11 +210,7 @@ class OrderPaymentStatusView(APIView):
                 {"detail": "Нет доступа к заказу."},
                 status=status.HTTP_403_FORBIDDEN,
             )
-        payment = (
-            order.payments.exclude(status=Payment.STATUS_CREATED)
-            .order_by("-created_at")
-            .first()
-        )
+        payment = order.payments.exclude(status=Payment.STATUS_CREATED).order_by("-created_at").first()
         if payment is None:
             payment = order.payments.order_by("-created_at").first()
         if payment is None:

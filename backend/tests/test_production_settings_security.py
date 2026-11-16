@@ -12,8 +12,7 @@ from django.test import SimpleTestCase
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 
-_SCRIPT = textwrap.dedent(
-    """
+_SCRIPT = textwrap.dedent("""
     import django
     from django.core.exceptions import ImproperlyConfigured
     try:
@@ -23,8 +22,7 @@ _SCRIPT = textwrap.dedent(
         print("IMPROPER")
     except Exception as e:
         print("OTHER", type(e).__name__)
-    """
-)
+    """)
 
 
 def _run_production_import(env_extra: dict[str, str]) -> subprocess.CompletedProcess[str]:
@@ -67,9 +65,7 @@ class ProductionSettingsGuardTests(SimpleTestCase):
         self.assertIn("IMPROPER", out, msg=out[-800:])
 
     def test_weak_secret_is_rejected(self):
-        proc = _run_production_import(
-            {**_BASE_OK, "SECRET_KEY": "django-insecure-dev-key-change-in-production"}
-        )
+        proc = _run_production_import({**_BASE_OK, "SECRET_KEY": "django-insecure-dev-key-change-in-production"})
         out = (proc.stdout or "") + (proc.stderr or "")
         self.assertIn("IMPROPER", out, msg=out[-800:])
 

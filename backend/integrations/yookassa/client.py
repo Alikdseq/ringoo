@@ -62,25 +62,13 @@ class YooKassaClient:
             secret_key if secret_key is not None else getattr(settings, "YOOKASSA_SECRET_KEY", "")
         ).strip()
         self.api_url = (
-            api_url
-            if api_url is not None
-            else getattr(settings, "YOOKASSA_API_URL", "https://api.yookassa.ru/v3")
+            api_url if api_url is not None else getattr(settings, "YOOKASSA_API_URL", "https://api.yookassa.ru/v3")
         ).rstrip("/")
-        self.enabled = (
-            bool(enabled)
-            if enabled is not None
-            else bool(getattr(settings, "YOOKASSA_ENABLED", False))
-        )
+        self.enabled = bool(enabled) if enabled is not None else bool(getattr(settings, "YOOKASSA_ENABLED", False))
         self.test_mode = (
-            bool(test_mode)
-            if test_mode is not None
-            else bool(getattr(settings, "YOOKASSA_TEST_MODE", True))
+            bool(test_mode) if test_mode is not None else bool(getattr(settings, "YOOKASSA_TEST_MODE", True))
         )
-        self.timeout = int(
-            timeout
-            if timeout is not None
-            else getattr(settings, "YOOKASSA_TIMEOUT", 30)
-        )
+        self.timeout = int(timeout if timeout is not None else getattr(settings, "YOOKASSA_TIMEOUT", 30))
         self._validate_config()
 
     def _validate_config(self) -> None:
@@ -105,8 +93,7 @@ class YooKassaClient:
             )
         if not self.test_mode and key_is_test:
             raise YooKassaError(
-                "Боевой режим не допускает тестовый ключ. Установите YOOKASSA_TEST_MODE=1 "
-                "или укажите live-ключ.",
+                "Боевой режим не допускает тестовый ключ. Установите YOOKASSA_TEST_MODE=1 " "или укажите live-ключ.",
                 code="yookassa_live_key_required",
             )
         if not self.api_url.startswith("https://api.yookassa.ru"):
@@ -116,9 +103,7 @@ class YooKassaClient:
             )
 
     def _auth_header(self) -> str:
-        token = base64.b64encode(f"{self.shop_id}:{self.secret_key}".encode("utf-8")).decode(
-            "ascii"
-        )
+        token = base64.b64encode(f"{self.shop_id}:{self.secret_key}".encode("utf-8")).decode("ascii")
         return f"Basic {token}"
 
     def _request(
@@ -236,6 +221,9 @@ class YooKassaClient:
         currency: str = "RUB",
         idempotence_key: str | None = None,
     ) -> dict[str, Any]:
+        from apps.payments.refund_policy import assert_refund_initiation_allowed
+
+        assert_refund_initiation_allowed()
         body = {
             "payment_id": str(payment_id),
             "amount": {"value": _format_amount(amount), "currency": currency},

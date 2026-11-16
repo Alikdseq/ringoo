@@ -86,32 +86,14 @@ class SberEcomClient:
         enabled: bool | None = None,
         allow_production: bool | None = None,
     ):
-        raw = (
-            base_url
-            if base_url is not None
-            else os.getenv("SBER_ECOM_BASE_URL", "https://ecomtest.sberbank.ru")
-        )
+        raw = base_url if base_url is not None else os.getenv("SBER_ECOM_BASE_URL", "https://ecomtest.sberbank.ru")
         self.base_url = (raw or "").rstrip("/")
-        self.username = (
-            username
-            if username is not None
-            else os.getenv("SBER_ECOM_USERNAME", "").strip()
-        )
-        self.password = (
-            password
-            if password is not None
-            else os.getenv("SBER_ECOM_PASSWORD", "").strip()
-        )
-        self.timeout = (
-            timeout if timeout is not None else _env_int("SBER_ECOM_TIMEOUT", 30)
-        )
-        self.enabled = (
-            _env_flag("SBER_ECOM_ENABLED") if enabled is None else enabled
-        )
+        self.username = username if username is not None else os.getenv("SBER_ECOM_USERNAME", "").strip()
+        self.password = password if password is not None else os.getenv("SBER_ECOM_PASSWORD", "").strip()
+        self.timeout = timeout if timeout is not None else _env_int("SBER_ECOM_TIMEOUT", 30)
+        self.enabled = _env_flag("SBER_ECOM_ENABLED") if enabled is None else enabled
         self.allow_production = (
-            _env_flag("SBER_ECOM_ALLOW_PRODUCTION")
-            if allow_production is None
-            else allow_production
+            _env_flag("SBER_ECOM_ALLOW_PRODUCTION") if allow_production is None else allow_production
         )
         if _is_production_sber_base(self.base_url) and not self.allow_production:
             raise SberEcomError(
@@ -131,9 +113,7 @@ class SberEcomClient:
                 "Включайте только на тестовом контуре после выдачи доступов."
             )
         if _is_production_sber_base(self.base_url) and not self.allow_production:
-            raise SberEcomError(
-                "Боевой URL Сбера заблокирован (нет SBER_ECOM_ALLOW_PRODUCTION)"
-            )
+            raise SberEcomError("Боевой URL Сбера заблокирован (нет SBER_ECOM_ALLOW_PRODUCTION)")
         if not self.username or not self.password:
             raise SberEcomError("Не заданы SBER_ECOM_USERNAME / SBER_ECOM_PASSWORD")
 
@@ -289,6 +269,9 @@ class SberEcomClient:
         amount_kopecks: int | None = None,
     ) -> dict[str, Any]:
         """Отмена удержания / одностадийной оплаты в пределах банковского дня."""
+        from apps.payments.refund_policy import assert_refund_initiation_allowed
+
+        assert_refund_initiation_allowed()
         body: dict[str, Any] = {"orderId": order_id}
         if amount_kopecks is not None:
             body["amount"] = int(amount_kopecks)
@@ -303,6 +286,9 @@ class SberEcomClient:
         amount_kopecks: int,
     ) -> dict[str, Any]:
         """Возврат средств (после взаиморасчётов). Готов к вызову из админки/ops."""
+        from apps.payments.refund_policy import assert_refund_initiation_allowed
+
+        assert_refund_initiation_allowed()
         body: dict[str, Any] = {
             "orderId": order_id,
             "amount": int(amount_kopecks),
