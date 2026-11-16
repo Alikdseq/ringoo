@@ -6,20 +6,21 @@ from decimal import Decimal
 
 from django.test import RequestFactory, TestCase
 from django.urls import reverse
+
 from rest_framework.test import APIClient
 
 from apps.products.models import Category, Product
-from apps.stores.models import Store, Stock
+from apps.stores.models import Stock, Store
 from apps.users.models import CustomUser
 
 from .models import Cart, CartItem
-from .services import merge_guest_cart_into_user
 from .serializers import (
     CartItemCreateSerializer,
     CartItemSerializer,
-    CartSerializer,
     CartItemUpdateSerializer,
+    CartSerializer,
 )
+from .services import merge_guest_cart_into_user
 
 
 class TestCartItemSerializer(TestCase):

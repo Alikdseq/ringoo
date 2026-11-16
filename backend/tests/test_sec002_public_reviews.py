@@ -7,6 +7,7 @@ from decimal import Decimal
 from django.contrib.auth.models import Group
 from django.test import TestCase, override_settings
 from django.urls import reverse
+
 from rest_framework.test import APIClient
 
 from apps.admin_api.permissions import RINGOO_GROUP_CONTENT
@@ -133,14 +134,10 @@ class Sec002PublicReviewsTests(TestCase):
 
     def test_admin_list_can_see_email_and_pending(self):
         Group.objects.get_or_create(name=RINGOO_GROUP_CONTENT)
-        staff = CustomUser.objects.create_user(
-            phone="79002220001", password="pass12345", is_staff=True
-        )
+        staff = CustomUser.objects.create_user(phone="79002220001", password="pass12345", is_staff=True)
         staff.groups.add(Group.objects.get(name=RINGOO_GROUP_CONTENT))
         self.client.force_authenticate(user=staff)
-        resp = self.client.get(
-            "/api/v1/admin/content/reviews/", {"is_approved": "false"}
-        )
+        resp = self.client.get("/api/v1/admin/content/reviews/", {"is_approved": "false"})
         self.assertEqual(resp.status_code, 200)
         results = resp.json().get("results", resp.json())
         ids = {r["id"] for r in results}

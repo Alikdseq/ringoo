@@ -6,6 +6,7 @@ from decimal import Decimal
 
 from django.core.cache import cache
 from django.test import TestCase, override_settings
+
 from rest_framework.test import APIClient
 
 from apps.orders.models import Order
@@ -47,15 +48,9 @@ class Sec005OrderIdempotencyIsolationTests(TestCase):
             city="Москва",
             is_active=True,
         )
-        Stock.objects.create(
-            product=self.product, store=self.store, quantity=50, reserved_quantity=0
-        )
-        self.user_a = CustomUser.objects.create_user(
-            phone="79005110001", password="pass12345"
-        )
-        self.user_b = CustomUser.objects.create_user(
-            phone="79005110002", password="pass12345"
-        )
+        Stock.objects.create(product=self.product, store=self.store, quantity=50, reserved_quantity=0)
+        self.user_a = CustomUser.objects.create_user(phone="79005110001", password="pass12345")
+        self.user_b = CustomUser.objects.create_user(phone="79005110002", password="pass12345")
 
     def _payload(self, *, phone: str, name: str = "Buyer"):
         return {
@@ -156,12 +151,8 @@ class Sec005OrderIdempotencyIsolationTests(TestCase):
         session = client.session
         session.save()
         payload = self._payload(phone="79005120003", name="GuestR")
-        r1 = client.post(
-            "/api/v1/orders/", payload, format="json", HTTP_X_IDEMPOTENCY_KEY=key
-        )
-        r2 = client.post(
-            "/api/v1/orders/", payload, format="json", HTTP_X_IDEMPOTENCY_KEY=key
-        )
+        r1 = client.post("/api/v1/orders/", payload, format="json", HTTP_X_IDEMPOTENCY_KEY=key)
+        r2 = client.post("/api/v1/orders/", payload, format="json", HTTP_X_IDEMPOTENCY_KEY=key)
         self.assertEqual(r1.status_code, 201)
         self.assertEqual(r2.status_code, 201)
         self.assertEqual(r1.json()["id"], r2.json()["id"])
@@ -235,8 +226,9 @@ class Sec005OrderIdempotencyIsolationTests(TestCase):
         key = "parallel-claim"
         payload = self._payload(phone=self.user_a.phone)
 
-        from apps.orders.views import _order_idempotency_cache_key
         from django.test import RequestFactory
+
+        from apps.orders.views import _order_idempotency_cache_key
 
         rf = RequestFactory()
         req = rf.post("/api/v1/orders/")

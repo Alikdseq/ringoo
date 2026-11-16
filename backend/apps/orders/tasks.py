@@ -23,11 +23,7 @@ def sync_order_to_onec_task(order_id, paid=False, _attempt=0):
     except OneCOrderSyncError as exc:
         max_attempts = int(getattr(settings, "ONE_C_ORDER_SYNC_MAX_ATTEMPTS", 5))
         attempt = int(_attempt or 0)
-        if (
-            exc.retryable
-            and attempt + 1 < max_attempts
-            and is_celery_available()
-        ):
+        if exc.retryable and attempt + 1 < max_attempts and is_celery_available():
             countdown = min(60 * (2**attempt), 600)
             logger.warning(
                 "1C sync retry order=%s paid=%s attempt=%s countdown=%s: %s",
@@ -69,11 +65,7 @@ def cancel_order_in_onec_task(order_id, _attempt=0):
     except OneCOrderSyncError as exc:
         max_attempts = int(getattr(settings, "ONE_C_ORDER_SYNC_MAX_ATTEMPTS", 5))
         attempt = int(_attempt or 0)
-        if (
-            exc.retryable
-            and attempt + 1 < max_attempts
-            and is_celery_available()
-        ):
+        if exc.retryable and attempt + 1 < max_attempts and is_celery_available():
             countdown = min(60 * (2**attempt), 600)
             logger.warning(
                 "1C cancel retry order=%s attempt=%s countdown=%s: %s",
@@ -118,8 +110,9 @@ def send_order_notifications(order_id):
     Идемпотентность: при повторной доставке задачи (retry Celery) письмо не отправляется
     повторно, если уже стоит confirmation_email_sent_at.
     """
-    from .models import Order
     from integrations.email_service import send_order_confirmation
+
+    from .models import Order
 
     try:
         order = Order.objects.get(pk=order_id)

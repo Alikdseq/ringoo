@@ -16,7 +16,6 @@ from apps.backups.views import (
     BackupOffsiteVerifyView,
     BackupStatusView,
 )
-
 from apps.products.mapping_views import (
     ProductColorMappingListView,
     ProductColorMappingUpdateView,
@@ -29,8 +28,20 @@ from apps.returns.views import (
     AdminReturnTransitionView,
 )
 
-from .views import content, crm, dashboard, managers, orders, products, promotions, reports, stock, stores, users
-from .views import onec_sync
+from .views import (
+    content,
+    crm,
+    dashboard,
+    managers,
+    onec_sync,
+    orders,
+    products,
+    promotions,
+    reports,
+    stock,
+    stores,
+    users,
+)
 
 app_name = "admin_api"
 
@@ -232,7 +243,9 @@ urlpatterns = [
     path("promocodes/<uuid:pk>/", promotions.PromoCodeAdminUpdateDeleteView.as_view(), name="promocode-update-delete"),
     path("crm/requests/", crm.MissingProductRequestAdminListView.as_view(), name="crm-request-list"),
     path("crm/requests/<uuid:pk>/", crm.MissingProductRequestAdminDetailView.as_view(), name="crm-request-detail"),
-    path("crm/requests/<uuid:pk>/patch/", crm.MissingProductRequestAdminUpdateView.as_view(), name="crm-request-update"),
+    path(
+        "crm/requests/<uuid:pk>/patch/", crm.MissingProductRequestAdminUpdateView.as_view(), name="crm-request-update"
+    ),
     path("reports/revenue/", reports.RevenueReportView.as_view(), name="report-revenue"),
     path("reports/orders/", reports.OrdersReportView.as_view(), name="report-orders"),
     path("reports/top-products/", reports.TopProductsReportView.as_view(), name="report-top-products"),

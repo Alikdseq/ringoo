@@ -181,12 +181,8 @@ class OrderCreateSerializer(serializers.Serializer):
     delivery_cost = serializers.DecimalField(
         max_digits=12, decimal_places=2, min_value=Decimal("0"), default=Decimal("0")
     )
-    bonus_used = serializers.DecimalField(
-        max_digits=12, decimal_places=2, min_value=Decimal("0"), default=Decimal("0")
-    )
-    comment = serializers.CharField(
-        required=False, allow_blank=True, allow_null=True, max_length=5000
-    )
+    bonus_used = serializers.DecimalField(max_digits=12, decimal_places=2, min_value=Decimal("0"), default=Decimal("0"))
+    comment = serializers.CharField(required=False, allow_blank=True, allow_null=True, max_length=5000)
     consent_personal_data = serializers.BooleanField(required=True)
     consent_marketing = serializers.BooleanField(required=False, default=False)
     # FUNC-003: явное подтверждение актуальных серверных цен после предупреждения.
@@ -194,9 +190,7 @@ class OrderCreateSerializer(serializers.Serializer):
 
     def validate_consent_personal_data(self, value):
         if not value:
-            raise serializers.ValidationError(
-                "Необходимо согласие на обработку персональных данных."
-            )
+            raise serializers.ValidationError("Необходимо согласие на обработку персональных данных.")
         return value
 
     def validate_delivery_address(self, value):
@@ -246,30 +240,23 @@ class OrderCreateSerializer(serializers.Serializer):
             required = ("city", "street", "house")
             missing = [k for k in required if not addr.get(k)]
             if missing:
-                raise serializers.ValidationError(
-                    {"delivery_address": f"Для доставки укажите: {', '.join(required)}."}
-                )
+                raise serializers.ValidationError({"delivery_address": f"Для доставки укажите: {', '.join(required)}."})
             if not store:
                 raise serializers.ValidationError(
                     {
                         "store": (
-                            "Для доставки укажите магазин комплектации, "
-                            "в котором все товары корзины есть в наличии."
+                            "Для доставки укажите магазин комплектации, " "в котором все товары корзины есть в наличии."
                         )
                     }
                 )
         elif delivery_type == Order.DELIVERY_PICKUP:
             if not store:
-                raise serializers.ValidationError(
-                    {"store": "Для самовывоза укажите магазин."}
-                )
+                raise serializers.ValidationError({"store": "Для самовывоза укажите магазин."})
 
         if store:
             # is_warehouse — только клиентская метка («Склад»/Apple Room), заказ разрешён.
             if not Store.objects.filter(pk=store, is_active=True).exists():
-                raise serializers.ValidationError(
-                    {"store": "Магазин не найден или недоступен для заказа."}
-                )
+                raise serializers.ValidationError({"store": "Магазин не найден или недоступен для заказа."})
 
         items = attrs.get("items") or []
         if not items:
@@ -278,26 +265,18 @@ class OrderCreateSerializer(serializers.Serializer):
         from apps.products.models import ProductColor
 
         ids = [item["product_id"] for item in items]
-        products = Product.objects.filter(id__in=ids, is_active=True).prefetch_related(
-            "colors"
-        )
+        products = Product.objects.filter(id__in=ids, is_active=True).prefetch_related("colors")
         by_id = {p.id: p for p in products}
         missing_ids = set(ids) - set(by_id.keys())
         if missing_ids:
             raise serializers.ValidationError(
-                {
-                    "items": "Указаны неактивные или несуществующие товары. Обновите корзину и повторите заказ."
-                }
+                {"items": "Указаны неактивные или несуществующие товары. Обновите корзину и повторите заказ."}
             )
 
-        color_ids = [
-            item.get("color_id") for item in items if item.get("color_id")
-        ]
+        color_ids = [item.get("color_id") for item in items if item.get("color_id")]
         colors_by_id = {}
         if color_ids:
-            for c in ProductColor.objects.filter(
-                pk__in=color_ids, is_active=True
-            ).select_related("product"):
+            for c in ProductColor.objects.filter(pk__in=color_ids, is_active=True).select_related("product"):
                 colors_by_id[c.id] = c
 
         resolved = []
@@ -314,12 +293,7 @@ class OrderCreateSerializer(serializers.Serializer):
                     raise serializers.ValidationError(
                         {
                             "items": {
-                                idx: {
-                                    "color_id": (
-                                        "Цвет не найден, неактивен или не "
-                                        "относится к этому товару."
-                                    )
-                                }
+                                idx: {"color_id": ("Цвет не найден, неактивен или не " "относится к этому товару.")}
                             }
                         }
                     )
@@ -327,15 +301,7 @@ class OrderCreateSerializer(serializers.Serializer):
             else:
                 if active_colors:
                     raise serializers.ValidationError(
-                        {
-                            "items": {
-                                idx: {
-                                    "color_id": (
-                                        "Для этого товара необходимо выбрать цвет."
-                                    )
-                                }
-                            }
-                        }
+                        {"items": {idx: {"color_id": ("Для этого товара необходимо выбрать цвет.")}}}
                     )
                 unit = Decimal(p.price)
 
@@ -369,14 +335,9 @@ class OrderCreateSerializer(serializers.Serializer):
             raise serializers.ValidationError(
                 {
                     "code": "price_changed",
-                    "detail": (
-                        "Цены в каталоге изменились. Подтвердите новый итог "
-                        "(accept_price_changes=true)."
-                    ),
+                    "detail": ("Цены в каталоге изменились. Подтвердите новый итог " "(accept_price_changes=true)."),
                     "price_changes": price_changes,
-                    "new_total_amount": str(
-                        sum(r["price"] * r["quantity"] for r in resolved)
-                    ),
+                    "new_total_amount": str(sum(r["price"] * r["quantity"] for r in resolved)),
                 }
             )
 

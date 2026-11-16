@@ -7,6 +7,7 @@ from decimal import Decimal
 
 from django.test import TestCase, override_settings
 from django.urls import NoReverseMatch, reverse
+
 from rest_framework import status
 from rest_framework.test import APIClient
 
@@ -213,9 +214,7 @@ class TestBonusSerializers(TestCase):
         )
         txns_page = list(self.account.transactions.all()[:10])
         context = {"transactions": txns_page}
-        data = BonusAccountSerializer(
-            self.account, context=context
-        ).data
+        data = BonusAccountSerializer(self.account, context=context).data
         self.assertEqual(str(self.account.id), data["id"])
         self.assertEqual("10.00", data["balance"])
         self.assertEqual("10.00", data["total_earned"])
@@ -232,9 +231,7 @@ class TestBonusSerializers(TestCase):
         self.assertEqual(data["transactions"], [])
 
 
-@override_settings(
-    DEBUG_TOOLBAR_CONFIG={"SHOW_TOOLBAR_CALLBACK": lambda request: False}
-)
+@override_settings(DEBUG_TOOLBAR_CONFIG={"SHOW_TOOLBAR_CALLBACK": lambda request: False})
 @override_settings(BONUS_ENABLED=True)
 class TestBonusAPI(TestCase):
     """Тесты API бонусов (задача 2.1.5)."""
@@ -312,9 +309,7 @@ class TestBonusAPI(TestCase):
         )
         self.client.force_authenticate(user=self.user)
         url = reverse("api_v1:bonus:transactions")
-        response = self.client.get(
-            url, {"reason": BonusTransaction.REASON_ORDER_REWARD}
-        )
+        response = self.client.get(url, {"reason": BonusTransaction.REASON_ORDER_REWARD})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         data = response.json()
         self.assertEqual(len(data["results"]), 1)
@@ -350,9 +345,7 @@ class TestBonusOnOrderConfirmed(TestCase):
         self.assertEqual(order.bonus_earned, Decimal("5.00"))  # 5% of 100
         self.account.refresh_from_db()
         self.assertEqual(self.account.balance, Decimal("5.00"))
-        txn = self.account.transactions.filter(
-            reason=BonusTransaction.REASON_ORDER_REWARD
-        ).first()
+        txn = self.account.transactions.filter(reason=BonusTransaction.REASON_ORDER_REWARD).first()
         self.assertIsNotNone(txn)
         self.assertEqual(txn.amount, Decimal("5.00"))
         self.assertEqual(txn.related_order_id, order.id)
@@ -370,9 +363,7 @@ class TestBonusOnOrderConfirmed(TestCase):
         )
         order.refresh_from_db()
         self.assertEqual(order.bonus_earned, Decimal("0"))
-        self.assertEqual(
-            BonusTransaction.objects.filter(related_order=order).count(), 0
-        )
+        self.assertEqual(BonusTransaction.objects.filter(related_order=order).count(), 0)
 
     def test_order_confirmed_twice_awards_only_once(self):
         order = Order.objects.create(
@@ -394,8 +385,6 @@ class TestBonusOnOrderConfirmed(TestCase):
         self.account.refresh_from_db()
         self.assertEqual(self.account.balance, balance_after_first)
         self.assertEqual(
-            self.account.transactions.filter(
-                reason=BonusTransaction.REASON_ORDER_REWARD
-            ).count(),
+            self.account.transactions.filter(reason=BonusTransaction.REASON_ORDER_REWARD).count(),
             1,
         )

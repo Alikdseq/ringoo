@@ -10,6 +10,7 @@ from django.conf import settings
 from django.core.cache import cache
 from django.test import TransactionTestCase, override_settings
 from django.urls import reverse
+
 from rest_framework.test import APIClient
 
 from apps.products.models import Category, Product
@@ -112,9 +113,7 @@ class TestOrderCreateAnonThrottle(TransactionTestCase):
             "delivery_type": "pickup",
             "store": str(self.store.id),
             "payment_type": "cash",
-            "items": [
-                {"product_id": str(self.product.id), "quantity": 1, "price": "100.00"}
-            ],
+            "items": [{"product_id": str(self.product.id), "quantity": 1, "price": "100.00"}],
             "total_amount": "100.00",
             "consent_personal_data": True,
         }
@@ -138,9 +137,7 @@ class TestOrderCreateUserThrottle(TransactionTestCase):
     def setUp(self):
         cache.clear()
         self.client = APIClient()
-        self.user = CustomUser.objects.create_user(
-            "79990002222", password="userpass123"
-        )
+        self.user = CustomUser.objects.create_user("79990002222", password="userpass123")
         self.client.force_authenticate(user=self.user)
         self.category = Category.objects.create(title="Кат2", slug="cat-th2")
         self.product = Product.objects.create(
@@ -166,9 +163,7 @@ class TestOrderCreateUserThrottle(TransactionTestCase):
             "delivery_type": "pickup",
             "store": str(self.store.id),
             "payment_type": "cash",
-            "items": [
-                {"product_id": str(self.product.id), "quantity": 1, "price": "50.00"}
-            ],
+            "items": [{"product_id": str(self.product.id), "quantity": 1, "price": "50.00"}],
             "total_amount": "50.00",
             "consent_personal_data": True,
         }

@@ -28,7 +28,4 @@ def mask_name(name: str | None) -> str:
     if not name or not name.strip():
         return "***"
     parts = name.strip().split()
-    return " ".join(
-        (p[0] + "***" + p[-1]) if len(p) > 2 else (p[0] + "***") if p else "***"
-        for p in parts
-    )[:20]
+    return " ".join((p[0] + "***" + p[-1]) if len(p) > 2 else (p[0] + "***") if p else "***" for p in parts)[:20]

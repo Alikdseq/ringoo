@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from django.db.models import Q
+
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -15,19 +16,14 @@ class ProductColorMappingListView(APIView):
     permission_classes = admin_permissions(RINGOO_GROUP_CATALOG)
 
     def get(self, request):
-        qs = ProductColor.objects.select_related("product").order_by(
-            "product__title", "sort_order"
-        )
+        qs = ProductColor.objects.select_related("product").order_by("product__title", "sort_order")
         status_f = request.query_params.get("mapping_status")
         if status_f:
             qs = qs.filter(mapping_status=status_f)
         q = (request.query_params.get("q") or "").strip()
         if q:
             qs = qs.filter(
-                Q(label__icontains=q)
-                | Q(sku__icontains=q)
-                | Q(onec_code__icontains=q)
-                | Q(product__title__icontains=q)
+                Q(label__icontains=q) | Q(sku__icontains=q) | Q(onec_code__icontains=q) | Q(product__title__icontains=q)
             )
         qs = qs[:200]
         return Response(
@@ -69,11 +65,7 @@ class ProductColorMappingUpdateView(APIView):
             )
         # conflict: same onec_code on another color
         if color.onec_code:
-            clash = (
-                ProductColor.objects.filter(onec_code=color.onec_code)
-                .exclude(pk=color.pk)
-                .first()
-            )
+            clash = ProductColor.objects.filter(onec_code=color.onec_code).exclude(pk=color.pk).first()
             if clash:
                 color.mapping_status = ProductColor.MAPPING_CONFLICT
         color.save()

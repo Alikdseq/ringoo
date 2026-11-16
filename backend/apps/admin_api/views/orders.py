@@ -6,6 +6,7 @@ from io import StringIO
 from django.db.models import Q
 from django.http import HttpResponse
 from django.utils.dateparse import parse_date
+
 from rest_framework import serializers, status
 from rest_framework.generics import ListAPIView, RetrieveUpdateAPIView
 from rest_framework.pagination import PageNumberPagination
@@ -15,6 +16,7 @@ from rest_framework.views import APIView
 from apps.audit.services import log_admin_action
 from apps.orders.models import Order
 from apps.orders.serializers import OrderSerializer
+
 from ..permissions import RINGOO_GROUP_ORDERS, admin_permissions
 
 
@@ -26,9 +28,7 @@ class OrderAdminPagination(PageNumberPagination):
 
 def _admin_orders_queryset(request):
     """Общие фильтры списка/экспорта заказов для admin_api."""
-    qs = Order.objects.prefetch_related(
-        "items", "manager_rating", "payments"
-    ).order_by("-created_at")
+    qs = Order.objects.prefetch_related("items", "manager_rating", "payments").order_by("-created_at")
 
     status_filter = (request.GET.get("status") or "").strip()
     if status_filter:
@@ -56,11 +56,7 @@ def _admin_orders_queryset(request):
 
     search = (request.GET.get("search") or "").strip()
     if search:
-        qs = qs.filter(
-            Q(order_number__icontains=search)
-            | Q(phone__icontains=search)
-            | Q(full_name__icontains=search)
-        )
+        qs = qs.filter(Q(order_number__icontains=search) | Q(phone__icontains=search) | Q(full_name__icontains=search))
 
     ordering = (request.GET.get("ordering") or "").strip()
     if ordering == "created_at":
@@ -79,9 +75,7 @@ class OrderAdminUpdateSerializer(serializers.ModelSerializer):
     """
 
     status = serializers.CharField(required=False)
-    closure_result = serializers.CharField(
-        required=False, allow_null=True, allow_blank=True
-    )
+    closure_result = serializers.CharField(required=False, allow_null=True, allow_blank=True)
 
     class Meta:
         model = Order
@@ -99,11 +93,7 @@ class OrderAdminUpdateSerializer(serializers.ModelSerializer):
         if new_status in ("cancelled", "completed"):
             # Совместимость со старым UI / PATCH {"status": "cancelled"}
             attrs["status"] = Order.STATUS_CLOSED
-            attrs["closure_result"] = (
-                Order.CLOSURE_CANCELLED
-                if new_status == "cancelled"
-                else Order.CLOSURE_COMPLETED
-            )
+            attrs["closure_result"] = Order.CLOSURE_CANCELLED if new_status == "cancelled" else Order.CLOSURE_COMPLETED
             new_status = Order.STATUS_CLOSED
             closure = attrs["closure_result"]
         elif new_status in ("confirmed", "in_progress"):
@@ -118,32 +108,22 @@ class OrderAdminUpdateSerializer(serializers.ModelSerializer):
             Order.STATUS_CLOSED,
         }
         if new_status not in allowed_status:
-            raise serializers.ValidationError(
-                {"status": f"Недопустимый статус: {new_status}."}
-            )
+            raise serializers.ValidationError({"status": f"Недопустимый статус: {new_status}."})
         if closure is not None and closure not in (
             Order.CLOSURE_COMPLETED,
             Order.CLOSURE_CANCELLED,
         ):
-            raise serializers.ValidationError(
-                {"closure_result": "Допустимо: completed|cancelled."}
-            )
+            raise serializers.ValidationError({"closure_result": "Допустимо: completed|cancelled."})
         if new_status == Order.STATUS_CLOSED and not closure:
-            raise serializers.ValidationError(
-                {"closure_result": "Обязателен для status=closed."}
-            )
-        if new_status == instance.status and (
-            new_status != Order.STATUS_CLOSED
-            or closure == instance.closure_result
-        ):
+            raise serializers.ValidationError({"closure_result": "Обязателен для status=closed."})
+        if new_status == instance.status and (new_status != Order.STATUS_CLOSED or closure == instance.closure_result):
             return attrs
         from apps.orders.services.transitions import allowed_targets
 
         if new_status not in allowed_targets(instance.status) and new_status != instance.status:
-            raise serializers.ValidationError(
-                {"status": "Недопустимый переход статуса."}
-            )
+            raise serializers.ValidationError({"status": "Недопустимый переход статуса."})
         return attrs
+
 
 class OrderAdminListView(ListAPIView):
     """
@@ -188,9 +168,7 @@ class OrderAdminUpdateView(RetrieveUpdateAPIView):
         )
         serializer.is_valid(raise_exception=True)
         new_status = serializer.validated_data.get("status", old_status)
-        closure_result = serializer.validated_data.get(
-            "closure_result", instance.closure_result
-        )
+        closure_result = serializer.validated_data.get("closure_result", instance.closure_result)
 
         from apps.orders.services import OrderCancelError
         from apps.orders.services.transitions import (
@@ -278,11 +256,7 @@ class OrderAdminExportView(APIView):
         writer.writerow(header)
 
         for order in qs:
-            created = (
-                order.created_at.strftime("%d.%m.%Y %H:%M:%S")
-                if order.created_at
-                else ""
-            )
+            created = order.created_at.strftime("%d.%m.%Y %H:%M:%S") if order.created_at else ""
             writer.writerow(
                 [
                     order.order_number,
@@ -295,10 +269,7 @@ class OrderAdminExportView(APIView):
                     payment_labels.get(order.payment_type, order.payment_type),
                     str(order.bonus_used),
                     str(order.bonus_earned),
-                    (order.comment or "")
-                    .replace("\r", " ")
-                    .replace("\n", " ")
-                    .strip(),
+                    (order.comment or "").replace("\r", " ").replace("\n", " ").strip(),
                     created,
                 ]
             )

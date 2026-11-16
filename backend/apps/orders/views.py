@@ -12,6 +12,7 @@ from django.core.cache import cache
 from django.db import transaction
 from django.db.models import Q
 from django.utils.dateparse import parse_date
+
 from rest_framework import status
 from rest_framework.generics import RetrieveAPIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -19,7 +20,6 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.users.services import normalize_phone
-
 from config.throttling import (
     GuestAccessRecoverAnonThrottle,
     GuestAccessRecoverConfirmAnonThrottle,
@@ -43,6 +43,7 @@ logger = logging.getLogger(__name__)
 
 class InsufficientStockError(Exception):
     """Недостаточно остатка при атомарном резерве (в рамках транзакции)."""
+
     pass
 
 
@@ -100,9 +101,7 @@ class OrderListCreateView(APIView):
     def get(self, request):
         # SEC-001: staff не получает «все заказы» через customer API —
         # чужие заказы только через /api/v1/admin/orders/ (MFA + группа).
-        qs = Order.objects.prefetch_related(
-            "items", "manager_rating", "payments"
-        ).filter(user=request.user)
+        qs = Order.objects.prefetch_related("items", "manager_rating", "payments").filter(user=request.user)
 
         # Фильтр по статусу
         status_filter = request.query_params.get("status", "").strip()
@@ -135,9 +134,7 @@ class OrderListCreateView(APIView):
         search = (request.query_params.get("search") or "").strip()
         if search:
             qs = qs.filter(
-                Q(order_number__icontains=search)
-                | Q(phone__icontains=search)
-                | Q(full_name__icontains=search)
+                Q(order_number__icontains=search) | Q(phone__icontains=search) | Q(full_name__icontains=search)
             )
 
         # Сортировка по дате создания (по умолчанию — по убыванию)
@@ -179,9 +176,7 @@ class OrderListCreateView(APIView):
             claimed = cache.add(
                 cache_key,
                 {"pending": True},
-                timeout=getattr(
-                    django_settings, "ORDER_IDEMPOTENCY_CACHE_TIMEOUT", 86400
-                ),
+                timeout=getattr(django_settings, "ORDER_IDEMPOTENCY_CACHE_TIMEOUT", 86400),
             )
             if not claimed:
                 cached = cache.get(cache_key)
@@ -204,11 +199,7 @@ class OrderListCreateView(APIView):
             data = request.data.copy()
 
         from_cart_flag = data.pop("from_cart", None)
-        want_cart = (
-            from_cart_flag in (True, "true", "1", "yes")
-            if from_cart_flag is not None
-            else False
-        )
+        want_cart = from_cart_flag in (True, "true", "1", "yes") if from_cart_flag is not None else False
 
         cart = None
         if want_cart:
@@ -286,10 +277,7 @@ class OrderListCreateView(APIView):
                     )
 
                 product_ids = [it["product_id"] for it in items_data]
-                products_by_id = {
-                    str(p.id): p
-                    for p in Product.objects.filter(pk__in=product_ids, is_active=True)
-                }
+                products_by_id = {str(p.id): p for p in Product.objects.filter(pk__in=product_ids, is_active=True)}
 
                 from integrations.onec.orders import (
                     InsufficientStockAtStore,
@@ -337,8 +325,7 @@ class OrderListCreateView(APIView):
                     cart.items.all().delete()
 
                 logger.info(
-                    "order_created order_id=%s payment_type=%s online=%s "
-                    "checkout_cart_id=%s items=%s",
+                    "order_created order_id=%s payment_type=%s online=%s " "checkout_cart_id=%s items=%s",
                     order.pk,
                     payment_type,
                     is_online_payment,
@@ -350,8 +337,7 @@ class OrderListCreateView(APIView):
             if cache_key:
                 cache.delete(cache_key)
             detail = (
-                "Недостаточно товара в выбранном магазине. "
-                "Выберите магазин, где все позиции корзины есть в наличии."
+                "Недостаточно товара в выбранном магазине. " "Выберите магазин, где все позиции корзины есть в наличии."
             )
             return Response(
                 {"code": "INSUFFICIENT_STOCK", "detail": detail},
@@ -400,10 +386,7 @@ class OrderDetailView(RetrieveAPIView):
 
     def get_queryset(self):
         # SEC-001: без staff-bypass
-        return (
-            Order.objects.prefetch_related("items", "payments")
-            .filter(user=self.request.user)
-        )
+        return Order.objects.prefetch_related("items", "payments").filter(user=self.request.user)
 
     def retrieve(self, request, *args, **kwargs):
         instance = self.get_object()
@@ -446,9 +429,7 @@ class OrderReorderView(APIView):
                 order_store = None
 
         for order_item in order.items.all():
-            title = order_item.product_title or (
-                order_item.product.title if order_item.product_id else "Товар"
-            )
+            title = order_item.product_title or (order_item.product.title if order_item.product_id else "Товар")
             if not order_item.product_id:
                 skipped.append({"product_title": title, "reason": "product_missing"})
                 continue
@@ -463,9 +444,7 @@ class OrderReorderView(APIView):
                     pk=order_item.color_id, product_id=product.pk, is_active=True
                 ).first()
                 if color is None:
-                    skipped.append(
-                        {"product_title": title, "reason": "color_unavailable"}
-                    )
+                    skipped.append({"product_title": title, "reason": "color_unavailable"})
                     continue
 
             store = order_store
@@ -474,15 +453,11 @@ class OrderReorderView(APIView):
                 continue
 
             # Актуальная цена (не snapshot заказа) — checkout всё равно сверит
-            unit_price = (
-                color.effective_price if color is not None else product.price
-            )
+            unit_price = color.effective_price if color is not None else product.price
 
             need_qty = int(order_item.quantity)
             if store is not None:
-                available = Stock.available_quantity_retail(
-                    product.pk, store_id=store.pk
-                )
+                available = Stock.available_quantity_retail(product.pk, store_id=store.pk)
                 if available < need_qty:
                     skipped.append(
                         {
@@ -506,13 +481,11 @@ class OrderReorderView(APIView):
             if not created:
                 item.quantity += need_qty
                 item.price_at_add = unit_price
-                item.save(
-                    update_fields=["quantity", "price_at_add", "updated_at"]
-                )
+                item.save(update_fields=["quantity", "price_at_add", "updated_at"])
             added += 1
 
-        from apps.cart.views import _get_cart_queryset
         from apps.cart.serializers import CartSerializer
+        from apps.cart.views import _get_cart_queryset
 
         cart = _get_cart_queryset().get(pk=cart.pk)
         cart_data = CartSerializer(cart, context={"request": request}).data
@@ -546,9 +519,7 @@ def _guest_track_response(request, order, *, phone: str, order_number: str):
     """
     from .guest_access import guest_may_access_order
 
-    if guest_may_access_order(
-        request, order, phone=phone, order_number=order_number
-    ):
+    if guest_may_access_order(request, order, phone=phone, order_number=order_number):
         return Response(OrderSerializer(order).data)
 
     if _phone_matches_order(order.phone, phone):
@@ -582,19 +553,13 @@ class OrderTrackView(APIView):
                 {"detail": "Укажите номер заказа и телефон."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        order = (
-            Order.objects.prefetch_related("items")
-            .filter(order_number=order_number)
-            .first()
-        )
+        order = Order.objects.prefetch_related("items").filter(order_number=order_number).first()
         if not order or not _phone_matches_order(order.phone, phone):
             return Response(
                 {"detail": "Заказ не найден или телефон не совпадает."},
                 status=status.HTTP_404_NOT_FOUND,
             )
-        resp = _guest_track_response(
-            request, order, phone=phone, order_number=order_number
-        )
+        resp = _guest_track_response(request, order, phone=phone, order_number=order_number)
         if resp is None:
             return Response(
                 {"detail": "Заказ не найден или телефон не совпадает."},
@@ -622,19 +587,14 @@ class OrderStatusView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         order = (
-            Order.objects.prefetch_related("items")
-            .select_related("store")
-            .filter(order_number=order_number)
-            .first()
+            Order.objects.prefetch_related("items").select_related("store").filter(order_number=order_number).first()
         )
         if not order or not _phone_matches_order(order.phone, phone):
             return Response(
                 {"detail": "Заказ не найден или телефон не совпадает."},
                 status=status.HTTP_404_NOT_FOUND,
             )
-        resp = _guest_track_response(
-            request, order, phone=phone, order_number=order_number
-        )
+        resp = _guest_track_response(request, order, phone=phone, order_number=order_number)
         if resp is None:
             return Response(
                 {"detail": "Заказ не найден или телефон не совпадает."},
@@ -656,12 +616,7 @@ class OrderCancelView(APIView):
     throttle_classes = [OrderTrackAnonThrottle]
 
     def post(self, request, pk):
-        order = (
-            Order.objects.prefetch_related("items", "manager_rating")
-            .select_related("store")
-            .filter(pk=pk)
-            .first()
-        )
+        order = Order.objects.prefetch_related("items", "manager_rating").select_related("store").filter(pk=pk).first()
         if not order:
             return Response({"detail": "Заказ не найден."}, status=status.HTTP_404_NOT_FOUND)
 
@@ -679,9 +634,7 @@ class OrderCancelView(APIView):
             data = request.data or {}
             order_number = str(data.get("order_number") or "").strip()
             phone = str(data.get("phone") or "").strip()
-            if not guest_may_access_order(
-                request, order, phone=phone, order_number=order_number
-            ):
+            if not guest_may_access_order(request, order, phone=phone, order_number=order_number):
                 return Response(
                     {"detail": "Нет прав для отмены этого заказа."},
                     status=status.HTTP_403_FORBIDDEN,
@@ -700,10 +653,7 @@ class OrderCancelView(APIView):
             if order_has_successful_payment(order):
                 return Response(
                     {
-                        "detail": (
-                            "Заказ уже оплачен. Для отмены и возврата "
-                            "обратитесь в поддержку."
-                        ),
+                        "detail": ("Заказ уже оплачен. Для отмены и возврата " "обратитесь в поддержку."),
                         "code": "paid_order_cancel_forbidden",
                     },
                     status=status.HTTP_400_BAD_REQUEST,
@@ -755,12 +705,8 @@ class OrderRateView(APIView):
         if order is None and order_number:
             from .guest_access import guest_may_access_order
 
-            candidate = Order.objects.filter(
-                order_number=order_number, user__isnull=True
-            ).first()
-            if candidate and guest_may_access_order(
-                request, candidate, phone=phone, order_number=order_number
-            ):
+            candidate = Order.objects.filter(order_number=order_number, user__isnull=True).first()
+            if candidate and guest_may_access_order(request, candidate, phone=phone, order_number=order_number):
                 order = candidate
 
         if not order:
@@ -780,6 +726,7 @@ class OrderRateView(APIView):
             )
 
         from apps.stores.models import Manager
+
         manager_id = data.get("manager_id")
         manager = None
         if manager_id:
@@ -804,6 +751,7 @@ class OrderRateView(APIView):
         )
         if to_email:
             from integrations.email_service import send_manager_rating
+
             send_manager_rating(
                 to_email=to_email,
                 order_number=order.order_number,
@@ -848,11 +796,13 @@ class ManagerRatingSummaryView(APIView):
             }
             for r in recent_qs
         ]
-        return Response({
-            "average": round(agg["average"] or 0, 1),
-            "count": agg["count"] or 0,
-            "recent": recent,
-        })
+        return Response(
+            {
+                "average": round(agg["average"] or 0, 1),
+                "count": agg["count"] or 0,
+                "recent": recent,
+            }
+        )
 
 
 class GuestAccessRecoverRequestView(APIView):
@@ -892,9 +842,7 @@ class GuestAccessRecoverConfirmView(APIView):
         data = request.data or {}
         order_number = str(data.get("order_number") or "").strip()
         token = str(data.get("token") or data.get("recovery_token") or "").strip()
-        guest_token = confirm_guest_access_recovery(
-            order_number=order_number, recovery_token=token
-        )
+        guest_token = confirm_guest_access_recovery(order_number=order_number, recovery_token=token)
         if not guest_token:
             return Response(
                 {"detail": "Ссылка восстановления недействительна или устарела."},

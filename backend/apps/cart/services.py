@@ -24,10 +24,14 @@ def merge_guest_cart_into_user(request, user):
     if not request.session.session_key:
         return
     session_key = request.session.session_key
-    guest_cart = Cart.objects.filter(
-        session_key=session_key,
-        user__isnull=True,
-    ).prefetch_related("items").first()
+    guest_cart = (
+        Cart.objects.filter(
+            session_key=session_key,
+            user__isnull=True,
+        )
+        .prefetch_related("items")
+        .first()
+    )
     if not guest_cart:
         return
 
@@ -57,9 +61,7 @@ def merge_guest_cart_into_user(request, user):
         # (после paid checkout_cart_id уже None — такие заказы не затронем).
         from apps.orders.models import Order
 
-        retargeted = Order.objects.filter(checkout_cart_id=guest_cart_id).update(
-            checkout_cart_id=user_cart.id
-        )
+        retargeted = Order.objects.filter(checkout_cart_id=guest_cart_id).update(checkout_cart_id=user_cart.id)
         if retargeted:
             logger.info(
                 "checkout_cart_retargeted guest_cart=%s user_cart=%s orders=%s",

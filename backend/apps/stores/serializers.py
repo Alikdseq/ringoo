@@ -7,7 +7,7 @@ from rest_framework import serializers
 from apps.orders.models import ManagerRating
 from config.public_urls import absolute_media_url
 
-from .models import Manager, Store, Stock, StoreImage
+from .models import Manager, Stock, Store, StoreImage
 
 
 def _absolute_media_url(request, file_field):

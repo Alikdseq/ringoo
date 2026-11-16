@@ -8,12 +8,12 @@ from django.db import transaction
 from django.test import TestCase
 from django.urls import reverse
 
-from apps.products.models import Category, Product
 from rest_framework.test import APIClient
 
-from .models import Store, Stock
-from .serializers import StockSerializer, StoreSerializer
+from apps.products.models import Category, Product
 
+from .models import Stock, Store
+from .serializers import StockSerializer, StoreSerializer
 
 # --- Сериализаторы (1.3.3) ---
 

@@ -74,8 +74,7 @@ def encrypt_with_configured_key(plaintext: bytes) -> tuple[bytes, str]:
     active_id = str(getattr(settings, "BACKUP_ENCRYPTION_KEY_ID", "") or "").strip()
     if not active_id or active_id not in keys:
         raise RuntimeError(
-            "Автоматическое шифрование не настроено "
-            "(BACKUP_ENCRYPTION_KEY_ID / BACKUP_ENCRYPTION_KEY)."
+            "Автоматическое шифрование не настроено " "(BACKUP_ENCRYPTION_KEY_ID / BACKUP_ENCRYPTION_KEY)."
         )
     key_id_b = active_id.encode("utf-8")
     if len(key_id_b) > 255:

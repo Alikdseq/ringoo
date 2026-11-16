@@ -9,6 +9,7 @@ from decimal import Decimal
 
 from django.contrib.auth.models import Group
 from django.test import TestCase, override_settings
+
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
 
@@ -72,18 +73,10 @@ class Sec001StaffCustomerApiAccessTests(TestCase):
     def setUp(self):
         Group.objects.get_or_create(name=RINGOO_GROUP_ORDERS)
         self.api = APIClient()
-        self.owner = CustomUser.objects.create_user(
-            phone="79001110001", password="pass12345"
-        )
-        self.other = CustomUser.objects.create_user(
-            phone="79001110002", password="pass12345"
-        )
-        self.staff_no_group = CustomUser.objects.create_user(
-            phone="79001110003", password="pass12345", is_staff=True
-        )
-        self.staff_with_group = CustomUser.objects.create_user(
-            phone="79001110004", password="pass12345", is_staff=True
-        )
+        self.owner = CustomUser.objects.create_user(phone="79001110001", password="pass12345")
+        self.other = CustomUser.objects.create_user(phone="79001110002", password="pass12345")
+        self.staff_no_group = CustomUser.objects.create_user(phone="79001110003", password="pass12345", is_staff=True)
+        self.staff_with_group = CustomUser.objects.create_user(phone="79001110004", password="pass12345", is_staff=True)
         self.staff_with_group.groups.add(Group.objects.get(name=RINGOO_GROUP_ORDERS))
 
         self.owner_order, _, _ = _make_order(user=self.owner, phone=self.owner.phone)
@@ -121,18 +114,14 @@ class Sec001StaffCustomerApiAccessTests(TestCase):
 
     def test_staff_without_group_cannot_cancel_foreign_order(self):
         self.api.force_authenticate(user=self.staff_no_group)
-        resp = self.api.post(
-            f"/api/v1/orders/{self.owner_order.id}/cancel/", {}, format="json"
-        )
+        resp = self.api.post(f"/api/v1/orders/{self.owner_order.id}/cancel/", {}, format="json")
         self.assertEqual(resp.status_code, 403)
         self.owner_order.refresh_from_db()
         self.assertEqual(self.owner_order.status, Order.STATUS_NEW)
 
     def test_staff_without_group_cannot_pay_foreign_order(self):
         self.api.force_authenticate(user=self.staff_no_group)
-        resp = self.api.post(
-            f"/api/v1/orders/{self.owner_order.id}/pay/", {}, format="json"
-        )
+        resp = self.api.post(f"/api/v1/orders/{self.owner_order.id}/pay/", {}, format="json")
         self.assertEqual(resp.status_code, 403)
 
     def test_staff_can_access_own_order(self):
@@ -201,9 +190,7 @@ class Sec001StaffCustomerApiAccessTests(TestCase):
         self.assertEqual(resp.status_code, 404)
 
     def test_guest_cancel_without_credentials_denied(self):
-        resp = self.api.post(
-            f"/api/v1/orders/{self.guest_order.id}/cancel/", {}, format="json"
-        )
+        resp = self.api.post(f"/api/v1/orders/{self.guest_order.id}/cancel/", {}, format="json")
         # SEC-006: без guest_token / legacy credentials — 403
         self.assertEqual(resp.status_code, 403)
 
@@ -220,13 +207,9 @@ class Sec001StaffMfaAdminAccessTests(TestCase):
     def setUp(self):
         Group.objects.get_or_create(name=RINGOO_GROUP_ORDERS)
         self.api = APIClient()
-        self.staff = CustomUser.objects.create_user(
-            phone="79001110010", password="pass12345", is_staff=True
-        )
+        self.staff = CustomUser.objects.create_user(phone="79001110010", password="pass12345", is_staff=True)
         self.staff.groups.add(Group.objects.get(name=RINGOO_GROUP_ORDERS))
-        self.owner = CustomUser.objects.create_user(
-            phone="79001110011", password="pass12345"
-        )
+        self.owner = CustomUser.objects.create_user(phone="79001110011", password="pass12345")
         self.order, _, _ = _make_order(user=self.owner, phone=self.owner.phone)
 
     def test_staff_without_mfa_claim_denied_admin_orders(self):

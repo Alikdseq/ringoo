@@ -42,15 +42,9 @@ class OneCCatalogSyncLog(models.Model):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     run_id = models.CharField(max_length=64, unique=True, db_index=True)
-    sync_type = models.CharField(
-        max_length=32, choices=TYPE_CHOICES, default=TYPE_CATALOG, db_index=True
-    )
-    source = models.CharField(
-        max_length=16, choices=SOURCE_CHOICES, default=SOURCE_API
-    )
-    status = models.CharField(
-        max_length=32, choices=STATUS_CHOICES, default=STATUS_PENDING, db_index=True
-    )
+    sync_type = models.CharField(max_length=32, choices=TYPE_CHOICES, default=TYPE_CATALOG, db_index=True)
+    source = models.CharField(max_length=16, choices=SOURCE_CHOICES, default=SOURCE_API)
+    status = models.CharField(max_length=32, choices=STATUS_CHOICES, default=STATUS_PENDING, db_index=True)
     dry_run = models.BooleanField(default=True)
     started_at = models.DateTimeField(null=True, blank=True, db_index=True)
     finished_at = models.DateTimeField(null=True, blank=True)

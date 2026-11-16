@@ -5,6 +5,7 @@ from __future__ import annotations
 from decimal import Decimal
 
 from django.test import TestCase, override_settings
+
 from rest_framework.test import APIClient
 
 from apps.cart.checkout_clear import clear_cart_after_successful_payment
@@ -28,9 +29,7 @@ from apps.users.models import CustomUser
 class Func011ColorAndCartClearTests(TestCase):
     def setUp(self):
         self.api = APIClient()
-        self.user = CustomUser.objects.create_user(
-            phone="79003330001", password="pass12345"
-        )
+        self.user = CustomUser.objects.create_user(phone="79003330001", password="pass12345")
         self.cat = Category.objects.create(title="C", slug="f11c")
         self.product = Product.objects.create(
             title="Phone",
@@ -55,12 +54,8 @@ class Func011ColorAndCartClearTests(TestCase):
             price=Decimal("1100.00"),
             is_active=True,
         )
-        self.store = Store.objects.create(
-            name="S", slug="f11s", address="a", city="Москва", is_active=True
-        )
-        Stock.objects.create(
-            product=self.product, store=self.store, quantity=20, reserved_quantity=0
-        )
+        self.store = Store.objects.create(name="S", slug="f11s", address="a", city="Москва", is_active=True)
+        Stock.objects.create(product=self.product, store=self.store, quantity=20, reserved_quantity=0)
 
     def test_order_keeps_color_snapshot_and_server_price(self):
         self.api.force_authenticate(user=self.user)
@@ -105,9 +100,7 @@ class Func011ColorAndCartClearTests(TestCase):
             category=self.cat,
             is_active=True,
         )
-        Stock.objects.create(
-            product=other, store=self.store, quantity=5, reserved_quantity=0
-        )
+        Stock.objects.create(product=other, store=self.store, quantity=5, reserved_quantity=0)
         self.api.force_authenticate(user=self.user)
         resp = self.api.post(
             "/api/v1/orders/",

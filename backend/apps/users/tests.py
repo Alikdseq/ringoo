@@ -7,6 +7,7 @@ from decimal import Decimal
 from django.core import mail
 from django.core.cache import cache
 from django.test import RequestFactory, TestCase, override_settings
+
 from rest_framework import status
 from rest_framework.test import APIClient
 
@@ -149,9 +150,7 @@ class TestUserMeAndStaffAccess(TestCase):
         self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_staff_access_ok_for_staff(self):
-        user = CustomUser.objects.create_user(
-            "79991112255", password="secretpass123", is_staff=True
-        )
+        user = CustomUser.objects.create_user("79991112255", password="secretpass123", is_staff=True)
         self.client.force_authenticate(user=user)
         r = self.client.get("/api/v1/auth/staff-access/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
@@ -444,16 +443,8 @@ class TestConsentRecordOnRegister(TestCase):
             ConsentRecord.objects.filter(user=user).count(),
             3,
         )
-        self.assertTrue(
-            ConsentRecord.objects.filter(
-                user=user, consent_type=ConsentRecord.TYPE_PRIVACY
-            ).exists()
-        )
-        self.assertTrue(
-            ConsentRecord.objects.filter(
-                user=user, consent_type=ConsentRecord.TYPE_OFFER
-            ).exists()
-        )
+        self.assertTrue(ConsentRecord.objects.filter(user=user, consent_type=ConsentRecord.TYPE_PRIVACY).exists())
+        self.assertTrue(ConsentRecord.objects.filter(user=user, consent_type=ConsentRecord.TYPE_OFFER).exists())
 
 
 @override_settings(

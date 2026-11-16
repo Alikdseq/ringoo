@@ -6,6 +6,7 @@ from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
+
 from rest_framework.test import APIClient
 
 from apps.products.models import Category, Product
@@ -16,9 +17,7 @@ User = get_user_model()
 @override_settings(ADMIN_OTP_ENABLED=False)
 class OneCFieldProtectionTests(TestCase):
     def setUp(self):
-        self.admin = User.objects.create_user(
-            phone="79001112233", password="pass", is_staff=True, is_superuser=True
-        )
+        self.admin = User.objects.create_user(phone="79001112233", password="pass", is_staff=True, is_superuser=True)
         self.cat = Category.objects.create(title="C", slug="c-prot")
         self.product = Product.objects.create(
             title="Phone",

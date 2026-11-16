@@ -198,10 +198,7 @@ def _folder_index(folders: list[OneCFolder]) -> dict[str, OneCFolder]:
 def _plan_categories(folders: list[OneCFolder]) -> tuple[list[CategoryAction], list[dict[str, Any]]]:
     issues: list[dict[str, Any]] = []
     actions: list[CategoryAction] = []
-    existing = {
-        c.onec_code: c
-        for c in Category.objects.exclude(onec_code__isnull=True).exclude(onec_code="")
-    }
+    existing = {c.onec_code: c for c in Category.objects.exclude(onec_code__isnull=True).exclude(onec_code="")}
     by_slug = {c.slug: c for c in Category.objects.all()}
 
     seen_codes: set[str] = set()
@@ -336,9 +333,7 @@ def _aggregate_products(
             bucket.setdefault("name_variants", set()).add(row.name)
         problem = row.price_problem()
         if problem and problem != "empty":
-            bucket.setdefault("price_problems", []).append(
-                {"value": (row.price_raw or "")[:64], "reason": problem}
-            )
+            bucket.setdefault("price_problems", []).append({"value": (row.price_raw or "")[:64], "reason": problem})
         elif problem is None:
             price = row.parse_price()
             if price is not None:
@@ -360,15 +355,8 @@ def _plan_products(
     stock_actions: list[StockAction] = []
     warehouses: dict[str, dict[str, Any]] = {}
 
-    existing_by_onec = {
-        p.onec_code: p
-        for p in Product.objects.exclude(onec_code__isnull=True).exclude(onec_code="")
-    }
-    existing_by_sku = {
-        p.sku: p
-        for p in Product.objects.exclude(sku__isnull=True).exclude(sku="")
-        if p.sku
-    }
+    existing_by_onec = {p.onec_code: p for p in Product.objects.exclude(onec_code__isnull=True).exclude(onec_code="")}
+    existing_by_sku = {p.sku: p for p in Product.objects.exclude(sku__isnull=True).exclude(sku="") if p.sku}
 
     agg = _aggregate_products(rows)
 
@@ -408,10 +396,7 @@ def _plan_products(
                         "value": problem.get("value") or "",
                         "reason": problem.get("reason") or "rejected",
                         "name": data["name"],
-                        "message": (
-                            f"Цена отклонена ({problem.get('reason')}): "
-                            f"{problem.get('value')}"
-                        ),
+                        "message": (f"Цена отклонена ({problem.get('reason')}): " f"{problem.get('value')}"),
                     }
                 )
         elif not prices:
@@ -527,9 +512,7 @@ def _plan_products(
                 if action.onec_code == code and action.action in ("create", "update"):
                     action.action = "skip"
                     action.price = None
-                    action.notes = (
-                        "Цена отклонена или пустая — карточка не создаётся и не перезаписывается"
-                    )
+                    action.notes = "Цена отклонена или пустая — карточка не создаётся и не перезаписывается"
 
         # Остатки / склады / серии по строкам
         for row in data["rows"]:
@@ -696,9 +679,7 @@ def _plan_products(
                 )
                 issues.append(
                     {
-                        "type": "rejected_quantity"
-                        if qty_status == "rejected"
-                        else "invalid_quantity",
+                        "type": "rejected_quantity" if qty_status == "rejected" else "invalid_quantity",
                         "severity": True,
                         "onec_code": code,
                         "field": "quantity",
@@ -730,9 +711,7 @@ def _plan_products(
                 continue
 
             # Нет сопоставленной/создаваемой карточки (ambiguous / missing category)
-            can_create = any(
-                a.onec_code == code and a.action == "create" for a in product_actions
-            )
+            can_create = any(a.onec_code == code and a.action == "create" for a in product_actions)
             if existing_for_stock is None and not can_create:
                 stock_actions.append(
                     StockAction(
@@ -760,10 +739,7 @@ def _plan_products(
 
             note = ""
             if series_id:
-                note = (
-                    f"Серия: {series_name} (seriesID={series_id}); "
-                    "остаток по серии отдельно от карточки товара"
-                )
+                note = f"Серия: {series_name} (seriesID={series_id}); " "остаток по серии отдельно от карточки товара"
                 issues.append(
                     {
                         "type": "series_present",
@@ -785,9 +761,7 @@ def _plan_products(
                     notes=note,
                     series=series_name,
                     series_id=series_id,
-                    site_product_id=str(existing_for_stock.pk)
-                    if existing_for_stock is not None
-                    else None,
+                    site_product_id=str(existing_for_stock.pk) if existing_for_stock is not None else None,
                 )
             )
 
@@ -917,21 +891,14 @@ def plan_from_parsed(
 
     folder_codes = {f.code for f in parsed.folders}
     cat_actions, cat_issues = _plan_categories(parsed.folders)
-    prod_actions, stock_actions, warehouses, prod_issues = _plan_products(
-        parsed.product_rows, folder_codes
-    )
+    prod_actions, stock_actions, warehouses, prod_issues = _plan_products(parsed.product_rows, folder_codes)
     all_issues = cat_issues + prod_issues
 
     store_by_wid = _stores_by_confirmed_warehouse_id()
-    apply_blockers = _collect_apply_blockers(
-        issues=all_issues, warehouses=warehouses, store_by_wid=store_by_wid
-    )
+    apply_blockers = _collect_apply_blockers(issues=all_issues, warehouses=warehouses, store_by_wid=store_by_wid)
 
     # Привязка upsert → site ids для seen_keys
-    products_by_onec = {
-        p.onec_code: p
-        for p in Product.objects.exclude(onec_code__isnull=True).exclude(onec_code="")
-    }
+    products_by_onec = {p.onec_code: p for p in Product.objects.exclude(onec_code__isnull=True).exclude(onec_code="")}
     seen_keys: set[tuple[str, str, str]] = set()
     for st in stock_actions:
         if st.action != "upsert":
@@ -951,25 +918,17 @@ def plan_from_parsed(
             continue
         st.site_product_id = str(product.pk)
         st.site_store_id = str(store.pk)
-        seen_keys.add(
-            (str(product.pk), str(store.pk), (st.series_id or "").strip())
-        )
+        seen_keys.add((str(product.pk), str(store.pk), (st.series_id or "").strip()))
 
     stocks_to_zero: list[StockAction] = []
     if not apply_blockers:
-        stocks_to_zero = _plan_stocks_to_zero(
-            seen_keys=seen_keys, store_by_wid=store_by_wid
-        )
+        stocks_to_zero = _plan_stocks_to_zero(seen_keys=seen_keys, store_by_wid=store_by_wid)
 
-    from integrations.onec.reporting import partition_issues, build_issue_counts
+    from integrations.onec.reporting import build_issue_counts, partition_issues
 
     partitioned = partition_issues(all_issues)
     issue_counts = build_issue_counts(partitioned)
-    series_stock_rows = sum(
-        1
-        for a in stock_actions
-        if a.action == "upsert" and (a.series_id or "").strip()
-    )
+    series_stock_rows = sum(1 for a in stock_actions if a.action == "upsert" and (a.series_id or "").strip())
     summary = {
         # Planned (ожидаемые действия плана; для APPLY фактические — из apply_result)
         "categories_create": sum(1 for a in cat_actions if a.action == "create"),
@@ -992,14 +951,10 @@ def plan_from_parsed(
         "apply_blockers": len(apply_blockers),
         "issues": len(all_issues),
         "rejected_positions": sum(
-            1
-            for i in all_issues
-            if i.get("type") in ("rejected_price", "rejected_quantity", "invalid_quantity")
+            1 for i in all_issues if i.get("type") in ("rejected_price", "rejected_quantity", "invalid_quantity")
         ),
         "series_rows": issue_counts["series_rows"],
-        "missing_category_products": sum(
-            1 for i in all_issues if i.get("type") == "product_missing_category"
-        ),
+        "missing_category_products": sum(1 for i in all_issues if i.get("type") == "product_missing_category"),
         **issue_counts,
     }
 
@@ -1044,9 +999,7 @@ def plan_catalog_import_from_xml_strings(
     Полный цикл: разбор XML-строк → план.
     При ошибке разбора исключение — БД не трогаем.
     """
-    parsed = parse_catalog_xml_strings(
-        folders_xml, products_xml, source_label=source_label
-    )
+    parsed = parse_catalog_xml_strings(folders_xml, products_xml, source_label=source_label)
     return plan_from_parsed(parsed, mode=mode)
 
 
@@ -1113,10 +1066,7 @@ def apply_catalog_import(plan: CatalogImportPlan) -> dict[str, Any]:
     if plan.apply_blockers:
         raise ValueError(
             "apply_catalog_import заблокирован: "
-            + "; ".join(
-                (b.get("message") or b.get("type") or "blocker")
-                for b in plan.apply_blockers[:5]
-            )
+            + "; ".join((b.get("message") or b.get("type") or "blocker") for b in plan.apply_blockers[:5])
         )
 
     # Создаём/обновляем категории в порядке плана (уже топологический из планировщика)
@@ -1126,9 +1076,10 @@ def apply_catalog_import(plan: CatalogImportPlan) -> dict[str, Any]:
             continue
         parent = None
         if action.parent_code:
-            parent = code_to_category.get(action.parent_code) or Category.objects.filter(
-                onec_code=action.parent_code
-            ).first()
+            parent = (
+                code_to_category.get(action.parent_code)
+                or Category.objects.filter(onec_code=action.parent_code).first()
+            )
 
         if action.action == "update" and action.site_id:
             cat = Category.objects.get(pk=action.site_id)
@@ -1153,9 +1104,9 @@ def apply_catalog_import(plan: CatalogImportPlan) -> dict[str, Any]:
     for action in plan.products:
         if action.action not in ("create", "update"):
             continue
-        category = code_to_category.get(action.parent_code) or Category.objects.filter(
-            onec_code=action.parent_code
-        ).first()
+        category = (
+            code_to_category.get(action.parent_code) or Category.objects.filter(onec_code=action.parent_code).first()
+        )
         if not category:
             continue
         price = writable_price(action.price)
@@ -1168,9 +1119,7 @@ def apply_catalog_import(plan: CatalogImportPlan) -> dict[str, Any]:
             product.onec_code = action.onec_code
             product.category = category
             product.price = price
-            product.save(
-                update_fields=["title", "onec_code", "category", "price", "updated_at"]
-            )
+            product.save(update_fields=["title", "onec_code", "category", "price", "updated_at"])
             updated_products += 1
         else:
             slug = unique_product_slug(slugify(action.name) or action.onec_code)
@@ -1208,10 +1157,7 @@ def apply_catalog_import(plan: CatalogImportPlan) -> dict[str, Any]:
     stock_zeros = 0
     stock_skipped_idempotent = 0
     run_id = plan.ensure_run_id()
-    products_by_onec = {
-        p.onec_code: p
-        for p in Product.objects.exclude(onec_code__isnull=True).exclude(onec_code="")
-    }
+    products_by_onec = {p.onec_code: p for p in Product.objects.exclude(onec_code__isnull=True).exclude(onec_code="")}
     from apps.stores.stock_ops import (
         OnecStockUpsertItem,
         apply_onec_stock_upserts_batch,
@@ -1290,18 +1236,10 @@ def diagnose_stale_blank_series_stocks() -> dict[str, Any]:
     """
     from apps.stores.models import Stock
 
-    serial_pairs = (
-        Stock.objects.exclude(onec_series_id="")
-        .values_list("product_id", "store_id")
-        .distinct()
-    )
+    serial_pairs = Stock.objects.exclude(onec_series_id="").values_list("product_id", "store_id").distinct()
     serial_set = {(str(p), str(s)) for p, s in serial_pairs}
     suspects = []
-    for row in (
-        Stock.objects.filter(onec_series_id="")
-        .select_related("product", "store")
-        .iterator()
-    ):
+    for row in Stock.objects.filter(onec_series_id="").select_related("product", "store").iterator():
         key = (str(row.product_id), str(row.store_id))
         if key not in serial_set:
             continue
@@ -1325,9 +1263,7 @@ def diagnose_stale_blank_series_stocks() -> dict[str, Any]:
         "suspect_count": len(suspects),
         "suspects": suspects,
         "action": "report_only",
-        "message": (
-            "Автоочистка не выполняется. Сверьте с выгрузкой 1С перед правкой данных."
-        ),
+        "message": ("Автоочистка не выполняется. Сверьте с выгрузкой 1С перед правкой данных."),
     }
 
 
@@ -1362,18 +1298,12 @@ def diagnose_reserved_over_quantity() -> dict[str, Any]:
                 "reserved_quantity": reserved,
                 "available_quantity": max(0, qty - reserved),
                 "deficit": reserved - qty,
-                "note": (
-                    "reserved > quantity; available=0 до пополнения. "
-                    "Резерв не уменьшается автоматически."
-                ),
+                "note": ("reserved > quantity; available=0 до пополнения. " "Резерв не уменьшается автоматически."),
             }
         )
     return {
         "anomaly_count": len(rows),
         "anomalies": rows,
         "action": "report_only",
-        "message": (
-            "Автоисправление резерва не выполняется. "
-            "Проверьте незакрытые заказы / sync после продажи."
-        ),
+        "message": ("Автоисправление резерва не выполняется. " "Проверьте незакрытые заказы / sync после продажи."),
     }

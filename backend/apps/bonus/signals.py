@@ -7,9 +7,8 @@ from decimal import Decimal
 
 from django.db.models.signals import post_save
 
-from apps.bonus.models import BonusAccount
+from apps.bonus.models import BonusAccount, BonusTransaction
 from apps.bonus.services import add_bonus, calculate_order_bonus
-from apps.bonus.models import BonusTransaction
 
 
 def create_bonus_account_for_new_user(sender, instance, created, **kwargs):

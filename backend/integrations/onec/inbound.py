@@ -163,10 +163,7 @@ def _apply_payment(order: Order, payment: dict[str, Any]) -> Order:
     if order.payment_type == Order.PAYMENT_ONLINE:
         from apps.orders.services import order_has_successful_payment
 
-        if (
-            order.payment_status == Order.PAYMENT_STATUS_PAID
-            or order_has_successful_payment(order)
-        ):
+        if order.payment_status == Order.PAYMENT_STATUS_PAID or order_has_successful_payment(order):
             if pay_status == Order.PAYMENT_STATUS_PAID:
                 return order
             raise OneCInboundError(
@@ -246,11 +243,7 @@ def process_inbound_order_event(data: dict[str, Any]) -> dict[str, Any]:
             http_status=400,
         )
 
-    existing = (
-        OneCInboundEvent.objects.select_for_update()
-        .filter(event_id=event_id)
-        .first()
-    )
+    existing = OneCInboundEvent.objects.select_for_update().filter(event_id=event_id).first()
     if existing and existing.processing_result in (
         OneCInboundEvent.RESULT_SUCCESS,
         OneCInboundEvent.RESULT_DUPLICATE,
@@ -295,11 +288,7 @@ def process_inbound_order_event(data: dict[str, Any]) -> dict[str, Any]:
                 http_status=400,
             )
 
-    order = (
-        Order.objects.select_for_update()
-        .filter(order_number=order_number)
-        .first()
-    )
+    order = Order.objects.select_for_update().filter(order_number=order_number).first()
     if not order:
         OneCInboundEvent.objects.update_or_create(
             event_id=event_id,
@@ -310,9 +299,7 @@ def process_inbound_order_event(data: dict[str, Any]) -> dict[str, Any]:
                 "status_received": (data.get("status") or "")[:32],
                 "result_received": (data.get("result") or "")[:32],
                 "payment_status_received": (
-                    (data.get("payment") or {}).get("status") or ""
-                    if isinstance(data.get("payment"), dict)
-                    else ""
+                    (data.get("payment") or {}).get("status") or "" if isinstance(data.get("payment"), dict) else ""
                 )[:32],
                 "processing_result": OneCInboundEvent.RESULT_ERROR,
                 "error_code": "order_not_found",
@@ -343,9 +330,7 @@ def process_inbound_order_event(data: dict[str, Any]) -> dict[str, Any]:
                 "status_received": (data.get("status") or "")[:32],
                 "result_received": (data.get("result") or "")[:32],
                 "payment_status_received": (
-                    (data.get("payment") or {}).get("status") or ""
-                    if isinstance(data.get("payment"), dict)
-                    else ""
+                    (data.get("payment") or {}).get("status") or "" if isinstance(data.get("payment"), dict) else ""
                 )[:32],
                 "processing_result": OneCInboundEvent.RESULT_ERROR,
                 "error_code": exc.code,
@@ -365,9 +350,7 @@ def process_inbound_order_event(data: dict[str, Any]) -> dict[str, Any]:
             "status_received": (data.get("status") or "")[:32],
             "result_received": (data.get("result") or "")[:32],
             "payment_status_received": (
-                (data.get("payment") or {}).get("status") or ""
-                if isinstance(data.get("payment"), dict)
-                else ""
+                (data.get("payment") or {}).get("status") or "" if isinstance(data.get("payment"), dict) else ""
             )[:32],
             "processing_result": OneCInboundEvent.RESULT_SUCCESS,
             "error_code": "",

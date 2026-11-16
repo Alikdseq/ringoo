@@ -1,1 +1,1 @@
-default_app_config = 'apps.stores.apps.StoresConfig'
+default_app_config = "apps.stores.apps.StoresConfig"

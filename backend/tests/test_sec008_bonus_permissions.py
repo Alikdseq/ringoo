@@ -7,6 +7,7 @@ from decimal import Decimal
 from django.contrib.auth.models import Group
 from django.test import TestCase, override_settings
 from django.urls import reverse
+
 from rest_framework.test import APIClient, APIRequestFactory, force_authenticate
 
 from apps.admin_api.permissions import RINGOO_GROUP_BONUS, RINGOO_GROUP_ORDERS
@@ -30,23 +31,13 @@ class Sec008BonusPermissionsTests(TestCase):
         Group.objects.get_or_create(name=RINGOO_GROUP_ORDERS)
         self.api = APIClient()
         self.factory = APIRequestFactory()
-        self.owner = CustomUser.objects.create_user(
-            phone="79008110001", password="pass12345"
-        )
+        self.owner = CustomUser.objects.create_user(phone="79008110001", password="pass12345")
         # signal может уже создать счёт
-        self.account, _ = BonusAccount.objects.get_or_create(
-            user=self.owner, defaults={"balance": Decimal("0")}
-        )
-        self.staff_plain = CustomUser.objects.create_user(
-            phone="79008110002", password="pass12345", is_staff=True
-        )
-        self.staff_orders = CustomUser.objects.create_user(
-            phone="79008110003", password="pass12345", is_staff=True
-        )
+        self.account, _ = BonusAccount.objects.get_or_create(user=self.owner, defaults={"balance": Decimal("0")})
+        self.staff_plain = CustomUser.objects.create_user(phone="79008110002", password="pass12345", is_staff=True)
+        self.staff_orders = CustomUser.objects.create_user(phone="79008110003", password="pass12345", is_staff=True)
         self.staff_orders.groups.add(Group.objects.get(name=RINGOO_GROUP_ORDERS))
-        self.staff_bonus = CustomUser.objects.create_user(
-            phone="79008110004", password="pass12345", is_staff=True
-        )
+        self.staff_bonus = CustomUser.objects.create_user(phone="79008110004", password="pass12345", is_staff=True)
         self.staff_bonus.groups.add(Group.objects.get(name=RINGOO_GROUP_BONUS))
 
     def test_admin_bonus_urls_not_mounted(self):
@@ -87,9 +78,7 @@ class Sec008BonusPermissionsTests(TestCase):
             format="json",
         )
         force_authenticate(request, user=self.staff_bonus)
-        response = BonusAccountAdjustView.as_view()(
-            request, pk=str(self.account.pk)
-        )
+        response = BonusAccountAdjustView.as_view()(request, pk=str(self.account.pk))
         self.assertEqual(response.status_code, 201, getattr(response, "data", response))
         self.account.refresh_from_db()
         self.assertEqual(self.account.balance, Decimal("10.00"))
@@ -108,9 +97,7 @@ class Sec008BonusMfaTests(TestCase):
     def setUp(self):
         Group.objects.get_or_create(name=RINGOO_GROUP_BONUS)
         self.factory = APIRequestFactory()
-        self.staff = CustomUser.objects.create_user(
-            phone="79008110010", password="pass12345", is_staff=True
-        )
+        self.staff = CustomUser.objects.create_user(phone="79008110010", password="pass12345", is_staff=True)
         self.staff.groups.add(Group.objects.get(name=RINGOO_GROUP_BONUS))
 
     def test_bonus_view_requires_mfa_claim(self):

@@ -18,9 +18,7 @@ class StockLedgerTests(TestCase):
         self.product = Product.objects.create(
             title="P", slug="led-p", price=Decimal("10"), category=cat, is_active=True
         )
-        self.store = Store.objects.create(
-            name="S", slug="led-s", address="a", city="c"
-        )
+        self.store = Store.objects.create(name="S", slug="led-s", address="a", city="c")
         self.stock = Stock.objects.create(
             product=self.product,
             store=self.store,
@@ -50,16 +48,12 @@ class StockLedgerTests(TestCase):
         cancel_order_and_release_stock(self.order, reason="test")
         self.stock.refresh_from_db()
         self.assertEqual(self.stock.reserved_quantity, 0)
-        moves = StockMovement.objects.filter(
-            order_id=self.order.pk, operation=StockMovement.OP_RELEASE
-        )
+        moves = StockMovement.objects.filter(order_id=self.order.pk, operation=StockMovement.OP_RELEASE)
         self.assertEqual(moves.count(), 1)
         # повторная отмена не дублирует release
         cancel_order_and_release_stock(self.order, reason="again")
         self.assertEqual(
-            StockMovement.objects.filter(
-                order_id=self.order.pk, operation=StockMovement.OP_RELEASE
-            ).count(),
+            StockMovement.objects.filter(order_id=self.order.pk, operation=StockMovement.OP_RELEASE).count(),
             1,
         )
         self.stock.refresh_from_db()

@@ -50,10 +50,7 @@ class Command(BaseCommand):
             if table in tables:
                 ok.append(f"таблица {table} существует")
             else:
-                errors.append(
-                    f"таблица {table} отсутствует — выполните: "
-                    "python manage.py migrate payments"
-                )
+                errors.append(f"таблица {table} отсутствует — выполните: " "python manage.py migrate payments")
         except Exception as exc:  # noqa: BLE001
             # Локально без Docker host `db` часто недоступен — не путать с staging
             warnings.append(
@@ -80,9 +77,7 @@ class Command(BaseCommand):
 
         if _is_production_sber_base(base):
             if allow_prod:
-                warnings.append(
-                    "SBER_ECOM_BASE_URL указывает на боевой epay + ALLOW_PRODUCTION"
-                )
+                warnings.append("SBER_ECOM_BASE_URL указывает на боевой epay + ALLOW_PRODUCTION")
             else:
                 errors.append(
                     "SBER_ECOM_BASE_URL=epay без SBER_ECOM_ALLOW_PRODUCTION — "
@@ -95,16 +90,12 @@ class Command(BaseCommand):
                 warnings.append(f"нестандартный SBER_ECOM_BASE_URL={base}")
 
         if allow_prod and not _is_production_sber_base(base):
-            warnings.append(
-                "SBER_ECOM_ALLOW_PRODUCTION=true при тестовом BASE_URL (лишнее)"
-            )
+            warnings.append("SBER_ECOM_ALLOW_PRODUCTION=true при тестовом BASE_URL (лишнее)")
 
         if callback.startswith("https://"):
             ok.append("SBER_ECOM_CALLBACK_URL задан (https)")
             if "payments/sber/callback" not in callback:
-                warnings.append(
-                    "callback URL не содержит /payments/sber/callback/ — проверьте путь"
-                )
+                warnings.append("callback URL не содержит /payments/sber/callback/ — проверьте путь")
         elif callback:
             errors.append("SBER_ECOM_CALLBACK_URL должен быть https://…")
         else:
@@ -113,9 +104,7 @@ class Command(BaseCommand):
                 "нужен публичный HTTPS перед реальным тестом"
             )
 
-        if frontend.startswith("http://localhost") or frontend.startswith(
-            "http://127."
-        ):
+        if frontend.startswith("http://localhost") or frontend.startswith("http://127."):
             warnings.append(
                 "FRONTEND_URL локальный — return/fail URL не достучатся с ПШ Сбера "
                 "без публичного HTTPS фронта или явных SBER_ECOM_RETURN/FAIL_URL"
@@ -199,12 +188,9 @@ class Command(BaseCommand):
             self.stdout.write(self.style.ERROR(f"ERR  {line}"))
 
         if errors:
-            raise CommandError(
-                f"Staging не готов: {len(errors)} ошибок, {len(warnings)} предупреждений"
-            )
+            raise CommandError(f"Staging не готов: {len(errors)} ошибок, {len(warnings)} предупреждений")
         self.stdout.write(
             self.style.SUCCESS(
-                f"Критических ошибок нет ({len(warnings)} предупреждений). "
-                "Реальный шлюз не вызывался."
+                f"Критических ошибок нет ({len(warnings)} предупреждений). " "Реальный шлюз не вызывался."
             )
         )

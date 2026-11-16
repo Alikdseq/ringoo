@@ -6,6 +6,7 @@
 """
 
 import logging
+
 from django.conf import settings
 from django.core.mail import EmailMultiAlternatives, send_mail
 from django.template.loader import render_to_string
@@ -15,9 +16,7 @@ from config.pii import mask_email
 logger = logging.getLogger(__name__)
 
 
-def send_new_login_alert(
-    *, recipient_email: str, phone_display: str, new_ip: str, previous_ip: str
-) -> bool:
+def send_new_login_alert(*, recipient_email: str, phone_display: str, new_ip: str, previous_ip: str) -> bool:
     """
     Уведомление о входе с нового IP (без HTML-шаблона, короткое текстовое письмо).
     """
@@ -225,9 +224,7 @@ def send_missing_product_request_to_manager(req):
     Returns:
         bool: True если письмо отправлено, False если некуда отправлять или ошибка.
     """
-    to_email = getattr(settings, "MANAGER_EMAIL", None) or getattr(
-        settings, "MANAGER_RATING_NOTIFY_EMAIL", ""
-    )
+    to_email = getattr(settings, "MANAGER_EMAIL", None) or getattr(settings, "MANAGER_RATING_NOTIFY_EMAIL", "")
     if not to_email:
         logger.warning("send_missing_product_request_to_manager: MANAGER_EMAIL not set")
         return False

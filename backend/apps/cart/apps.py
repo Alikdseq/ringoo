@@ -2,9 +2,9 @@ from django.apps import AppConfig
 
 
 class CartConfig(AppConfig):
-    default_auto_field = 'django.db.models.BigAutoField'
-    name = 'apps.cart'
-    verbose_name = 'Cart'
+    default_auto_field = "django.db.models.BigAutoField"
+    name = "apps.cart"
+    verbose_name = "Cart"
 
     def ready(self):
         from django.contrib.auth.signals import user_logged_in

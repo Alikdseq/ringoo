@@ -6,13 +6,13 @@ from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
+
 from rest_framework.test import APIClient
 
 from apps.cart.models import CartItem
 from apps.orders.models import Order, OrderItem
 from apps.products.models import Category, Product, ProductColor
 from apps.stores.models import Stock, Store
-
 
 User = get_user_model()
 
@@ -40,12 +40,8 @@ class ReorderColorStoreTests(TestCase):
             is_active=True,
             price=Decimal("1100"),
         )
-        self.store = Store.objects.create(
-            name="Shop", slug="reord-s", address="a", city="c", is_active=True
-        )
-        Stock.objects.create(
-            product=self.product, store=self.store, quantity=10, reserved_quantity=0
-        )
+        self.store = Store.objects.create(name="Shop", slug="reord-s", address="a", city="c", is_active=True)
+        Stock.objects.create(product=self.product, store=self.store, quantity=10, reserved_quantity=0)
         self.order = Order.objects.create(
             user=self.user,
             full_name="U",

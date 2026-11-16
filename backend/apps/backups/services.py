@@ -127,9 +127,7 @@ def _dump_database(dest: Path) -> dict[str, Any]:
             str(dest),
         ]
         try:
-            subprocess.run(
-                cmd, check=True, env=env, timeout=600, capture_output=True
-            )
+            subprocess.run(cmd, check=True, env=env, timeout=600, capture_output=True)
             info["format"] = "postgresql_sql"
             return info
         except (FileNotFoundError, subprocess.CalledProcessError) as exc:
@@ -269,8 +267,7 @@ def _write_payload_tree(work: Path) -> tuple[dict[str, Any], dict[str, Any]]:
         shutil.copy2(example_src, env_example)
     else:
         env_example.write_text(
-            "# Copy and fill secrets locally. Do not commit.\n"
-            "SECRET_KEY=\nDATABASE_URL=\nREDIS_URL=\n",
+            "# Copy and fill secrets locally. Do not commit.\n" "SECRET_KEY=\nDATABASE_URL=\nREDIS_URL=\n",
             encoding="utf-8",
         )
     return db_info, media_info
@@ -323,9 +320,7 @@ def create_backup_archive(
                 zf.write(path, arcname=arc)
                 digest = _sha256_file(path)
                 checksum_lines.append(f"{digest}  {arc}")
-                components.append(
-                    {"path": arc, "size": path.stat().st_size, "sha256": digest}
-                )
+                components.append({"path": arc, "size": path.stat().st_size, "sha256": digest})
 
             manifest = {
                 "created_at": timezone.now().isoformat(),

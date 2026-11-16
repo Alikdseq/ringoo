@@ -43,9 +43,7 @@ def _generic_text(kind: str, product: Product, templates: dict) -> str:
         base = templates["by_brand"][brand]
     else:
         cat_slug = product.category.slug if product.category_id else ""
-        base = templates.get("by_category_slug", {}).get(
-            cat_slug, templates.get("default", "")
-        )
+        base = templates.get("by_category_slug", {}).get(cat_slug, templates.get("default", ""))
 
     title = product.title or "Товар"
     sku = product.sku or ""
@@ -129,7 +127,5 @@ class Command(BaseCommand):
             updated += 1
 
         self.stdout.write(
-            self.style.SUCCESS(
-                f"Done. Updated: {updated}, skipped: {skipped}, dry_run={dry_run}, force={force}"
-            )
+            self.style.SUCCESS(f"Done. Updated: {updated}, skipped: {skipped}, dry_run={dry_run}, force={force}")
         )

@@ -7,16 +7,17 @@ from django.db import transaction
 
 from apps.products.models import Category, Product
 
-
-ALLOWED_CATEGORY_SLUGS = frozenset({
-    "iphone",
-    "samsung",
-    "huawei",
-    "infinix",
-    "realme",
-    "tecno",
-    "xiaomi",
-})
+ALLOWED_CATEGORY_SLUGS = frozenset(
+    {
+        "iphone",
+        "samsung",
+        "huawei",
+        "infinix",
+        "realme",
+        "tecno",
+        "xiaomi",
+    }
+)
 
 
 class Command(BaseCommand):

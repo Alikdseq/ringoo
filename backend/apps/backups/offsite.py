@@ -28,7 +28,7 @@ from apps.backups.s3 import (
     probe_connection,
     put_object,
 )
-from apps.backups.services import resolve_archive_path, _sha256_file
+from apps.backups.services import _sha256_file, resolve_archive_path
 
 logger = logging.getLogger(__name__)
 

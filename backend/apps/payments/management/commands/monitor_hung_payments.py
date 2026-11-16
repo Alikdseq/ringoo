@@ -44,16 +44,10 @@ class Command(BaseCommand):
             )
             for row in snapshot["needs_review"][:20]:
                 self.stdout.write(
-                    f"  REVIEW {row['id']} order={row['order_id']} "
-                    f"{row.get('error_message', '')[:80]}"
+                    f"  REVIEW {row['id']} order={row['order_id']} " f"{row.get('error_message', '')[:80]}"
                 )
             for row in snapshot["pending"][:20]:
-                self.stdout.write(
-                    f"  PENDING {row['id']} status={row['status']} "
-                    f"sber={row.get('sber_order_id')}"
-                )
+                self.stdout.write(f"  PENDING {row['id']} status={row['status']} " f"sber={row.get('sber_order_id')}")
 
-        if options["fail_on_findings"] and (
-            snapshot["pending_count"] or snapshot["needs_review_count"]
-        ):
+        if options["fail_on_findings"] and (snapshot["pending_count"] or snapshot["needs_review_count"]):
             raise SystemExit(1)

@@ -8,6 +8,7 @@ from unittest.mock import patch
 from django.contrib.auth.models import Group
 from django.test import TestCase, override_settings
 from django.utils import timezone
+
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import AccessToken
 
@@ -35,9 +36,7 @@ def _catalog():
         category=cat,
         is_active=True,
     )
-    store = Store.objects.create(
-        name="S", slug=f"fcs-{Store.objects.count()}", address="a", city="c"
-    )
+    store = Store.objects.create(name="S", slug=f"fcs-{Store.objects.count()}", address="a", city="c")
     Stock.objects.create(product=product, store=store, quantity=10, reserved_quantity=1)
     return product, store
 
@@ -78,12 +77,8 @@ class Func002Func009CancelTests(TestCase):
     def setUp(self):
         self.api = APIClient()
         Group.objects.get_or_create(name=RINGOO_GROUP_ORDERS)
-        self.user = CustomUser.objects.create_user(
-            phone="79002221111", password="pass12345"
-        )
-        self.staff = CustomUser.objects.create_user(
-            phone="79002222222", password="pass12345", is_staff=True
-        )
+        self.user = CustomUser.objects.create_user(phone="79002221111", password="pass12345")
+        self.staff = CustomUser.objects.create_user(phone="79002222222", password="pass12345", is_staff=True)
         self.staff.groups.add(Group.objects.get(name=RINGOO_GROUP_ORDERS))
 
     def _mfa_auth(self, user):

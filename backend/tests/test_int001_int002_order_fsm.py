@@ -17,7 +17,6 @@ from apps.orders.services.transitions import (
 from apps.products.models import Category, Product
 from apps.stores.models import Stock, Store
 
-
 User = get_user_model()
 
 
@@ -32,9 +31,7 @@ def _order(status=Order.STATUS_NEW):
         category=cat,
         is_active=True,
     )
-    store = Store.objects.create(
-        name="S", slug=f"fsms-{Store.objects.count()}", address="a", city="c"
-    )
+    store = Store.objects.create(name="S", slug=f"fsms-{Store.objects.count()}", address="a", city="c")
     Stock.objects.create(product=product, store=store, quantity=5, reserved_quantity=1)
     order = Order.objects.create(
         **fsm_v2_create_kwargs(
@@ -92,9 +89,7 @@ class OrderFsmTests(TestCase):
         setattr(req, "session", "session")
         messages = FallbackStorage(req)
         setattr(req, "_messages", messages)
-        admin.action_set_status_confirmed(
-            req, Order.objects.filter(pk__in=[cancelled.pk, fresh.pk])
-        )
+        admin.action_set_status_confirmed(req, Order.objects.filter(pk__in=[cancelled.pk, fresh.pk]))
         from tests.order_fsm_assertions import assert_order_cancelled
 
         cancelled.refresh_from_db()

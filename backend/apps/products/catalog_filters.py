@@ -52,11 +52,7 @@ def apply_catalog_filters(qs: QuerySet, params, *, exclude_model: bool = False) 
         if terms:
             search_q = Q()
             for term in terms:
-                search_q |= (
-                    Q(title__icontains=term)
-                    | Q(sku__icontains=term)
-                    | Q(description__icontains=term)
-                )
+                search_q |= Q(title__icontains=term) | Q(sku__icontains=term) | Q(description__icontains=term)
             qs = qs.filter(search_q)
 
     if not exclude_model:

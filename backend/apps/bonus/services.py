@@ -10,7 +10,6 @@ from django.db.models import F
 
 from .models import BonusAccount, BonusTransaction
 
-
 # Процент начисления бонусов от суммы заказа (правило по ТЗ: например 5%)
 ORDER_BONUS_PERCENT = Decimal("5.00")
 

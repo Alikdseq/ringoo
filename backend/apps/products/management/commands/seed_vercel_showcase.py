@@ -83,10 +83,12 @@ def _image_paths(folder: str) -> list[Path]:
     if not root.is_dir():
         return []
     files = [p for p in root.iterdir() if p.is_file() and not p.name.startswith(".")]
+
     def sort_key(path: Path) -> tuple:
         name = path.name.lower()
         front = 0 if "front" in name else 1
         return (front, name)
+
     return sorted(files, key=sort_key)
 
 

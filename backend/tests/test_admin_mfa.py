@@ -8,6 +8,7 @@ from __future__ import annotations
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.test import TestCase, override_settings
+
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
 
@@ -68,9 +69,7 @@ class AdminMfaGateTests(TestCase):
         self.assertEqual(resp.status_code, 200)
 
     def test_customer_login_unaffected(self):
-        customer = User.objects.create_user(
-            phone="79003000099", password="pass12345xx", is_staff=False
-        )
+        customer = User.objects.create_user(phone="79003000099", password="pass12345xx", is_staff=False)
         resp = self.api.post(
             "/api/v1/auth/token/",
             {"username": customer.phone, "password": "pass12345xx"},
@@ -104,12 +103,10 @@ class AdminMfaGateTests(TestCase):
         self.assertEqual(resp.data.get("code"), "mfa_not_enrolled")
 
     def test_mfa_verify_success_issues_claim(self):
-        from django_otp.plugins.otp_totp.models import TOTPDevice
         from django_otp.oath import totp
+        from django_otp.plugins.otp_totp.models import TOTPDevice
 
-        device = TOTPDevice.objects.create(
-            user=self.staff, name="default", confirmed=True
-        )
+        device = TOTPDevice.objects.create(user=self.staff, name="default", confirmed=True)
         code = str(totp(device.bin_key)).zfill(6)
         refresh = RefreshToken.for_user(self.staff)
         self.api.credentials(HTTP_AUTHORIZATION=f"Bearer {refresh.access_token}")

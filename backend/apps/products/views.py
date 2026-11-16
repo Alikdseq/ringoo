@@ -19,7 +19,6 @@ from rest_framework.views import APIView
 from apps.stores.models import Stock
 from config.throttling import AnonReadRateThrottle, UserReadRateThrottle
 
-from .catalog_filters import aggregate_product_models, apply_catalog_filters
 from .cache_utils import (
     apply_public_cache_headers,
     autocomplete_cache_key,
@@ -28,6 +27,7 @@ from .cache_utils import (
     product_list_cache_key,
     product_models_cache_key,
 )
+from .catalog_filters import aggregate_product_models, apply_catalog_filters
 from .models import Category, Product, ProductColor, ProductImage
 from .search_synonyms import get_search_terms
 from .serializers import (

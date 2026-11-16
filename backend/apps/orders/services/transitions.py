@@ -43,9 +43,7 @@ def allowed_targets(current_status: str) -> frozenset[str]:
     return ALLOWED_TRANSITIONS.get(normalize_status(current_status), frozenset())
 
 
-def _normalize_target(
-    new_status: str, closure_result: str | None
-) -> tuple[str, str | None]:
+def _normalize_target(new_status: str, closure_result: str | None) -> tuple[str, str | None]:
     if new_status in ("confirmed", "in_progress"):
         return Order.STATUS_PROCESSING, None
     if new_status == "completed":
@@ -75,9 +73,7 @@ def transition_order_status(
     """
     new_status, closure_result = _normalize_target(new_status, closure_result)
 
-    locked = Order.objects.select_for_update().prefetch_related("items").get(
-        pk=order.pk
-    )
+    locked = Order.objects.select_for_update().prefetch_related("items").get(pk=order.pk)
     current_raw = locked.status
     current = normalize_status(current_raw)
 
@@ -97,30 +93,18 @@ def transition_order_status(
         and normalize_status(locked.status) == Order.STATUS_CLOSED
         and (
             locked.closure_result == closure_result
-            or (
-                locked.status == "cancelled"
-                and closure_result == Order.CLOSURE_CANCELLED
-            )
-            or (
-                locked.status == "completed"
-                and closure_result == Order.CLOSURE_COMPLETED
-            )
+            or (locked.status == "cancelled" and closure_result == Order.CLOSURE_CANCELLED)
+            or (locked.status == "completed" and closure_result == Order.CLOSURE_COMPLETED)
         )
     )
-    same_open = (
-        new_status != Order.STATUS_CLOSED
-        and normalize_status(locked.status) == new_status
-    )
+    same_open = new_status != Order.STATUS_CLOSED and normalize_status(locked.status) == new_status
     if same_closed or same_open:
         # Подтянуть legacy-код в новый при совпадении смысла
         if locked.status != new_status or (
-            new_status == Order.STATUS_CLOSED
-            and locked.closure_result != closure_result
+            new_status == Order.STATUS_CLOSED and locked.closure_result != closure_result
         ):
             locked.status = new_status
-            locked.closure_result = (
-                closure_result if new_status == Order.STATUS_CLOSED else None
-            )
+            locked.closure_result = closure_result if new_status == Order.STATUS_CLOSED else None
             locked.save(update_fields=["status", "closure_result", "updated_at"])
         # Повтор completed/cancelled: снять «застрявший» резерв идемпотентно
         # (ключи release:order:… уже не дадут двойного снятия).
@@ -130,9 +114,7 @@ def transition_order_status(
             release_order_item_reservations(
                 locked,
                 reason=(
-                    "order_completed_release"
-                    if closure_result == Order.CLOSURE_COMPLETED
-                    else "order_cancel_release"
+                    "order_completed_release" if closure_result == Order.CLOSURE_COMPLETED else "order_cancel_release"
                 ),
             )
         return locked
@@ -183,14 +165,9 @@ def transition_order_status(
     )
 
     # ONEC-003: выдача заказа — освобождаем резерв, quantity не трогаем.
-    if (
-        new_status == Order.STATUS_CLOSED
-        and closure_result == Order.CLOSURE_COMPLETED
-    ):
+    if new_status == Order.STATUS_CLOSED and closure_result == Order.CLOSURE_COMPLETED:
         from integrations.onec.orders import release_order_item_reservations
 
-        release_order_item_reservations(
-            locked, reason=reason or "order_completed_release"
-        )
+        release_order_item_reservations(locked, reason=reason or "order_completed_release")
 
     return locked

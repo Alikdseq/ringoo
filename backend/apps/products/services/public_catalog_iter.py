@@ -14,38 +14,40 @@ from apps.products.services.public_catalog_flat import longest_common_prefix
 
 IMAGE_EXT = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp"}
 
-_KNOWN_COLOR_DIR_NAMES = frozenset({
-    "black",
-    "white",
-    "blue",
-    "pink",
-    "gold",
-    "gray",
-    "grey",
-    "green",
-    "purple",
-    "red",
-    "silver",
-    "graphite",
-    "lavender",
-    "mint",
-    "navy",
-    "violet",
-    "charcoal",
-    "natural",
-    "desert",
-    "orange",
-    "yellow",
-    "teal",
-    "ultramarine",
-    "starlight",
-    "midnight",
-    "skyblue",
-    "iceblue",
-    "rosegold",
-    "cobaltviolet",
-    "pinkgold",
-})
+_KNOWN_COLOR_DIR_NAMES = frozenset(
+    {
+        "black",
+        "white",
+        "blue",
+        "pink",
+        "gold",
+        "gray",
+        "grey",
+        "green",
+        "purple",
+        "red",
+        "silver",
+        "graphite",
+        "lavender",
+        "mint",
+        "navy",
+        "violet",
+        "charcoal",
+        "natural",
+        "desert",
+        "orange",
+        "yellow",
+        "teal",
+        "ultramarine",
+        "starlight",
+        "midnight",
+        "skyblue",
+        "iceblue",
+        "rosegold",
+        "cobaltviolet",
+        "pinkgold",
+    }
+)
 
 
 def display_title_from_dirname(name: str) -> str:
@@ -56,16 +58,12 @@ def display_title_from_dirname(name: str) -> str:
 
 def list_images(directory: Path) -> list[Path]:
     return sorted(
-        f
-        for f in directory.iterdir()
-        if f.is_file() and f.suffix.lower() in IMAGE_EXT and not f.name.startswith(".")
+        f for f in directory.iterdir() if f.is_file() and f.suffix.lower() in IMAGE_EXT and not f.name.startswith(".")
     )
 
 
 def list_subdirs(directory: Path) -> list[Path]:
-    return sorted(
-        d for d in directory.iterdir() if d.is_dir() and not d.name.startswith(".")
-    )
+    return sorted(d for d in directory.iterdir() if d.is_dir() and not d.name.startswith("."))
 
 
 def _subdir_looks_like_color_folder(subdir: Path) -> bool:

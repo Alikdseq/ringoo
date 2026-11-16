@@ -10,6 +10,7 @@ from unittest.mock import patch
 
 from django.contrib.auth.models import Group
 from django.test import TestCase, override_settings
+
 from rest_framework.test import APIClient
 
 from apps.admin_api.permissions import RINGOO_GROUP_ORDERS
@@ -21,9 +22,7 @@ from apps.users.models import CustomUser
 
 
 def _reserved_order(*, qty=2, stock_qty=10, reserved=2):
-    cat = Category.objects.create(
-        title="C", slug=f"sec3-c-{Category.objects.count()}"
-    )
+    cat = Category.objects.create(title="C", slug=f"sec3-c-{Category.objects.count()}")
     product = Product.objects.create(
         title="P",
         slug=f"sec3-p-{Product.objects.count()}",
@@ -93,9 +92,7 @@ class Sec003CancelReleasesStockTests(TestCase):
         self.api.force_authenticate(user=user)
         with patch("apps.orders.tasks.enqueue_order_cancel") as enqueue:
             with self.captureOnCommitCallbacks(execute=True):
-                resp = self.api.post(
-                    f"/api/v1/orders/{order.id}/cancel/", {}, format="json"
-                )
+                resp = self.api.post(f"/api/v1/orders/{order.id}/cancel/", {}, format="json")
         self.assertEqual(resp.status_code, 200)
         order.refresh_from_db()
         stock.refresh_from_db()
@@ -131,9 +128,7 @@ class Sec003CancelReleasesStockTests(TestCase):
 
     def test_admin_patch_cancelled_releases_reserved(self):
         order, stock, _user = _reserved_order(qty=2, reserved=2)
-        staff = CustomUser.objects.create_user(
-            phone="79003990001", password="pass12345", is_staff=True
-        )
+        staff = CustomUser.objects.create_user(phone="79003990001", password="pass12345", is_staff=True)
         staff.groups.add(Group.objects.get(name=RINGOO_GROUP_ORDERS))
         self.api.force_authenticate(user=staff)
 
@@ -172,9 +167,7 @@ class Sec003CancelReleasesStockTests(TestCase):
         order, stock, _user = _reserved_order(qty=1, reserved=1)
         order.status = Order.STATUS_COMPLETED
         order.save(update_fields=["status"])
-        staff = CustomUser.objects.create_user(
-            phone="79003990002", password="pass12345", is_staff=True
-        )
+        staff = CustomUser.objects.create_user(phone="79003990002", password="pass12345", is_staff=True)
         staff.groups.add(Group.objects.get(name=RINGOO_GROUP_ORDERS))
         self.api.force_authenticate(user=staff)
         resp = self.api.patch(
@@ -206,9 +199,7 @@ class Sec003CancelReleasesStockTests(TestCase):
 
         rf = RequestFactory()
         request = rf.post("/admin/")
-        request.user = CustomUser.objects.create_superuser(
-            phone="79003990099", password="pass12345"
-        )
+        request.user = CustomUser.objects.create_superuser(phone="79003990099", password="pass12345")
         admin_obj = OrderAdmin(Order, AdminSite())
         order.status = Order.STATUS_CANCELLED
         with patch("apps.orders.tasks.enqueue_order_cancel") as enqueue:

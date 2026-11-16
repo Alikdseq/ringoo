@@ -6,6 +6,7 @@ from decimal import Decimal
 
 from django.test import TestCase, TransactionTestCase
 from django.urls import reverse
+
 from rest_framework.test import APIClient
 
 from apps.products.models import Category, Product
@@ -25,11 +26,7 @@ from tests.onec_test_utils import (
     ensure_confirmed_stores,
 )
 
-
-FOLDERS = (
-    '<ПапкиНоменклатуры><Папка code="F1" parentCode="" name="Phones"/>'
-    "</ПапкиНоменклатуры>"
-)
+FOLDERS = '<ПапкиНоменклатуры><Папка code="F1" parentCode="" name="Phones"/>' "</ПапкиНоменклатуры>"
 
 
 class MultiSeriesCartTests(TestCase):
@@ -124,9 +121,7 @@ class MultiSeriesCartTests(TestCase):
 class SerialBlankReserveTests(TransactionTestCase):
     def setUp(self):
         self.cat = Category.objects.create(title="C", slug="b3-res-c")
-        self.store = Store.objects.create(
-            name="M", slug="b3-res", address="A", city="C", is_active=True
-        )
+        self.store = Store.objects.create(name="M", slug="b3-res", address="A", city="C", is_active=True)
         self.product = Product.objects.create(
             title="P",
             slug="b3-res-p",
@@ -160,9 +155,7 @@ class SerialBlankReserveTests(TransactionTestCase):
         self.assertEqual(len(lines), 1)
         self.assertEqual(lines[0]["onec_series_id"], "")
         self.assertEqual(lines[0]["quantity"], 2)
-        blank = Stock.objects.get(
-            product=self.product, store=self.store, onec_series_id=""
-        )
+        blank = Stock.objects.get(product=self.product, store=self.store, onec_series_id="")
         self.assertEqual(blank.reserved_quantity, 2)
 
     def test_multiple_positive_series_reserved(self):
@@ -233,9 +226,7 @@ class SerialBlankReserveTests(TransactionTestCase):
             idempotency_key="b3-res-1",
         )
         self.assertTrue(ok2)
-        row = Stock.objects.get(
-            product=self.product, store=self.store, onec_series_id=""
-        )
+        row = Stock.objects.get(product=self.product, store=self.store, onec_series_id="")
         self.assertEqual(row.reserved_quantity, 2)
         release_at_store(
             self.product.pk,
@@ -272,12 +263,8 @@ class AggregationApiTests(TestCase):
     def setUp(self):
         self.client = APIClient()
         self.cat = Category.objects.create(title="C", slug="b3-agg-c")
-        self.store = Store.objects.create(
-            name="M", slug="b3-agg", address="A", city="City", is_active=True
-        )
-        self.store2 = Store.objects.create(
-            name="M2", slug="b3-agg2", address="B", city="City", is_active=True
-        )
+        self.store = Store.objects.create(name="M", slug="b3-agg", address="A", city="City", is_active=True)
+        self.store2 = Store.objects.create(name="M2", slug="b3-agg2", address="B", city="City", is_active=True)
         self.product = Product.objects.create(
             title="P",
             slug="b3-agg-p",
@@ -307,9 +294,7 @@ class AggregationApiTests(TestCase):
         )
 
     def test_product_stock_api_one_row_per_store(self):
-        url = reverse(
-            "api_v1:products:product-stock", kwargs={"pk": self.product.pk}
-        )
+        url = reverse("api_v1:products:product-stock", kwargs={"pk": self.product.pk})
         resp = self.client.get(url)
         self.assertEqual(resp.status_code, 200)
         results = resp.json()["results"]
@@ -351,9 +336,7 @@ class WarehousePointTests(TestCase):
         self.client = APIClient()
 
     def test_warehouse_counts_and_orderable(self):
-        Stock.objects.create(
-            product=self.product, store=self.tech, quantity=4, reserved_quantity=0
-        )
+        Stock.objects.create(product=self.product, store=self.tech, quantity=4, reserved_quantity=0)
         self.assertTrue(self.tech.is_warehouse)
         self.assertTrue(self.tech.is_active)
         self.assertEqual(Stock.available_quantity_retail(self.product.pk), 4)
@@ -411,13 +394,9 @@ class SeriesIdImportTests(TestCase):
             f'skladID="{TEST_RETAIL_WH_ID}" series="IMEI-ONLY"/>'
             "</Товары>"
         )
-        plan = plan_catalog_import_from_xml_strings(
-            FOLDERS, products, mode=ImportMode.DRY_RUN
-        )
+        plan = plan_catalog_import_from_xml_strings(FOLDERS, products, mode=ImportMode.DRY_RUN)
         self.assertFalse(plan.apply_allowed)
-        self.assertTrue(
-            any(b["type"] == "series_missing_id" for b in plan.apply_blockers)
-        )
+        self.assertTrue(any(b["type"] == "series_missing_id" for b in plan.apply_blockers))
 
     def test_normal_product_without_series_ok(self):
         products = (
@@ -427,15 +406,11 @@ class SeriesIdImportTests(TestCase):
             f'skladID="{TEST_RETAIL_WH_ID}"/>'
             "</Товары>"
         )
-        plan = plan_catalog_import_from_xml_strings(
-            FOLDERS, products, mode=ImportMode.APPLY
-        )
+        plan = plan_catalog_import_from_xml_strings(FOLDERS, products, mode=ImportMode.APPLY)
         self.assertTrue(plan.apply_allowed, plan.apply_blockers)
         apply_catalog_import(plan)
         store = Store.objects.get(onec_warehouse_id=TEST_RETAIL_WH_ID)
-        stock = Stock.objects.get(
-            product__onec_code="N-SER", store=store, onec_series_id=""
-        )
+        stock = Stock.objects.get(product__onec_code="N-SER", store=store, onec_series_id="")
         self.assertEqual(stock.quantity, 2)
 
 
@@ -468,9 +443,7 @@ class ReservedOverQuantityTests(TestCase):
             f'skladID="{TEST_RETAIL_WH_ID}"/>'
             "</Товары>"
         )
-        plan = plan_catalog_import_from_xml_strings(
-            FOLDERS, products, mode=ImportMode.APPLY
-        )
+        plan = plan_catalog_import_from_xml_strings(FOLDERS, products, mode=ImportMode.APPLY)
         self.assertTrue(plan.apply_allowed, plan.apply_blockers)
         result = apply_catalog_import(plan)
         self.stock.refresh_from_db()
@@ -499,6 +472,4 @@ class ReservedOverQuantityTests(TestCase):
         self.assertEqual(self.stock.reserved_quantity, 3)
         self.assertEqual(self.stock.available_quantity, 2)
         report = diagnose_reserved_over_quantity()
-        self.assertFalse(
-            any(a["stock_id"] == str(self.stock.pk) for a in report["anomalies"])
-        )
+        self.assertFalse(any(a["stock_id"] == str(self.stock.pk) for a in report["anomalies"]))

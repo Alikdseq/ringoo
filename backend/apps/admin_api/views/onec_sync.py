@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from django.conf import settings
 from django.db.models import Count, Max, Q
+
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -78,9 +79,7 @@ class OneCSyncDryRunView(APIView):
                     folders_path=str(folders),
                     products_path=str(products),
                 )
-                data["note"] = (
-                    "ONE_C_API_ENABLED=false — выполнен dry-run по локальным fixtures"
-                )
+                data["note"] = "ONE_C_API_ENABLED=false — выполнен dry-run по локальным fixtures"
                 return Response(data)
             return Response(
                 {
@@ -92,9 +91,7 @@ class OneCSyncDryRunView(APIView):
 
         from apps.products.tasks import run_onec_catalog_sync_task
 
-        async_result = run_onec_catalog_sync_task.delay(
-            dry_run=True, user_id=str(request.user.pk)
-        )
+        async_result = run_onec_catalog_sync_task.delay(dry_run=True, user_id=str(request.user.pk))
         return Response(
             {
                 "queued": True,
@@ -127,8 +124,7 @@ class OneCSyncApplyView(APIView):
             return Response(
                 {
                     "detail": (
-                        "Apply запрещён: ONE_C_API_ENABLED=false. "
-                        "Включите только на согласованном контуре 1С."
+                        "Apply запрещён: ONE_C_API_ENABLED=false. " "Включите только на согласованном контуре 1С."
                     ),
                     "code": "onec_api_disabled",
                 },
@@ -145,18 +141,13 @@ class OneCSyncApplyView(APIView):
 
         from apps.products.tasks import run_onec_catalog_sync_task
 
-        async_result = run_onec_catalog_sync_task.delay(
-            dry_run=False, user_id=str(request.user.pk)
-        )
+        async_result = run_onec_catalog_sync_task.delay(dry_run=False, user_id=str(request.user.pk))
         return Response(
             {
                 "queued": True,
                 "celery_task_id": async_result.id,
                 "dry_run": False,
-                "warning": (
-                    "Задача поставлена в очередь. Успех = завершённый SyncLog, "
-                    "не факт принятия Celery."
-                ),
+                "warning": ("Задача поставлена в очередь. Успех = завершённый SyncLog, " "не факт принятия Celery."),
             },
             status=status.HTTP_202_ACCEPTED,
         )

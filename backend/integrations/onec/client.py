@@ -41,9 +41,7 @@ class _SameHostRedirectHandler(urllib.request.HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):
         new_host = (urlparse(newurl).netloc or "").lower()
         if not new_host or new_host != self._allowed:
-            raise urllib.error.URLError(
-                f"1C redirect to foreign host blocked ({new_host!r})"
-            )
+            raise urllib.error.URLError(f"1C redirect to foreign host blocked ({new_host!r})")
         return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 
@@ -119,9 +117,7 @@ class OneCClient:
         if base_url is not None:
             raw_base = base_url
         else:
-            raw_base = _settings_or_env(
-                "ONE_C_API_BASE_URL", "http://localhost/razrab/hs"
-            )
+            raw_base = _settings_or_env("ONE_C_API_BASE_URL", "http://localhost/razrab/hs")
         if validate_base_url and (raw_base or "").strip():
             try:
                 self.base_url = normalize_onec_base_url(raw_base)
@@ -130,28 +126,18 @@ class OneCClient:
         else:
             self.base_url = (raw_base or "").rstrip("/") + "/"
 
-        self.timeout = (
-            timeout if timeout is not None else _settings_int("ONE_C_API_TIMEOUT", 60)
-        )
+        self.timeout = timeout if timeout is not None else _settings_int("ONE_C_API_TIMEOUT", 60)
         self.username = (
             username
             if username is not None
-            else (
-                _settings_or_env("ONE_C_LOGIN")
-                or _settings_or_env("ONE_C_API_USER")
-            )
+            else (_settings_or_env("ONE_C_LOGIN") or _settings_or_env("ONE_C_API_USER"))
         )
         self.password = (
             password
             if password is not None
-            else (
-                _settings_or_env("ONE_C_PASSWORD")
-                or _settings_or_env("ONE_C_API_PASSWORD")
-            )
+            else (_settings_or_env("ONE_C_PASSWORD") or _settings_or_env("ONE_C_API_PASSWORD"))
         )
-        self.enabled = (
-            _settings_flag("ONE_C_API_ENABLED") if enabled is None else enabled
-        )
+        self.enabled = _settings_flag("ONE_C_API_ENABLED") if enabled is None else enabled
         self.endpoints = endpoints or OneCEndpoints()
 
     def build_url(self, path: str) -> str:
@@ -163,9 +149,7 @@ class OneCClient:
     def _auth_header(self) -> str | None:
         if not self.username:
             return None
-        token = base64.b64encode(
-            f"{self.username}:{self.password}".encode("utf-8")
-        ).decode("ascii")
+        token = base64.b64encode(f"{self.username}:{self.password}".encode("utf-8")).decode("ascii")
         return f"Basic {token}"
 
     def _http_open(self, request: urllib.request.Request):
@@ -173,9 +157,7 @@ class OneCClient:
         Открывает HTTP с запретом redirect на чужой host.
         Вынесено методом для unit-тестов (patch OneCClient._http_open).
         """
-        opener = urllib.request.build_opener(
-            _SameHostRedirectHandler(urlparse(self.base_url).netloc)
-        )
+        opener = urllib.request.build_opener(_SameHostRedirectHandler(urlparse(self.base_url).netloc))
         return opener.open(request, timeout=self.timeout)
 
     def request(
@@ -200,9 +182,7 @@ class OneCClient:
             req_headers["Content-Type"] = "application/json; charset=utf-8"
             req_headers["Accept"] = "application/json"
 
-        request = urllib.request.Request(
-            url, data=data, headers=req_headers, method=method.upper()
-        )
+        request = urllib.request.Request(url, data=data, headers=req_headers, method=method.upper())
         auth = self._auth_header()
         if auth:
             request.add_header("Authorization", auth)
@@ -221,9 +201,7 @@ class OneCClient:
         except urllib.error.HTTPError as exc:
             body = b""
             try:
-                body = (exc.read(_MAX_ONEC_RESPONSE_BYTES + 1) or b"")[
-                    :_MAX_ONEC_RESPONSE_BYTES
-                ]
+                body = (exc.read(_MAX_ONEC_RESPONSE_BYTES + 1) or b"")[:_MAX_ONEC_RESPONSE_BYTES]
             except Exception:  # noqa: BLE001
                 body = b""
             text = body.decode("utf-8", errors="replace")[:2000]
@@ -357,9 +335,7 @@ class OneCClient:
                 status_code=status,
                 body=text[:2000],
             )
-        client_id = str(
-            data.get("ClientId") or data.get("partnerId") or ""
-        ).strip()
+        client_id = str(data.get("ClientId") or data.get("partnerId") or "").strip()
         if not client_id:
             raise OneCClientError(
                 "В ответе 1С нет ClientId",
@@ -400,9 +376,7 @@ class OneCClient:
         )
         return self._parse_orders_json(status, raw, context="SiteOrders/orders/cancel")
 
-    def _parse_orders_json(
-        self, status: int, raw: bytes, *, context: str
-    ) -> dict[str, Any]:
+    def _parse_orders_json(self, status: int, raw: bytes, *, context: str) -> dict[str, Any]:
         text = raw.decode("utf-8", errors="replace")
         try:
             data = json.loads(text)

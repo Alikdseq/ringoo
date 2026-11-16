@@ -146,8 +146,8 @@ class ProductAdmin(admin.ModelAdmin):
     def delete_model(self, request, obj):
         """При риске целостности — архивация вместо CASCADE/PROTECT ошибки."""
         from apps.products.services.lifecycle import (
-            product_hard_delete_blocked,
             archive_product,
+            product_hard_delete_blocked,
         )
 
         blocked, _ = product_hard_delete_blocked(obj)

@@ -4,6 +4,7 @@ from decimal import Decimal
 
 from django.db.models import Avg, Sum
 from django.utils import timezone
+
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -32,19 +33,11 @@ class DashboardStatsView(APIView):
         orders_week = completed.filter(created_at__gte=week_start).count()
         orders_month = completed.filter(created_at__gte=month_start).count()
 
-        rev_week = completed.filter(created_at__gte=week_start).aggregate(
-            s=Sum("total_amount")
-        )["s"] or Decimal("0")
-        rev_month = completed.filter(created_at__gte=month_start).aggregate(
-            s=Sum("total_amount")
-        )["s"] or Decimal("0")
+        rev_week = completed.filter(created_at__gte=week_start).aggregate(s=Sum("total_amount"))["s"] or Decimal("0")
+        rev_month = completed.filter(created_at__gte=month_start).aggregate(s=Sum("total_amount"))["s"] or Decimal("0")
 
-        avg_week = completed.filter(created_at__gte=week_start).aggregate(
-            a=Avg("total_amount")
-        )["a"]
-        avg_month = completed.filter(created_at__gte=month_start).aggregate(
-            a=Avg("total_amount")
-        )["a"]
+        avg_week = completed.filter(created_at__gte=week_start).aggregate(a=Avg("total_amount"))["a"]
+        avg_month = completed.filter(created_at__gte=month_start).aggregate(a=Avg("total_amount"))["a"]
 
         top_n = min(int(request.query_params.get("top_n", 5) or 5), 20)
         top_items = (
@@ -69,13 +62,15 @@ class DashboardStatsView(APIView):
             for x in top_items
         ]
 
-        return Response({
-            "orders_today": orders_today,
-            "orders_week": orders_week,
-            "orders_month": orders_month,
-            "revenue_week": str(rev_week),
-            "revenue_month": str(rev_month),
-            "avg_check_week": round(float(avg_week or 0), 2),
-            "avg_check_month": round(float(avg_month or 0), 2),
-            "top_products": top_products,
-        })
+        return Response(
+            {
+                "orders_today": orders_today,
+                "orders_week": orders_week,
+                "orders_month": orders_month,
+                "revenue_week": str(rev_week),
+                "revenue_month": str(rev_month),
+                "avg_check_week": round(float(avg_week or 0), 2),
+                "avg_check_month": round(float(avg_month or 0), 2),
+                "top_products": top_products,
+            }
+        )

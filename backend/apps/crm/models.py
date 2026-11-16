@@ -34,9 +34,7 @@ class MissingProductRequest(models.Model):
         verbose_name="Пользователь",
     )
     product_name = models.CharField(max_length=255, verbose_name="Название товара")
-    contact_name = models.CharField(
-        max_length=255, blank=True, default="", verbose_name="Имя"
-    )
+    contact_name = models.CharField(max_length=255, blank=True, default="", verbose_name="Имя")
     contact_phone = models.CharField(max_length=50, verbose_name="Телефон")
     contact_email = models.EmailField(
         blank=True,

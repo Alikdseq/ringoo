@@ -11,10 +11,11 @@ import time
 import tracemalloc
 from decimal import Decimal
 
-from django.db import connection, transaction
 from django.core.cache import cache
+from django.db import connection, transaction
 from django.test import TestCase
 from django.test.utils import CaptureQueriesContext
+
 from rest_framework.test import APIClient
 
 from apps.products.models import Category, Product

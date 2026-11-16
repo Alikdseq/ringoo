@@ -12,8 +12,8 @@ from config.throttling import CartReadRateThrottle, CartWriteAnonRateThrottle, C
 from .models import Cart, CartItem
 from .serializers import (
     CartItemCreateSerializer,
-    CartSerializer,
     CartItemUpdateSerializer,
+    CartSerializer,
 )
 
 
@@ -108,9 +108,7 @@ class CartItemCreateView(APIView):
         if not created:
             item.quantity += quantity
             if store_id:
-                available = Stock.available_quantity_retail(
-                    product.pk, store_id=store_id
-                )
+                available = Stock.available_quantity_retail(product.pk, store_id=store_id)
             else:
                 available = Stock.available_quantity_retail(product.pk)
             if available < item.quantity:
@@ -139,9 +137,7 @@ class CartItemDetailView(APIView):
     def patch(self, request, pk):
         cart = Cart.get_or_create_cart(request)
         try:
-            item = CartItem.objects.select_related("product", "store").get(
-                pk=pk, cart=cart
-            )
+            item = CartItem.objects.select_related("product", "store").get(pk=pk, cart=cart)
         except CartItem.DoesNotExist:
             return Response(
                 {"detail": "Позиция не найдена."},
@@ -160,9 +156,7 @@ class CartItemDetailView(APIView):
         from apps.stores.models import Stock
 
         if item.store_id:
-            available = Stock.available_quantity_retail(
-                item.product_id, store_id=item.store_id
-            )
+            available = Stock.available_quantity_retail(item.product_id, store_id=item.store_id)
         else:
             available = Stock.available_quantity_retail(item.product_id)
         if available < new_quantity:

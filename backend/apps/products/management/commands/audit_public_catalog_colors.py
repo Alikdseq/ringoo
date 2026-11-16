@@ -45,9 +45,7 @@ class Command(BaseCommand):
                         imgs = list_images(sd)
                         if imgs:
                             rel = model_dir.relative_to(root)
-                            self.stdout.write(
-                                f"  {rel}/{sd.name}: {len(imgs)} файлов (папка-цвет)"
-                            )
+                            self.stdout.write(f"  {rel}/{sd.name}: {len(imgs)} файлов (папка-цвет)")
                     continue
                 if len(root_images) < 2:
                     continue
@@ -58,21 +56,16 @@ class Command(BaseCommand):
                 if not groups:
                     self.stdout.write(
                         self.style.WARNING(
-                            f"  {rel} ({title}): {len(root_images)} файлов — "
-                            "не удалось выделить цвета по именам"
+                            f"  {rel} ({title}): {len(root_images)} файлов — " "не удалось выделить цвета по именам"
                         )
                     )
                     issues += 1
                 elif len(groups) == 1:
                     key = next(iter(groups))
-                    self.stdout.write(
-                        f"  {rel}: OK — 1 цвет ({key}), {len(root_images)} файлов"
-                    )
+                    self.stdout.write(f"  {rel}: OK — 1 цвет ({key}), {len(root_images)} файлов")
                 else:
                     keys = ", ".join(sorted(groups.keys()))
-                    self.stdout.write(
-                        f"  {rel}: OK — {len(groups)} цветов ({keys})"
-                    )
+                    self.stdout.write(f"  {rel}: OK — {len(groups)} цветов ({keys})")
 
         self.stdout.write(f"Плоских моделей проверено: {models_checked}")
         if issues:

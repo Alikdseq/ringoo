@@ -25,15 +25,12 @@ class OffsiteNotConfigured(RuntimeError):
 def offsite_settings() -> dict[str, Any]:
     return {
         "enabled": bool(getattr(settings, "BACKUP_OFFSITE_ENABLED", False)),
-        "endpoint_url": str(getattr(settings, "BACKUP_S3_ENDPOINT_URL", "") or "").strip()
-        or None,
+        "endpoint_url": str(getattr(settings, "BACKUP_S3_ENDPOINT_URL", "") or "").strip() or None,
         "region": str(getattr(settings, "BACKUP_S3_REGION", "") or "ru-central1").strip(),
         "bucket": str(getattr(settings, "BACKUP_S3_BUCKET", "") or "").strip(),
         "access_key": str(getattr(settings, "BACKUP_S3_ACCESS_KEY", "") or "").strip(),
         "secret_key": str(getattr(settings, "BACKUP_S3_SECRET_KEY", "") or "").strip(),
-        "prefix": str(getattr(settings, "BACKUP_S3_PREFIX", "ringoo/backups") or "")
-        .strip()
-        .strip("/"),
+        "prefix": str(getattr(settings, "BACKUP_S3_PREFIX", "ringoo/backups") or "").strip().strip("/"),
         "provider_label": str(
             getattr(settings, "BACKUP_S3_PROVIDER_LABEL", "s3-compatible") or "s3-compatible"
         ).strip(),
@@ -42,12 +39,7 @@ def offsite_settings() -> dict[str, Any]:
 
 def is_offsite_configured() -> bool:
     cfg = offsite_settings()
-    return bool(
-        cfg["enabled"]
-        and cfg["bucket"]
-        and cfg["access_key"]
-        and cfg["secret_key"]
-    )
+    return bool(cfg["enabled"] and cfg["bucket"] and cfg["access_key"] and cfg["secret_key"])
 
 
 def _client():
@@ -88,9 +80,7 @@ def put_object(*, key: str, body: bytes, content_type: str = "application/octet-
     size = int(head.get("ContentLength") or len(body))
     etag = str(resp.get("ETag") or head.get("ETag") or "").strip('"')
     if size != len(body):
-        raise RuntimeError(
-            f"Размер объекта в S3 ({size}) не совпал с локальным ({len(body)})"
-        )
+        raise RuntimeError(f"Размер объекта в S3 ({size}) не совпал с локальным ({len(body)})")
     return OffsiteObjectMeta(key=key, size=size, etag=etag)
 
 

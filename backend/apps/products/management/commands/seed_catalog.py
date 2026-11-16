@@ -10,8 +10,7 @@ from django.core.management.base import BaseCommand
 from django.utils.text import slugify
 
 from apps.products.models import Category, Product, ProductSpec
-from apps.stores.models import Store, Stock
-
+from apps.stores.models import Stock, Store
 
 CATEGORIES = [
     ("iPhone", "iphone"),

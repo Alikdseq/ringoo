@@ -33,10 +33,7 @@ class Command(BaseCommand):
         updated = 0
         for product in qs:
             price = int(product.price) if product.price else None
-            meta_title = (
-                f"{product.title} купить во Владикавказе"
-                + (f" — {price} ₽" if price else "")
-            )[:255]
+            meta_title = (f"{product.title} купить во Владикавказе" + (f" — {price} ₽" if price else ""))[:255]
             meta_description = (
                 f"{product.title} в наличии в Ringoo. "
                 "Официальная гарантия, самовывоз во Владикавказе, доставка по России."
@@ -47,8 +44,4 @@ class Command(BaseCommand):
                 product.meta_description = meta_description
                 product.save(update_fields=["meta_title", "meta_description"])
             updated += 1
-        self.stdout.write(
-            self.style.SUCCESS(
-                f"{'Would update' if dry_run else 'Updated'} {updated} product(s)."
-            )
-        )
+        self.stdout.write(self.style.SUCCESS(f"{'Would update' if dry_run else 'Updated'} {updated} product(s)."))

@@ -1,6 +1,7 @@
 """Admin API: Пользователи — список, детали, PATCH is_active/is_staff/groups."""
 
 from django.contrib.auth.models import Group
+
 from rest_framework import serializers
 from rest_framework.generics import ListAPIView, RetrieveAPIView, UpdateAPIView
 from rest_framework.pagination import PageNumberPagination
@@ -84,11 +85,7 @@ class UserDetailSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
     def get_groups(self, obj):
-        return list(
-            obj.groups.filter(name__in=ALL_ADMIN_GROUPS)
-            .order_by("name")
-            .values_list("name", flat=True)
-        )
+        return list(obj.groups.filter(name__in=ALL_ADMIN_GROUPS).order_by("name").values_list("name", flat=True))
 
 
 class UserAdminUpdateSerializer(serializers.ModelSerializer):
@@ -111,9 +108,7 @@ class UserAdminUpdateSerializer(serializers.ModelSerializer):
         if value == current:
             return value
         if not user or not user.is_authenticated or not user.is_superuser:
-            raise serializers.ValidationError(
-                "Только суперпользователь может менять признак is_staff."
-            )
+            raise serializers.ValidationError("Только суперпользователь может менять признак is_staff.")
         return value
 
     def validate_groups(self, value):
@@ -122,14 +117,10 @@ class UserAdminUpdateSerializer(serializers.ModelSerializer):
         if value is None:
             return value
         if not user or not user.is_authenticated or not user.is_superuser:
-            raise serializers.ValidationError(
-                "Только суперпользователь может назначать группы ringoo_*."
-            )
+            raise serializers.ValidationError("Только суперпользователь может назначать группы ringoo_*.")
         unknown = [g for g in value if g not in ALL_ADMIN_GROUPS]
         if unknown:
-            raise serializers.ValidationError(
-                f"Неизвестные группы: {', '.join(unknown)}"
-            )
+            raise serializers.ValidationError(f"Неизвестные группы: {', '.join(unknown)}")
         return value
 
     def update(self, instance, validated_data):
@@ -160,11 +151,7 @@ class UserAdminListView(ListAPIView):
         if search:
             from django.db.models import Q
 
-            qs = qs.filter(
-                Q(phone__icontains=search)
-                | Q(email__icontains=search)
-                | Q(username__icontains=search)
-            )
+            qs = qs.filter(Q(phone__icontains=search) | Q(email__icontains=search) | Q(username__icontains=search))
         return qs
 
 
@@ -189,9 +176,7 @@ class UserAdminUpdateView(UpdateAPIView):
     """
 
     permission_classes = admin_permissions(RINGOO_GROUP_USERS)
-    queryset = CustomUser.objects.prefetch_related(
-        "groups", "delivery_addresses"
-    ).select_related("profile")
+    queryset = CustomUser.objects.prefetch_related("groups", "delivery_addresses").select_related("profile")
     serializer_class = UserAdminUpdateSerializer
     http_method_names = ["patch"]
     lookup_url_kwarg = "pk"
@@ -203,11 +188,7 @@ class UserAdminUpdateView(UpdateAPIView):
         before = {
             "is_active": instance.is_active,
             "is_staff": instance.is_staff,
-            "groups": list(
-                instance.groups.filter(name__in=ALL_ADMIN_GROUPS).values_list(
-                    "name", flat=True
-                )
-            ),
+            "groups": list(instance.groups.filter(name__in=ALL_ADMIN_GROUPS).values_list("name", flat=True)),
         }
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
         serializer.is_valid(raise_exception=True)
@@ -216,11 +197,7 @@ class UserAdminUpdateView(UpdateAPIView):
         after = {
             "is_active": instance.is_active,
             "is_staff": instance.is_staff,
-            "groups": list(
-                instance.groups.filter(name__in=ALL_ADMIN_GROUPS).values_list(
-                    "name", flat=True
-                )
-            ),
+            "groups": list(instance.groups.filter(name__in=ALL_ADMIN_GROUPS).values_list("name", flat=True)),
         }
         if before != after:
             log_admin_action(

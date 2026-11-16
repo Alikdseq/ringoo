@@ -55,9 +55,7 @@ def reject_onec_managed_writes(
     """
     if not product_is_onec_managed(product):
         return
-    blocked = sorted(
-        {f for f in incoming_fields if f in ONEC_MANAGED_PRODUCT_FIELDS}
-    )
+    blocked = sorted({f for f in incoming_fields if f in ONEC_MANAGED_PRODUCT_FIELDS})
     if not blocked:
         return
     raise serializers.ValidationError(

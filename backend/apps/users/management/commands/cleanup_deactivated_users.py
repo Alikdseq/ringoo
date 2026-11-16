@@ -19,10 +19,7 @@ from apps.users.models import CustomUser
 
 
 class Command(BaseCommand):
-    help = (
-        "Удалить из БД давно деактивированных обычных пользователей "
-        "(без --execute только показывает количество)."
-    )
+    help = "Удалить из БД давно деактивированных обычных пользователей " "(без --execute только показывает количество)."
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -50,18 +47,14 @@ class Command(BaseCommand):
             updated_at__lt=cutoff,
         )
         n = qs.count()
-        self.stdout.write(
-            f"Кандидатов на удаление: {n} (is_active=False, не персонал, updated_at < {cutoff.date()})."
-        )
+        self.stdout.write(f"Кандидатов на удаление: {n} (is_active=False, не персонал, updated_at < {cutoff.date()}).")
         if n and verbosity >= 1:
             for u in qs[:10]:
                 self.stdout.write(f"  … id={u.pk} phone={u.phone!r}")
             if n > 10:
                 self.stdout.write(f"  … и ещё {n - 10}")
         if not execute:
-            self.stdout.write(
-                self.style.WARNING("Dry run. Добавьте --execute для физического удаления.")
-            )
+            self.stdout.write(self.style.WARNING("Dry run. Добавьте --execute для физического удаления."))
             return
 
         deleted, details = qs.delete()

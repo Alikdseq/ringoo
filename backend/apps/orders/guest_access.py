@@ -22,8 +22,7 @@ from django.utils import timezone
 logger = logging.getLogger("ringoo.security")
 
 PUBLIC_RECOVER_DETAIL = (
-    "Если заказ найден и email совпадает с указанным при оформлении, "
-    "мы отправили ссылку для восстановления доступа."
+    "Если заказ найден и email совпадает с указанным при оформлении, " "мы отправили ссылку для восстановления доступа."
 )
 
 
@@ -46,9 +45,7 @@ def issue_guest_access_token(order) -> str:
     """
     raw = secrets.token_urlsafe(32)
     order.guest_access_token_hash = hash_guest_token(raw)
-    order.guest_access_token_expires_at = timezone.now() + timedelta(
-        days=guest_token_ttl_days()
-    )
+    order.guest_access_token_expires_at = timezone.now() + timedelta(days=guest_token_ttl_days())
     order.save(
         update_fields=[
             "guest_access_token_hash",
@@ -164,10 +161,7 @@ def request_guest_access_recovery(*, order_number: str, email: str) -> None:
         cache.set(er_key, 1, timeout=3600)
 
     base = getattr(settings, "FRONTEND_URL", "http://localhost:3000").rstrip("/")
-    link = (
-        f"{base}/order-status"
-        f"?recover=1&order_number={order.order_number}&token={raw}"
-    )
+    link = f"{base}/order-status" f"?recover=1&order_number={order.order_number}&token={raw}"
     try:
         send_mail(
             subject="Восстановление доступа к заказу Ringo",

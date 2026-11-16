@@ -20,10 +20,7 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         stale = diagnose_stale_blank_series_stocks()
         self.stdout.write(
-            self.style.NOTICE(
-                f"[blank+serial] подозрительных строк: {stale['suspect_count']} "
-                f"({stale['action']})"
-            )
+            self.style.NOTICE(f"[blank+serial] подозрительных строк: {stale['suspect_count']} " f"({stale['action']})")
         )
         for row in stale["suspects"][:100]:
             self.stdout.write(
@@ -38,10 +35,7 @@ class Command(BaseCommand):
         over = diagnose_reserved_over_quantity()
         self.stdout.write("")
         self.stdout.write(
-            self.style.WARNING(
-                f"[reserved>qty] аномалий: {over['anomaly_count']} "
-                f"({over['action']})"
-            )
+            self.style.WARNING(f"[reserved>qty] аномалий: {over['anomaly_count']} " f"({over['action']})")
         )
         for row in over["anomalies"][:100]:
             self.stdout.write(

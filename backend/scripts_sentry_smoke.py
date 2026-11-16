@@ -3,15 +3,18 @@
 Скрипт для тестирования Sentry.
 Использование: python test_sentry.py
 """
+
 import os
 import sys
+
 import django
 
 # Настройка Django
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings.development')
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings.development")
 django.setup()
 
 from django.conf import settings
+
 import sentry_sdk
 
 
@@ -20,11 +23,11 @@ def test_sentry():
     print("=" * 60)
     print("Тестирование Sentry")
     print("=" * 60)
-    
+
     # Проверка конфигурации
     print("\n1. Проверка конфигурации Sentry...")
-    sentry_dsn = os.getenv('SENTRY_DSN', '')
-    
+    sentry_dsn = os.getenv("SENTRY_DSN", "")
+
     if not sentry_dsn:
         print("   ⚠️  SENTRY_DSN не настроен")
         print("   💡 Для тестирования:")
@@ -34,9 +37,9 @@ def test_sentry():
         print("      4. Добавьте в .env.development: SENTRY_DSN=your-dsn-here")
         print("\n   ℹ️  Sentry отключен (это нормально для development)")
         return True
-    
+
     print(f"   ✅ SENTRY_DSN настроен: {sentry_dsn[:20]}...")
-    
+
     # Проверка что Sentry SDK инициализирован
     print("\n2. Проверка инициализации Sentry SDK...")
     try:
@@ -51,7 +54,7 @@ def test_sentry():
     except Exception as e:
         print(f"   ⚠️  Ошибка проверки: {e}")
         return False
-    
+
     # Тест отправки сообщения
     print("\n3. Тест отправки сообщения в Sentry...")
     try:
@@ -61,7 +64,7 @@ def test_sentry():
     except Exception as e:
         print(f"   ❌ Ошибка отправки: {e}")
         return False
-    
+
     # Тест отправки исключения
     print("\n4. Тест отправки исключения в Sentry...")
     try:
@@ -75,7 +78,7 @@ def test_sentry():
     except Exception as e:
         print(f"   ❌ Ошибка отправки исключения: {e}")
         return False
-    
+
     # Тест фильтрации чувствительных данных
     print("\n5. Тест фильтрации чувствительных данных...")
     try:
@@ -89,20 +92,20 @@ def test_sentry():
         print("   💡 Проверьте в Sentry что чувствительные данные отфильтрованы")
     except Exception as e:
         print(f"   ⚠️  Ошибка теста фильтрации: {e}")
-    
+
     # Проверка интеграций
     print("\n6. Проверка интеграций...")
-    integrations = client.options.get('integrations', [])
+    integrations = client.options.get("integrations", [])
     integration_names = [type(i).__name__ for i in integrations]
     print(f"   📦 Активные интеграции: {', '.join(integration_names)}")
-    
-    if 'DjangoIntegration' in integration_names:
+
+    if "DjangoIntegration" in integration_names:
         print("   ✅ Django интеграция активна")
-    if 'CeleryIntegration' in integration_names:
+    if "CeleryIntegration" in integration_names:
         print("   ✅ Celery интеграция активна")
-    if 'LoggingIntegration' in integration_names:
+    if "LoggingIntegration" in integration_names:
         print("   ✅ Logging интеграция активна")
-    
+
     print("\n" + "=" * 60)
     print("✅ Тестирование Sentry завершено!")
     print("=" * 60)
@@ -113,6 +116,6 @@ def test_sentry():
     return True
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     success = test_sentry()
     sys.exit(0 if success else 1)

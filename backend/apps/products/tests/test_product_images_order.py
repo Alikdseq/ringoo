@@ -17,9 +17,7 @@ class TestOrderedProductImages(TestCase):
             category=cat,
             brand="Samsung",
         )
-        black = ProductColor.objects.create(
-            product=product, slug="black", label="Black", sort_order=0, is_active=True
-        )
+        black = ProductColor.objects.create(product=product, slug="black", label="Black", sort_order=0, is_active=True)
         sky = ProductColor.objects.create(
             product=product, slug="skyblue", label="SkyBlue", sort_order=1, is_active=True
         )

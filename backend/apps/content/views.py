@@ -167,11 +167,7 @@ class ReviewViewSet(
     def get_queryset(self):
         # SEC-002: публичный API всегда только одобренные; query-параметр
         # is_approved=false не раскрывает скрытые отзывы.
-        qs = (
-            Review.objects.filter(is_approved=True)
-            .select_related("user", "product")
-            .order_by("-created_at")
-        )
+        qs = Review.objects.filter(is_approved=True).select_related("user", "product").order_by("-created_at")
         product_id = self.request.query_params.get("product")
         if product_id:
             qs = qs.filter(product_id=product_id)

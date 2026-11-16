@@ -29,9 +29,7 @@ class MissingProductRequestCreateSerializer(serializers.ModelSerializer):
 
     def validate_consent_personal_data(self, value):
         if not value:
-            raise serializers.ValidationError(
-                "Необходимо согласие на обработку персональных данных."
-            )
+            raise serializers.ValidationError("Необходимо согласие на обработку персональных данных.")
         return value
 
     def create(self, validated_data):

@@ -89,10 +89,7 @@ def safe_delete_or_archive_product(product) -> ProductDeleteDecision:
         return ProductDeleteDecision(
             action="blocked",
             product_id=pid,
-            detail=(
-                f"Удаление запрещено: {reason} "
-                "Оставьте товар деактивированным."
-            ),
+            detail=(f"Удаление запрещено: {reason} " "Оставьте товар деактивированным."),
             is_active=False,
             code="product_delete_blocked",
         )

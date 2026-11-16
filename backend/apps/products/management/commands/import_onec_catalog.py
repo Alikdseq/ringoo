@@ -75,19 +75,12 @@ class Command(BaseCommand):
         products = (options["products"] or "").strip()
         if not from_api:
             if not folders or not Path(folders).is_file():
-                raise CommandError(
-                    "Укажите существующие --folders и --products или используйте --from-api"
-                )
+                raise CommandError("Укажите существующие --folders и --products или используйте --from-api")
             if not products or not Path(products).is_file():
                 raise CommandError(f"Файл товаров не найден: {products}")
 
-        self.stdout.write(
-            f"Режим: {'apply' if apply else 'dry_run'} "
-            f"(lock={'да' if apply else 'нет'}; SyncLog=да)"
-        )
-        self.stdout.write(
-            f"Источник: {'HTTP API 1С' if from_api else f'{folders} + {products}'}"
-        )
+        self.stdout.write(f"Режим: {'apply' if apply else 'dry_run'} " f"(lock={'да' if apply else 'нет'}; SyncLog=да)")
+        self.stdout.write(f"Источник: {'HTTP API 1С' if from_api else f'{folders} + {products}'}")
 
         try:
             data = run_catalog_import(
@@ -141,8 +134,5 @@ class Command(BaseCommand):
             self.stdout.write(self.style.SUCCESS(f"Применено: run_id={data.get('run_id')}"))
         else:
             self.stdout.write(
-                self.style.WARNING(
-                    "Dry-run завершён. База не изменена. "
-                    "Для записи: --apply --i-understand-apply"
-                )
+                self.style.WARNING("Dry-run завершён. База не изменена. " "Для записи: --apply --i-understand-apply")
             )

@@ -5,6 +5,7 @@ from __future__ import annotations
 from decimal import Decimal
 
 from django.test import TestCase, override_settings
+
 from rest_framework.test import APIClient
 
 from apps.products.models import Category, Product
@@ -23,9 +24,7 @@ from apps.users.models import CustomUser
 class BankTransferDisabledTests(TestCase):
     def setUp(self):
         self.api = APIClient()
-        self.user = CustomUser.objects.create_user(
-            phone="79004441122", password="pass12345"
-        )
+        self.user = CustomUser.objects.create_user(phone="79004441122", password="pass12345")
         cat = Category.objects.create(title="C", slug="bt-c")
         self.product = Product.objects.create(
             title="P",
@@ -34,12 +33,8 @@ class BankTransferDisabledTests(TestCase):
             category=cat,
             is_active=True,
         )
-        self.store = Store.objects.create(
-            name="S", slug="bt-s", address="a", city="c", is_active=True
-        )
-        Stock.objects.create(
-            product=self.product, store=self.store, quantity=5, reserved_quantity=0
-        )
+        self.store = Store.objects.create(name="S", slug="bt-s", address="a", city="c", is_active=True)
+        Stock.objects.create(product=self.product, store=self.store, quantity=5, reserved_quantity=0)
         self.api.force_authenticate(user=self.user)
 
     def test_bank_transfer_rejected(self):

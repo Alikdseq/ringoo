@@ -91,9 +91,7 @@ class OrderAdmin(admin.ModelAdmin):
 
         old_status = None
         if change and obj.pk:
-            old_status = (
-                Order.objects.filter(pk=obj.pk).values_list("status", flat=True).first()
-            )
+            old_status = Order.objects.filter(pk=obj.pk).values_list("status", flat=True).first()
 
         # INT-001/002: любая смена статуса — через FSM (cancel → release + 1С).
         if change and old_status is not None and obj.status != old_status:
@@ -169,6 +167,7 @@ class OrderAdmin(admin.ModelAdmin):
             msg += " " + "; ".join(errors)
         level = messages.WARNING if skipped else messages.SUCCESS
         self.message_user(request, msg, level=level)
+
     @admin.action(description="Экспорт в CSV")
     def action_export_csv(self, request, queryset):
         log_admin_action(

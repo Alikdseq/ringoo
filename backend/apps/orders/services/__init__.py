@@ -68,16 +68,13 @@ def cancel_order_and_release_stock(
     Идемпотентно для уже отменённых.
     skip_onec_cancel: отмена пришла из 1С — не слать SiteOrders/cancel обратно.
     """
-    locked = (
-        Order.objects.select_for_update()
-        .prefetch_related("items", "payments")
-        .get(pk=order.pk)
-    )
+    locked = Order.objects.select_for_update().prefetch_related("items", "payments").get(pk=order.pk)
     was_active = not locked.is_cancelled()
 
-    if was_active and not allow_paid and (
-        order_has_successful_payment(locked)
-        or locked.payment_status == Order.PAYMENT_STATUS_PAID
+    if (
+        was_active
+        and not allow_paid
+        and (order_has_successful_payment(locked) or locked.payment_status == Order.PAYMENT_STATUS_PAID)
     ):
         raise OrderCancelError(
             "Заказ уже оплачен. Для отмены и возврата обратитесь в поддержку.",
@@ -96,9 +93,7 @@ def cancel_order_and_release_stock(
 
         from integrations.onec.orders import release_order_item_reservations
 
-        release_order_item_reservations(
-            locked, reason=reason or "order_cancel_release"
-        )
+        release_order_item_reservations(locked, reason=reason or "order_cancel_release")
 
         if not skip_onec_cancel:
             order_pk = locked.pk

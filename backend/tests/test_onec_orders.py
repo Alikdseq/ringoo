@@ -246,9 +246,7 @@ class OneCOrdersSyncTests(TestCase):
 
     def test_cancel_releases_store_reservation(self):
         order = self._order()
-        Stock.objects.filter(product=self.product, store=self.store).update(
-            quantity=5, reserved_quantity=1
-        )
+        Stock.objects.filter(product=self.product, store=self.store).update(quantity=5, reserved_quantity=1)
         cancel_order_and_release_stock(order, reason="test")
         row = Stock.objects.get(product=self.product, store=self.store, onec_series_id="")
         self.assertEqual(row.reserved_quantity, 0)
@@ -271,9 +269,7 @@ class OneCUrlUtilsTests(TestCase):
 class OneCSeriesReserveTests(TransactionTestCase):
     def setUp(self):
         self.category = Category.objects.create(title="Phones", slug="phones-s")
-        self.store = Store.objects.create(
-            name="A", slug="store-ser", address="a", city="c", onec_warehouse_id=WH_A
-        )
+        self.store = Store.objects.create(name="A", slug="store-ser", address="a", city="c", onec_warehouse_id=WH_A)
         self.product = Product.objects.create(
             title="Serial",
             slug="serial-phone",
@@ -311,9 +307,7 @@ class OneCSeriesReserveTests(TransactionTestCase):
         self.assertEqual(row.reserved_quantity, 1)
 
     def test_does_not_take_series_from_other_store(self):
-        other = Store.objects.create(
-            name="B", slug="store-ser-b", address="b", city="c", onec_warehouse_id="x"
-        )
+        other = Store.objects.create(name="B", slug="store-ser-b", address="b", city="c", onec_warehouse_id="x")
         Stock.objects.create(
             product=self.product,
             store=other,
@@ -341,9 +335,9 @@ class OneCStubRetryTests(TestCase):
 
         with patch(
             "integrations.onec.orders.sync_order_to_onec",
-            side_effect=__import__(
-                "integrations.onec.orders", fromlist=["OneCOrderSyncError"]
-            ).OneCOrderSyncError("tmp", retryable=True, status_code=500),
+            side_effect=__import__("integrations.onec.orders", fromlist=["OneCOrderSyncError"]).OneCOrderSyncError(
+                "tmp", retryable=True, status_code=500
+            ),
         ):
             # Nested delay must not explode: task catches and returns without re-delay in stub
             result = sync_order_to_onec_task.delay("00000000-0000-0000-0000-000000000001")
@@ -354,15 +348,9 @@ class OneCStockDiagnoseTests(TestCase):
     def test_diagnose_blank_series_when_serial_exists(self):
         cat = Category.objects.create(title="C", slug="c-diag")
         store = Store.objects.create(name="S", slug="s-diag", address="a", city="c")
-        product = Product.objects.create(
-            title="P", slug="p-diag", category=cat, price=Decimal("1"), is_active=True
-        )
-        Stock.objects.create(
-            product=product, store=store, quantity=2, onec_series_id=""
-        )
-        Stock.objects.create(
-            product=product, store=store, quantity=1, onec_series_id=SERIES_A
-        )
+        product = Product.objects.create(title="P", slug="p-diag", category=cat, price=Decimal("1"), is_active=True)
+        Stock.objects.create(product=product, store=store, quantity=2, onec_series_id="")
+        Stock.objects.create(product=product, store=store, quantity=1, onec_series_id=SERIES_A)
         report = diagnose_stale_blank_series_stocks()
         self.assertGreaterEqual(report["suspect_count"], 1)
         self.assertEqual(report["action"], "report_only")

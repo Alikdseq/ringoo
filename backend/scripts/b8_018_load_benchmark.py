@@ -303,9 +303,7 @@ def parser_edge_cases() -> list[dict[str, Any]]:
         lambda: (
             __import__(
                 "integrations.onec.importer", fromlist=["plan_catalog_import_from_xml_strings"]
-            ).plan_catalog_import_from_xml_strings(
-                folders_xml(), "<Товары></Товары>"
-            )
+            ).plan_catalog_import_from_xml_strings(folders_xml(), "<Товары></Товары>")
         ),
     )
     return cases
@@ -412,9 +410,7 @@ def dry_run_scenarios(stores, cat) -> list[dict[str, Any]]:
 
     def attempt(name: str, products: str, expect_block: bool | None = None):
         try:
-            plan = plan_catalog_import_from_xml_strings(
-                folders_xml(), products, mode=ImportMode.DRY_RUN
-            )
+            plan = plan_catalog_import_from_xml_strings(folders_xml(), products, mode=ImportMode.DRY_RUN)
             out.append(
                 {
                     "name": name,
@@ -424,11 +420,7 @@ def dry_run_scenarios(stores, cat) -> list[dict[str, Any]]:
                     "stocks": len(plan.stocks),
                     "issues": len(plan.issues),
                     "blocker_types": [b.get("type") for b in plan.apply_blockers[:5]],
-                    "expect_block_match": (
-                        None
-                        if expect_block is None
-                        else (not plan.apply_allowed) == expect_block
-                    ),
+                    "expect_block_match": (None if expect_block is None else (not plan.apply_allowed) == expect_block),
                 }
             )
         except Exception as exc:
@@ -496,9 +488,7 @@ def bench_batch_apply(n_rows: int, stores, cat, run_tag: str) -> dict[str, Any]:
     store = list(stores.values())[1]  # БАМ
     # продукты: создаём столько, сколько нужно (reuse)
     need = min(n_rows, 500)
-    existing = list(
-        Product.objects.filter(onec_code__startswith="BAT-").order_by("onec_code")[:need]
-    )
+    existing = list(Product.objects.filter(onec_code__startswith="BAT-").order_by("onec_code")[:need])
     if len(existing) < need:
         start = len(existing)
         more = Product.objects.bulk_create(
@@ -554,25 +544,19 @@ def bench_batch_apply(n_rows: int, stores, cat, run_tag: str) -> dict[str, Any]:
         store_id=first.store_id,
         onec_series_id=first.series_id,
     )
-    mov_count = StockMovement.objects.filter(
-        source="onec.importer", reason="onec_stock_upsert"
-    ).count()
+    mov_count = StockMovement.objects.filter(source="onec.importer", reason="onec_stock_upsert").count()
 
     # idempotent repeat
     t1 = _now()
     with CaptureQueriesContext(connection) as ctx2:
         with transaction.atomic():
-            result2 = apply_onec_stock_upserts_batch(
-                items, run_id=f"b8018-{run_tag}"
-            )
+            result2 = apply_onec_stock_upserts_batch(items, run_id=f"b8018-{run_tag}")
     repeat_ms = _ms(t1)
 
     # new run_id should re-apply
     t2 = _now()
     with transaction.atomic():
-        result3 = apply_onec_stock_upserts_batch(
-            items, run_id=f"b8018-{run_tag}-rerun"
-        )
+        result3 = apply_onec_stock_upserts_batch(items, run_id=f"b8018-{run_tag}-rerun")
     rerun_ms = _ms(t2)
 
     out = {
@@ -626,11 +610,7 @@ def semantics_checks(stores, cat) -> list[dict[str, Any]]:
 
     # appear after zero
     apply(
-        [
-            OnecStockUpsertItem(
-                product_id=p.pk, store_id=store.pk, series_id="S1", series_name="", quantity=0
-            )
-        ],
+        [OnecStockUpsertItem(product_id=p.pk, store_id=store.pk, series_id="S1", series_name="", quantity=0)],
         "sem-zero",
     )
     row = Stock.objects.get(product=p, store=store, onec_series_id="S1")
@@ -642,11 +622,7 @@ def semantics_checks(stores, cat) -> list[dict[str, Any]]:
         }
     )
     apply(
-        [
-            OnecStockUpsertItem(
-                product_id=p.pk, store_id=store.pk, series_id="S1", series_name="", quantity=4
-            )
-        ],
+        [OnecStockUpsertItem(product_id=p.pk, store_id=store.pk, series_id="S1", series_name="", quantity=4)],
         "sem-reappear",
     )
     row.refresh_from_db()
@@ -654,19 +630,11 @@ def semantics_checks(stores, cat) -> list[dict[str, Any]]:
 
     # series disappear → zero other series via separate item
     apply(
-        [
-            OnecStockUpsertItem(
-                product_id=p.pk, store_id=store.pk, series_id="S2", series_name="", quantity=3
-            )
-        ],
+        [OnecStockUpsertItem(product_id=p.pk, store_id=store.pk, series_id="S2", series_name="", quantity=3)],
         "sem-s2",
     )
     apply(
-        [
-            OnecStockUpsertItem(
-                product_id=p.pk, store_id=store.pk, series_id="S2", series_name="", quantity=0
-            )
-        ],
+        [OnecStockUpsertItem(product_id=p.pk, store_id=store.pk, series_id="S2", series_name="", quantity=0)],
         "sem-s2-gone",
     )
     s2 = Stock.objects.get(product=p, store=store, onec_series_id="S2")
@@ -675,11 +643,7 @@ def semantics_checks(stores, cat) -> list[dict[str, Any]]:
     # change qty preserves reserved
     Stock.objects.filter(pk=row.pk).update(reserved_quantity=2)
     apply(
-        [
-            OnecStockUpsertItem(
-                product_id=p.pk, store_id=store.pk, series_id="S1", series_name="", quantity=9
-            )
-        ],
+        [OnecStockUpsertItem(product_id=p.pk, store_id=store.pk, series_id="S1", series_name="", quantity=9)],
         "sem-qty",
     )
     row.refresh_from_db()
@@ -740,6 +704,7 @@ def transaction_rollback_test(stores, cat) -> dict[str, Any]:
 
 def lock_tests() -> list[dict[str, Any]]:
     from django.core.cache.backends.locmem import LocMemCache
+
     from integrations.onec import catalog_sync
 
     out: list[dict[str, Any]] = []
@@ -756,9 +721,7 @@ def lock_tests() -> list[dict[str, Any]]:
     try:
         import redis as redis_lib
 
-        r = redis_lib.Redis(
-            host="127.0.0.1", port=6379, db=15, socket_connect_timeout=1
-        )
+        r = redis_lib.Redis(host="127.0.0.1", port=6379, db=15, socket_connect_timeout=1)
         redis_ping = bool(r.ping())
     except Exception as exc:
         out.append({"redis_local": False, "reason": str(exc)[:200]})
@@ -791,6 +754,7 @@ def lock_tests() -> list[dict[str, Any]]:
     )
 
     from django.utils import timezone
+
     from apps.products.sync_models import OneCCatalogSyncLog
 
     run_a = catalog_sync._new_run_id()
@@ -804,9 +768,7 @@ def lock_tests() -> list[dict[str, Any]]:
         )
         blocked = catalog_sync._running_apply_in_db(exclude_run_id="")
         out.append({"db_running_apply_blocks": blocked})
-        OneCCatalogSyncLog.objects.filter(run_id=run_a).update(
-            status=OneCCatalogSyncLog.STATUS_FAILED
-        )
+        OneCCatalogSyncLog.objects.filter(run_id=run_a).update(status=OneCCatalogSyncLog.STATUS_FAILED)
     except Exception as exc:
         out.append({"db_running_apply_error": str(exc)[:240]})
 
@@ -843,9 +805,7 @@ def main() -> int:
             "test_concurrency_postgres suite",
         ],
     }
-    results.notes.append(
-        "SQLite :memory: results are NOT interchangeable with PostgreSQL production benchmarks."
-    )
+    results.notes.append("SQLite :memory: results are NOT interchangeable with PostgreSQL production benchmarks.")
 
     # --- generate fixtures ---
     FIXTURE_DIR.mkdir(parents=True, exist_ok=True)
@@ -883,8 +843,7 @@ def main() -> int:
         fixture_meta[vol.name] = meta
         save(results)
         print(
-            f"  cards={meta['cards']} rows={meta['xml_rows']} "
-            f"bytes={meta['bytes']} gen_ms={meta['gen_ms']}",
+            f"  cards={meta['cards']} rows={meta['xml_rows']} " f"bytes={meta['bytes']} gen_ms={meta['gen_ms']}",
             flush=True,
         )
 
@@ -920,7 +879,7 @@ def main() -> int:
             )
             meta["name"] = vol.name
             results.fixtures.append(meta)
-            print(f"[PARSER] 50k_x1wh ...", flush=True)
+            print("[PARSER] 50k_x1wh ...", flush=True)
             row = bench_parser(path, {"name": vol.name, **meta})
             results.parser.append(row)
             save(results)
@@ -958,8 +917,9 @@ def main() -> int:
             if name.startswith("10k"):
                 print("[SEED] products +8000 for 10k", flush=True)
                 # SYN-002000 .. already may not exist
-                from apps.products.models import Product
                 from decimal import Decimal
+
+                from apps.products.models import Product
 
                 have = Product.objects.filter(onec_code__startswith="SYN-").count()
                 if have < 10_000:
@@ -980,9 +940,7 @@ def main() -> int:
                     )
             print(f"[DRY-RUN] {name} ...", flush=True)
             try:
-                row = bench_dry_run(
-                    FIXTURE_DIR / "folders.xml", Path(meta["path"]), name
-                )
+                row = bench_dry_run(FIXTURE_DIR / "folders.xml", Path(meta["path"]), name)
                 results.dry_run.append(row)
                 save(results)
                 print(
@@ -1022,19 +980,13 @@ def main() -> int:
                     flush=True,
                 )
                 if not row["within_budget"]:
-                    results.aborted.append(
-                        f"stop apply after {n}: exceeded {APPLY_TIME_BUDGET_S}s budget"
-                    )
+                    results.aborted.append(f"stop apply after {n}: exceeded {APPLY_TIME_BUDGET_S}s budget")
                     break
                 if n >= 10_000 and row["time_ms"] > 60_000:
-                    results.aborted.append(
-                        f"skip 25k apply: 10k already {row['time_ms']}ms on SQLite"
-                    )
+                    results.aborted.append(f"skip 25k apply: 10k already {row['time_ms']}ms on SQLite")
                     break
             except Exception as exc:
-                results.batch_apply.append(
-                    {"rows": n, "error": str(exc)[:400], "tb": traceback.format_exc()[-400:]}
-                )
+                results.batch_apply.append({"rows": n, "error": str(exc)[:400], "tb": traceback.format_exc()[-400:]})
                 save(results)
                 print(f"  ERROR {exc}", flush=True)
                 break

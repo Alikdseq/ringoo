@@ -8,10 +8,7 @@ from apps.payments.services import reconcile_open_payments
 
 
 class Command(BaseCommand):
-    help = (
-        "Запросить getOrderStatusExtended для pending/registered платежей "
-        "старше N минут и обновить статусы."
-    )
+    help = "Запросить getOrderStatusExtended для pending/registered платежей " "старше N минут и обновить статусы."
 
     def add_arguments(self, parser):
         parser.add_argument(

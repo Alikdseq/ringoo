@@ -12,6 +12,7 @@ from unittest.mock import patch
 
 from django.contrib.auth.models import Group
 from django.test import TestCase, override_settings
+
 from rest_framework.test import APIClient
 
 from apps.admin_api.permissions import RINGOO_GROUP_ORDERS
@@ -30,9 +31,7 @@ from tests.order_fsm_assertions import assert_order_cancelled, assert_order_not_
 
 
 def _stocked(*, qty=10, reserved=0, series=""):
-    cat = Category.objects.create(
-        title="FPB", slug=f"fpb-c-{Category.objects.count()}"
-    )
+    cat = Category.objects.create(title="FPB", slug=f"fpb-c-{Category.objects.count()}")
     product = Product.objects.create(
         title="FPB P",
         slug=f"fpb-p-{Product.objects.count()}",
@@ -113,20 +112,14 @@ class FixPackBCancelContractTests(TestCase):
     def setUp(self):
         Group.objects.get_or_create(name=RINGOO_GROUP_ORDERS)
         self.api = APIClient()
-        self.user = CustomUser.objects.create_user(
-            phone="79007771111", password="pass12345"
-        )
-        self.other = CustomUser.objects.create_user(
-            phone="79007772222", password="pass12345"
-        )
+        self.user = CustomUser.objects.create_user(phone="79007771111", password="pass12345")
+        self.other = CustomUser.objects.create_user(phone="79007772222", password="pass12345")
 
     def test_fsm_cancel_alias_becomes_closed_cancelled(self):
         order, product, store, stock = _order(user=self.user, reserved=1)
         qty_before = stock.quantity
         with patch("apps.orders.tasks.enqueue_order_cancel"):
-            locked = transition_order_status(
-                order, "cancelled", reason="fpb_alias"
-            )
+            locked = transition_order_status(order, "cancelled", reason="fpb_alias")
         assert_order_cancelled(self, locked)
         stock.refresh_from_db()
         self.assertEqual(stock.quantity, qty_before)
@@ -359,9 +352,7 @@ class FixPackBCancelContractTests(TestCase):
 
         order, _, _, stock = _order(user=self.user, reserved=1)
         qty_before = stock.quantity
-        staff = CustomUser.objects.create_user(
-            phone="79007773333", password="pass12345", is_staff=True
-        )
+        staff = CustomUser.objects.create_user(phone="79007773333", password="pass12345", is_staff=True)
         staff.groups.add(Group.objects.get(name=RINGOO_GROUP_ORDERS))
         token = AccessToken.for_user(staff)
         token[ADMIN_MFA_CLAIM] = ADMIN_MFA_CLAIM_VALUE

@@ -40,9 +40,7 @@ def _refresh_max_age() -> int:
     return int(settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"].total_seconds())
 
 
-def set_jwt_cookies(
-    response, access_token: str, refresh_token: str | None = None
-) -> None:
+def set_jwt_cookies(response, access_token: str, refresh_token: str | None = None) -> None:
     if not getattr(settings, "JWT_COOKIE_ENABLED", True):
         return
     secure = getattr(settings, "JWT_COOKIE_SECURE", not settings.DEBUG)

@@ -4,6 +4,7 @@ Requires YOOKASSA_* with test_ secret key. Never uses live keys.
 Creates a test payment (embedded method), waits until succeeded if possible,
 creates full + partial refunds via API, checks idempotency.
 """
+
 from __future__ import annotations
 
 import os
@@ -33,6 +34,7 @@ import django
 django.setup()
 
 from django.conf import settings
+
 from integrations.yookassa.client import YooKassaClient, YooKassaError
 
 
@@ -75,9 +77,7 @@ def main() -> int:
             if not bool(item.get("paid")):
                 continue
             amount_val = Decimal(str((item.get("amount") or {}).get("value") or "0"))
-            refunded_val = Decimal(
-                str((item.get("refunded_amount") or {}).get("value") or "0")
-            )
+            refunded_val = Decimal(str((item.get("refunded_amount") or {}).get("value") or "0"))
             remain = amount_val - refunded_val
             if remain >= Decimal("2.00"):
                 pid = str(item.get("id") or "")
@@ -100,23 +100,19 @@ def main() -> int:
         amount = Decimal("10.00")
         idem_pay = f"block4-pay-{uuid.uuid4()}"
         body = {
-            "amount": {"value": "10.00", "currency": "RUB"},
+            "amount": {"value": f"{amount:.2f}", "currency": "RUB"},
             "capture": True,
             "description": "Ringoo Block4 TEST refund drill",
             "metadata": {"purpose": "block4_refund_drill"},
             "confirmation": {
                 "type": "redirect",
-                "return_url": str(
-                    getattr(settings, "YOOKASSA_RETURN_URL", "") or "https://example.com/return"
-                ),
+                "return_url": str(getattr(settings, "YOOKASSA_RETURN_URL", "") or "https://example.com/return"),
             },
             # YooKassa test card path still typically needs user confirmation page
             "payment_method_data": {"type": "bank_card"},
         }
         try:
-            payment = client._request(
-                "POST", "/payments", body=body, idempotence_key=idem_pay
-            )
+            payment = client._request("POST", "/payments", body=body, idempotence_key=idem_pay)
         except YooKassaError as exc:
             print("CREATE_PAYMENT_ERR", getattr(exc, "code", ""), str(exc)[:300])
             print("BLOCKED: cannot create/find succeeded test payment for refund")
@@ -185,9 +181,7 @@ def main() -> int:
         )
 
     try:
-        client.create_refund(
-            payment_id=pid, amount=Decimal("0.01"), idempotence_key=f"block4-over-{pid}"
-        )
+        client.create_refund(payment_id=pid, amount=Decimal("0.01"), idempotence_key=f"block4-over-{pid}")
         print("OVER_REFUND_UNEXPECTED_OK")
         return 16
     except YooKassaError as exc:

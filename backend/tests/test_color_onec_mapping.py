@@ -27,9 +27,7 @@ class ColorOnecMappingTests(TestCase):
             onec_code="PROD-1-BLACK",
             mapping_status=ProductColor.MAPPING_MATCHED,
         )
-        store = Store.objects.create(
-            name="S", slug="s-map", address="a", city="Москва", is_active=True
-        )
+        store = Store.objects.create(name="S", slug="s-map", address="a", city="Москва", is_active=True)
         self.order = Order.objects.create(
             order_number="ORD-MAP-1",
             full_name="A",

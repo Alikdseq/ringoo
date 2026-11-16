@@ -27,11 +27,7 @@ from tests.onec_test_utils import (
     ensure_confirmed_stores,
 )
 
-
-FOLDERS = (
-    '<ПапкиНоменклатуры><Папка code="F1" parentCode="" name="Phones"/>'
-    "</ПапкиНоменклатуры>"
-)
+FOLDERS = '<ПапкиНоменклатуры><Папка code="F1" parentCode="" name="Phones"/>' "</ПапкиНоменклатуры>"
 
 
 def _xml(*rows: str) -> str:
@@ -73,8 +69,7 @@ class EmptySnapshotGuardTests(TestCase):
             folders = Path(tmp) / "folders.xml"
             products = Path(tmp) / "products.xml"
             folders.write_text(
-                '<ПапкиНоменклатуры><Папка code="F1" parentCode="" name="X"/>'
-                "</ПапкиНоменклатуры>",
+                '<ПапкиНоменклатуры><Папка code="F1" parentCode="" name="X"/>' "</ПапкиНоменклатуры>",
                 encoding="utf-8",
             )
             products.write_text("<Товары></Товары>", encoding="utf-8")
@@ -84,26 +79,20 @@ class EmptySnapshotGuardTests(TestCase):
 
     def test_empty_products_xml_blocks_plan(self):
         with self.assertRaises(OneCParseError):
-            plan_catalog_import_from_xml_strings(
-                FOLDERS, "<Товары></Товары>", mode=ImportMode.DRY_RUN
-            )
+            plan_catalog_import_from_xml_strings(FOLDERS, "<Товары></Товары>", mode=ImportMode.DRY_RUN)
 
 
 class SyncLogCountersTests(TestCase):
     def setUp(self):
         self.stores = ensure_confirmed_stores()
-        self.category = Category.objects.create(
-            title="Phones", slug="phones-b7", onec_code="F1", is_active=True
-        )
+        self.category = Category.objects.create(title="Phones", slug="phones-b7", onec_code="F1", is_active=True)
 
     def test_dry_run_does_not_mutate_and_counts_planned(self):
         xml = _xml(
             _row("N-B7-1", "100", 3, series="IMEI", series_id="SER-1"),
             _row("N-B7-1", "100", 2, series="IMEI2", series_id="SER-2"),
         )
-        plan = plan_catalog_import_from_xml_strings(
-            FOLDERS, xml, mode=ImportMode.DRY_RUN
-        )
+        plan = plan_catalog_import_from_xml_strings(FOLDERS, xml, mode=ImportMode.DRY_RUN)
         self.assertTrue(plan.apply_allowed, plan.apply_blockers)
         self.assertGreaterEqual(plan.summary.get("series_rows", 0), 2)
         self.assertGreaterEqual(plan.summary.get("stock_series_rows", 0), 2)
@@ -137,9 +126,7 @@ class SyncLogCountersTests(TestCase):
 
         # Повтор того же снимка (новый SyncLog run_id → новые ключи → снова applied)
         # Для ONEC-015 нужен тот же plan.run_id. Проверяем apply_catalog_import напрямую:
-        plan = plan_catalog_import_from_xml_strings(
-            FOLDERS, xml, mode=ImportMode.APPLY
-        )
+        plan = plan_catalog_import_from_xml_strings(FOLDERS, xml, mode=ImportMode.APPLY)
         plan.run_id = "fixed-run-b7-idem"
         a1 = apply_catalog_import(plan)
         self.assertGreaterEqual(a1["stocks_upserted"], 1)

@@ -20,7 +20,6 @@ class TestRedactLogMessage(SimpleTestCase):
         self.assertNotIn("user@example.com", s)
 
     def test_filter_mutates_record(self):
-        log = logging.getLogger("test_redact")
         filt = RedactPIIFilter()
         record = logging.LogRecord(
             name="t",
@@ -46,9 +45,7 @@ class TestCleanupDeactivatedUsersCommand(TransactionTestCase):
         u = CustomUser.objects.create_user("79995554433", password="secretpass12")
         u.is_active = False
         u.save(update_fields=["is_active"])
-        CustomUser.objects.filter(pk=u.pk).update(
-            updated_at=timezone.now() - timedelta(days=400)
-        )
+        CustomUser.objects.filter(pk=u.pk).update(updated_at=timezone.now() - timedelta(days=400))
         out = StringIO()
         call_command("cleanup_deactivated_users", "--min-days", "300", stdout=out)
         self.assertTrue(CustomUser.objects.filter(pk=u.pk).exists())
@@ -58,9 +55,7 @@ class TestCleanupDeactivatedUsersCommand(TransactionTestCase):
         u = CustomUser.objects.create_user("79995554444", password="secretpass12")
         u.is_active = False
         u.save(update_fields=["is_active"])
-        CustomUser.objects.filter(pk=u.pk).update(
-            updated_at=timezone.now() - timedelta(days=400)
-        )
+        CustomUser.objects.filter(pk=u.pk).update(updated_at=timezone.now() - timedelta(days=400))
         out = StringIO()
         call_command(
             "cleanup_deactivated_users",
@@ -72,14 +67,10 @@ class TestCleanupDeactivatedUsersCommand(TransactionTestCase):
         self.assertFalse(CustomUser.objects.filter(pk=u.pk).exists())
 
     def test_never_touches_staff(self):
-        u = CustomUser.objects.create_user(
-            "79995554455", password="secretpass12", is_staff=True
-        )
+        u = CustomUser.objects.create_user("79995554455", password="secretpass12", is_staff=True)
         u.is_active = False
         u.save(update_fields=["is_active"])
-        CustomUser.objects.filter(pk=u.pk).update(
-            updated_at=timezone.now() - timedelta(days=400)
-        )
+        CustomUser.objects.filter(pk=u.pk).update(updated_at=timezone.now() - timedelta(days=400))
         call_command(
             "cleanup_deactivated_users",
             "--min-days",
@@ -94,15 +85,14 @@ class TestAuditLogOnOrderExport(TestCase):
     """Проверка, что экспорт заказов создаёт запись аудита (без полного AdminSite)."""
 
     def test_log_admin_action_called_from_export_pattern(self):
+        from django.contrib.auth import get_user_model
+        from django.test import RequestFactory
+
         from apps.audit.models import AuditLog
         from apps.audit.services import log_admin_action
-        from django.test import RequestFactory
-        from django.contrib.auth import get_user_model
 
         User = get_user_model()
-        staff = User.objects.create_user(
-            phone="79994443322", password="pw", is_staff=True
-        )
+        staff = User.objects.create_user(phone="79994443322", password="pw", is_staff=True)
         req = RequestFactory().get("/")
         req.user = staff
         before = AuditLog.objects.count()

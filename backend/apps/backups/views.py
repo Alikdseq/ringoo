@@ -6,6 +6,7 @@ import logging
 
 from django.http import FileResponse
 from django.utils import timezone
+
 from rest_framework import status
 from rest_framework.permissions import BasePermission, IsAuthenticated
 from rest_framework.response import Response
@@ -29,12 +30,7 @@ class IsSuperuserBackupAdmin(BasePermission):
 
     def has_permission(self, request, view):
         user = request.user
-        return bool(
-            user
-            and user.is_authenticated
-            and user.is_staff
-            and user.is_superuser
-        )
+        return bool(user and user.is_authenticated and user.is_staff and user.is_superuser)
 
 
 BACKUP_PERMISSIONS = [
@@ -73,9 +69,7 @@ class BackupCreateView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
         try:
-            archive, token = create_backup_archive(
-                user=request.user, password=password
-            )
+            archive, token = create_backup_archive(user=request.user, password=password)
         except RuntimeError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_409_CONFLICT)
         except Exception as exc:
@@ -150,9 +144,7 @@ class BackupDownloadView(APIView):
             return Response({"detail": "Неверный токен."}, status=status.HTTP_403_FORBIDDEN)
         path = resolve_archive_path(archive)
         if path is None:
-            return Response(
-                {"detail": "Файл не найден."}, status=status.HTTP_404_NOT_FOUND
-            )
+            return Response({"detail": "Файл не найден."}, status=status.HTTP_404_NOT_FOUND)
         archive.downloaded_at = timezone.now()
         archive.save(update_fields=["downloaded_at", "updated_at"])
         _audit(
@@ -227,9 +219,7 @@ class BackupOffsiteUploadView(APIView):
             except BackupArchive.DoesNotExist:
                 return Response({"detail": "Не найдено."}, status=status.HTTP_404_NOT_FOUND)
         _audit(request, "offsite_upload_enqueue", archive_id=str(archive_id or ""))
-        async_result = create_and_upload_offsite_backup_task.delay(
-            str(archive_id) if archive_id else None
-        )
+        async_result = create_and_upload_offsite_backup_task.delay(str(archive_id) if archive_id else None)
         return Response(
             {"status": "RUNNING", "task_id": getattr(async_result, "id", None)},
             status=status.HTTP_202_ACCEPTED,
@@ -250,9 +240,5 @@ class BackupOffsiteVerifyView(APIView):
                 {"status": "FAILED", "detail": str(exc)[:200]},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        code = (
-            status.HTTP_200_OK
-            if result.get("status") == "SUCCESS"
-            else status.HTTP_400_BAD_REQUEST
-        )
+        code = status.HTTP_200_OK if result.get("status") == "SUCCESS" else status.HTTP_400_BAD_REQUEST
         return Response(result, status=code)

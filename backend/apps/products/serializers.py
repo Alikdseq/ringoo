@@ -175,10 +175,7 @@ class ProductListSerializer(serializers.ModelSerializer):
         """Все фото товара для карточки, сгруппированные по цвету (без лимита 10/36)."""
         from apps.products.services.product_images import ordered_product_images
 
-        return [
-            ProductImageSerializer(img, context=self.context).data
-            for img in ordered_product_images(obj)
-        ]
+        return [ProductImageSerializer(img, context=self.context).data for img in ordered_product_images(obj)]
 
     def get_discount_percent(self, obj):
         return obj.discount_percent
@@ -260,9 +257,7 @@ class ProductDetailSerializer(serializers.ModelSerializer):
 
             cache = getattr(obj, "_prefetched_objects_cache", None)
             if cache is not None and "stock_items" in cache:
-                rows = Stock.public_stock_rows_from_prefetched(
-                    obj.stock_items.all(), product_id=obj.pk
-                )
+                rows = Stock.public_stock_rows_from_prefetched(obj.stock_items.all(), product_id=obj.pk)
             else:
                 rows = Stock.aggregated_public_stock_for_product(obj.pk)
         except (ImportError, AttributeError):
@@ -290,8 +285,7 @@ class ProductDetailSerializer(serializers.ModelSerializer):
             return False
         try:
             from apps.cart.models import CartItem
-            return CartItem.objects.filter(
-                cart__user=request.user, product=obj
-            ).exists()
+
+            return CartItem.objects.filter(cart__user=request.user, product=obj).exists()
         except (ImportError, AttributeError):
             return False

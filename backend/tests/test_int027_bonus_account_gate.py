@@ -7,7 +7,6 @@ from django.test import TestCase, override_settings
 
 from apps.bonus.models import BonusAccount
 
-
 User = get_user_model()
 
 

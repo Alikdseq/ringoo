@@ -8,7 +8,6 @@ from django.core import mail
 from django.test import TestCase, override_settings
 
 from apps.orders.models import Order
-
 from integrations.email_service import (
     send_manager_rating,
     send_order_confirmation,

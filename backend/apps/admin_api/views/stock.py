@@ -1,6 +1,7 @@
 """Admin API: Остатки (Stock) — GET список, PATCH quantity, drill-down."""
 
 from django.db.models import Count, Q
+
 from rest_framework import status
 from rest_framework.generics import UpdateAPIView
 from rest_framework.pagination import PageNumberPagination
@@ -45,9 +46,7 @@ class StockAdminListView(APIView):
     permission_classes = admin_permissions(RINGOO_GROUP_STORES)
 
     def get(self, request):
-        qs = Stock.objects.select_related("product", "store").order_by(
-            "product__title", "store__name"
-        )
+        qs = Stock.objects.select_related("product", "store").order_by("product__title", "store__name")
         product_id = request.query_params.get("product", "").strip()
         store_id = request.query_params.get("store", "").strip()
         if product_id:
@@ -124,17 +123,10 @@ class StockAdminUpdateView(UpdateAPIView):
 
         # Фактический остаток из 1С — не правим вручную.
         product = getattr(instance, "product", None)
-        if (
-            product
-            and getattr(product, "onec_code", None)
-            and new_q is not None
-            and new_q != instance.quantity
-        ):
+        if product and getattr(product, "onec_code", None) and new_q is not None and new_q != instance.quantity:
             return Response(
                 {
-                    "detail": (
-                        "quantity управляется синхронизацией 1С для товара с onec_code."
-                    ),
+                    "detail": ("quantity управляется синхронизацией 1С для товара с onec_code."),
                     "code": "onec_managed_stock_readonly",
                     "fields": ["quantity"],
                     "onec_code": product.onec_code,
@@ -147,12 +139,7 @@ class StockAdminUpdateView(UpdateAPIView):
 
         if new_q < instance.reserved_quantity:
             return Response(
-                {
-                    "quantity": [
-                        "Не может быть меньше reserved_quantity "
-                        f"({instance.reserved_quantity})."
-                    ]
-                },
+                {"quantity": ["Не может быть меньше reserved_quantity " f"({instance.reserved_quantity})."]},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -242,9 +229,7 @@ class StockByStoreCategoriesView(APIView):
                     "stock_count": row["stock_count"],
                 }
             )
-        uncategorized = (
-            Stock.objects.filter(store_id=store_id, product__category__isnull=True).count()
-        )
+        uncategorized = Stock.objects.filter(store_id=store_id, product__category__isnull=True).count()
         if uncategorized:
             rows.append(
                 {
@@ -266,9 +251,7 @@ class StockByStoreProductsView(APIView):
         if not Store.objects.filter(pk=store_id).exists():
             return Response({"detail": "Магазин не найден."}, status=status.HTTP_404_NOT_FOUND)
 
-        qs = Stock.objects.filter(store_id=store_id).select_related("product", "store").order_by(
-            "product__title"
-        )
+        qs = Stock.objects.filter(store_id=store_id).select_related("product", "store").order_by("product__title")
         category_id = (request.query_params.get("category") or "").strip()
         if category_id == "__none__":
             qs = qs.filter(product__category__isnull=True)
@@ -277,9 +260,7 @@ class StockByStoreProductsView(APIView):
 
         search = (request.query_params.get("search") or "").strip()
         if search:
-            qs = qs.filter(
-                Q(product__title__icontains=search) | Q(product__sku__icontains=search)
-            )
+            qs = qs.filter(Q(product__title__icontains=search) | Q(product__sku__icontains=search))
 
         paginator = PageNumberPagination()
         paginator.page_size = 50

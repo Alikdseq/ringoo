@@ -11,6 +11,7 @@ from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.test import TestCase, override_settings
 from django.utils import timezone
+
 from rest_framework.test import APIClient
 
 from apps.backups.models import BackupArchive
@@ -95,9 +96,7 @@ class BackupServiceTests(TestCase):
             decrypt_bytes(blob, "WrongPass!!")
 
     def test_encrypted_archive(self):
-        archive, _token = create_backup_archive(
-            user=self.superuser, password="SecretPass1"
-        )
+        archive, _token = create_backup_archive(user=self.superuser, password="SecretPass1")
         self.assertTrue(archive.encrypted)
         self.assertTrue(archive.filename.endswith(".enc"))
         path = resolve_archive_path(archive)
@@ -112,9 +111,7 @@ class BackupServiceTests(TestCase):
         import shutil
         import tempfile
 
-        archive, _ = create_backup_archive(
-            user=self.superuser, password="DrillPass99"
-        )
+        archive, _ = create_backup_archive(user=self.superuser, password="DrillPass99")
         path = resolve_archive_path(archive)
         plain = decrypt_bytes(path.read_bytes(), "DrillPass99")
         out = Path(tempfile.mkdtemp(prefix="ringoo_restore_out_"))

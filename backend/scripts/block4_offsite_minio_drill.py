@@ -4,6 +4,7 @@ Does NOT claim to be a cloud provider verification.
 Creates archive -> encrypt -> put -> head -> get -> checksum -> decrypt -> extract.
 Optionally restores dump into a separate PostgreSQL database.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -97,8 +98,9 @@ def main() -> int:
     # wrong key must fail
     wrong_ok = False
     try:
-        from cryptography.hazmat.primitives.ciphers.aead import AESGCM
         import secrets
+
+        from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
         # mutate tag
         bad = bytearray(blob)
@@ -129,9 +131,7 @@ def main() -> int:
     print("EXTRACT_DIR", extract_root)
 
     # Isolated DB restore if dump.sql present and DATABASE_URL available
-    dump_candidates = list((extract_root / "out").rglob("*.sql")) + list(
-        (extract_root / "out").rglob("*dump*")
-    )
+    dump_candidates = list((extract_root / "out").rglob("*.sql")) + list((extract_root / "out").rglob("*dump*"))
     print("DUMP_CANDIDATES", [str(p.relative_to(extract_root)) for p in dump_candidates[:10]])
 
     restore_db = os.environ.get("RINGOO_RESTORE_DB_NAME", "ringoo_restore_drill")

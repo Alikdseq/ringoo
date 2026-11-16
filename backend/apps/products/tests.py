@@ -7,14 +7,15 @@ from decimal import Decimal
 from django.core.cache import cache
 from django.test import TestCase, override_settings
 from django.urls import reverse
+
 from rest_framework.test import APIClient
 
 from .models import Category, Product, ProductImage, ProductSpec
 from .serializers import (
     CategorySerializer,
     ProductDetailSerializer,
-    ProductListSerializer,
     ProductImageSerializer,
+    ProductListSerializer,
     ProductSpecSerializer,
 )
 
@@ -59,6 +60,7 @@ class TestProductImageSerializer(TestCase):
         )
         # ProductImage требует image - используем временный файл или mock
         from django.core.files.uploadedfile import SimpleUploadedFile
+
         img = ProductImage.objects.create(
             product=product,
             image=SimpleUploadedFile("test.jpg", b"fake", content_type="image/jpeg"),
@@ -86,11 +88,11 @@ class TestProductSpecSerializer(TestCase):
         spec = ProductSpec.objects.create(
             product=product,
             name="Диагональ",
-            value="15.6\"",
+            value='15.6"',
         )
         data = ProductSpecSerializer(spec).data
         self.assertEqual(data["name"], "Диагональ")
-        self.assertEqual(data["value"], "15.6\"")
+        self.assertEqual(data["value"], '15.6"')
 
 
 class TestProductListSerializer(TestCase):

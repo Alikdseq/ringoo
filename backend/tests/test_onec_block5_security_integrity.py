@@ -14,6 +14,7 @@ from django.contrib.admin.sites import site as admin_site
 from django.contrib.auth.models import Group
 from django.db.models import ProtectedError
 from django.test import RequestFactory, TestCase
+
 from rest_framework import status
 from rest_framework.test import APIClient
 
@@ -242,9 +243,7 @@ class TestOnec012StockListViewAccess(Block5FixturesMixin, TestCase):
 
     def test_admin_stock_list_exposes_reserved_for_staff(self):
         self.client.force_authenticate(user=self.staff)
-        r = self.client.get(
-            f"/api/v1/admin/stores/stock/?store={self.store.pk}&product={self.product.pk}"
-        )
+        r = self.client.get(f"/api/v1/admin/stores/stock/?store={self.store.pk}&product={self.product.pk}")
         self.assertEqual(r.status_code, 200)
         data = r.json()
         results = data.get("results", data)

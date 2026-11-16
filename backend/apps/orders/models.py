@@ -11,8 +11,10 @@ from django.db import models
 
 def _generate_order_number():
     """Уникальный номер заказа: ORD-YYYYMMDD-6hex."""
-    from django.utils import timezone
     import random
+
+    from django.utils import timezone
+
     date_part = timezone.now().strftime("%Y%m%d")
     suffix = f"{random.randint(0, 0xFFFFFF):06x}"
     return f"ORD-{date_part}-{suffix}"
@@ -332,16 +334,10 @@ class Order(models.Model):
     def is_cancelled(self) -> bool:
         if self.status == self.STATUS_CANCELLED:  # legacy pre-migrate
             return True
-        return (
-            self.status == self.STATUS_CLOSED
-            and self.closure_result == self.CLOSURE_CANCELLED
-        )
+        return self.status == self.STATUS_CLOSED and self.closure_result == self.CLOSURE_CANCELLED
 
     def is_fulfilled(self) -> bool:
-        return (
-            self.status == self.STATUS_CLOSED
-            and self.closure_result == self.CLOSURE_COMPLETED
-        )
+        return self.status == self.STATUS_CLOSED and self.closure_result == self.CLOSURE_COMPLETED
 
     def is_terminal(self) -> bool:
         return self.status == self.STATUS_CLOSED or self.is_cancelled()

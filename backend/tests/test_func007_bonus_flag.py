@@ -15,16 +15,14 @@ from apps.users.models import CustomUser
 
 def _order(user):
     cat = Category.objects.create(title="C", slug=f"b7-{Category.objects.count()}")
-    product = Product.objects.create(
+    Product.objects.create(
         title="P",
         slug=f"b7p-{Product.objects.count()}",
         price=Decimal("100.00"),
         category=cat,
         is_active=True,
     )
-    store = Store.objects.create(
-        name="S", slug=f"b7s-{Store.objects.count()}", address="a", city="c"
-    )
+    store = Store.objects.create(name="S", slug=f"b7s-{Store.objects.count()}", address="a", city="c")
     return Order.objects.create(
         user=user,
         full_name="U",
@@ -40,9 +38,7 @@ def _order(user):
 
 class Func007BonusFlagTests(TestCase):
     def setUp(self):
-        self.user = CustomUser.objects.create_user(
-            phone="79005550001", password="pass12345"
-        )
+        self.user = CustomUser.objects.create_user(phone="79005550001", password="pass12345")
 
     @override_settings(BONUS_ENABLED=False)
     def test_disabled_does_not_award(self):

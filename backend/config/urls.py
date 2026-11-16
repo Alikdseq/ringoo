@@ -2,46 +2,46 @@
 URL configuration for Ringoo project.
 """
 
-from django.contrib import admin
-from django.urls import path, include
 from django.conf import settings
+from django.contrib import admin
+from django.urls import include, path
 
 if getattr(settings, "ADMIN_OTP_ENABLED", False):
     from django_otp.admin import OTPAdminSite
 
     admin.site.__class__ = OTPAdminSite
-from django.views.generic import RedirectView
 from django.conf.urls.static import static
+from django.views.generic import RedirectView
+
 from drf_spectacular.views import (
     SpectacularAPIView,
     SpectacularRedocView,
     SpectacularSwaggerView,
 )
+
 from config.views import health_check
 
 urlpatterns = [
     path(settings.ADMIN_SITE_URL_PATH, admin.site.urls),
     # Health check
-    path('health/', health_check, name='health'),
+    path("health/", health_check, name="health"),
     # API v1
-    path('api/v1/', include('config.api_urls')),
+    path("api/v1/", include("config.api_urls")),
 ]
 
 # Корень: при открытых docs (DEBUG или API_DOCS_PUBLIC) — на Swagger; иначе в prod — на /health/ (ниже).
-_show_api_docs = getattr(settings, 'DEBUG', False) or getattr(
-    settings, 'API_DOCS_PUBLIC', False
-)
+_show_api_docs = getattr(settings, "DEBUG", False) or getattr(settings, "API_DOCS_PUBLIC", False)
 if _show_api_docs:
     urlpatterns = [
-        path('', RedirectView.as_view(url='/api/docs/', permanent=False), name='root'),
-        path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
-        path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
-        path('api/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
+        path("", RedirectView.as_view(url="/api/docs/", permanent=False), name="root"),
+        path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
+        path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
+        path("api/redoc/", SpectacularRedocView.as_view(url_name="schema"), name="redoc"),
     ] + urlpatterns
 else:
     urlpatterns.insert(
         0,
-        path('', RedirectView.as_view(url='/health/', permanent=False), name='root'),
+        path("", RedirectView.as_view(url="/health/", permanent=False), name="root"),
     )
 
 # На Vercel медиа витрины лежат в репозитории (catalog_media) и отдаются этой функцией.
@@ -63,7 +63,7 @@ if settings.DEBUG:
     # Django Debug Toolbar — один префикс; дублирующий RedirectView на том же пути ломал панель.
     try:
         urlpatterns += [
-            path('__debug__/', include('debug_toolbar.urls')),
+            path("__debug__/", include("debug_toolbar.urls")),
         ]
     except Exception:
         pass

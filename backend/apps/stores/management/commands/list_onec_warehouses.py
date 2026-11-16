@@ -62,12 +62,8 @@ class Command(BaseCommand):
                 f"{s.slug}\tactive={s.is_active}\twh={s.is_warehouse}\t"
                 f"oid={oid or '-'}\toname={s.onec_warehouse_name or '-'}\t{s.name}"
             )
-        self.stdout.write(
-            self.style.WARNING(f"Всего: {qs.count()}, без onec_warehouse_id: {missing}")
-        )
-        self.stdout.write(
-            "Заполните ID через Django Admin /admin FE, либо --apply mapping.json"
-        )
+        self.stdout.write(self.style.WARNING(f"Всего: {qs.count()}, без onec_warehouse_id: {missing}"))
+        self.stdout.write("Заполните ID через Django Admin /admin FE, либо --apply mapping.json")
 
     def _apply_mapping(self, path: Path, *, dry_run: bool):
         if not path.is_file():

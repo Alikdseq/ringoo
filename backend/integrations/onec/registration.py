@@ -63,11 +63,7 @@ def register_user_in_onec(
     from apps.users.models import CustomUser
 
     with transaction.atomic():
-        locked = (
-            CustomUser.objects.select_for_update()
-            .select_related("profile")
-            .get(pk=user.pk)
-        )
+        locked = CustomUser.objects.select_for_update().select_related("profile").get(pk=user.pk)
 
         if locked.onec_partner_id and not force:
             return RegistrationResult(
@@ -78,10 +74,7 @@ def register_user_in_onec(
                 message="partnerId уже сохранён",
             )
 
-        if (
-            locked.onec_partner_status == CustomUser.ONEC_PARTNER_PENDING_REVIEW
-            and not force
-        ):
+        if locked.onec_partner_status == CustomUser.ONEC_PARTNER_PENDING_REVIEW and not force:
             return RegistrationResult(
                 partner_id=locked.onec_partner_id,
                 status=CustomUser.ONEC_PARTNER_PENDING_REVIEW,

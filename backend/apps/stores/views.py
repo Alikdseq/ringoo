@@ -9,12 +9,12 @@ from django.shortcuts import get_object_or_404
 from rest_framework.generics import ListAPIView, RetrieveAPIView
 from rest_framework.permissions import AllowAny
 
+from apps.orders.models import ManagerRating
 from apps.products.models import Product, ProductColor, ProductImage
 from apps.products.serializers import ProductListSerializer
-from apps.orders.models import ManagerRating
 from config.throttling import AnonReadRateThrottle, UserReadRateThrottle
 
-from .models import Manager, Store, Stock, StoreImage
+from .models import Manager, Stock, Store, StoreImage
 from .serializers import (
     ManagerDetailSerializer,
     ManagerReviewSerializer,

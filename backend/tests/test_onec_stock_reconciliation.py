@@ -5,6 +5,7 @@ from __future__ import annotations
 from decimal import Decimal
 
 from django.test import TestCase
+
 from rest_framework.test import APIClient
 
 from apps.products.models import Category, Product
@@ -14,7 +15,7 @@ from integrations.onec.importer import (
     apply_catalog_import,
     plan_catalog_import_from_xml_strings,
 )
-from integrations.onec.warehouse_map import CONFIRMED_WAREHOUSES, CONFIRMED_WAREHOUSE_IDS
+from integrations.onec.warehouse_map import CONFIRMED_WAREHOUSE_IDS, CONFIRMED_WAREHOUSES
 from tests.onec_test_utils import (
     TEST_OTHER_WH_ID,
     TEST_RETAIL_WH_ID,
@@ -22,7 +23,6 @@ from tests.onec_test_utils import (
     TEST_TECH_WH_ID,
     ensure_confirmed_stores,
 )
-
 
 FOLDERS = (
     '<ПапкиНоменклатуры><Папка code="F1" parentCode="" name="Phones"/>'

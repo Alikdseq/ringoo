@@ -47,19 +47,13 @@ class OneCOrderSyncBlocked(OneCOrderSyncError):
 
 
 def order_sync_enabled() -> bool:
-    return bool(
-        getattr(settings, "ONE_C_ORDER_SYNC_ENABLED", False)
-        and getattr(settings, "ONE_C_API_ENABLED", False)
-    )
+    return bool(getattr(settings, "ONE_C_ORDER_SYNC_ENABLED", False) and getattr(settings, "ONE_C_API_ENABLED", False))
 
 
 def assert_onec_base_url_configured() -> str:
     """Проверка URL без сети. Бросает OneCOrderSyncBlocked при ошибке."""
     try:
-        return normalize_onec_base_url(
-            getattr(settings, "ONE_C_API_BASE_URL", None)
-            or ""
-        )
+        return normalize_onec_base_url(getattr(settings, "ONE_C_API_BASE_URL", None) or "")
     except OneCBaseUrlError as exc:
         raise OneCOrderSyncBlocked(str(exc)) from exc
 
@@ -83,14 +77,10 @@ def resolve_warehouse_id(order) -> str:
     """
     store = order.store
     if store is None:
-        raise OneCOrderSyncBlocked(
-            "Для синхронизации с 1С нужен выбранный магазин заказа"
-        )
+        raise OneCOrderSyncBlocked("Для синхронизации с 1С нужен выбранный магазин заказа")
     wid = (store.onec_warehouse_id or "").strip()
     if not wid:
-        raise OneCOrderSyncBlocked(
-            f"У магазина {store.slug!r} не задан onec_warehouse_id"
-        )
+        raise OneCOrderSyncBlocked(f"У магазина {store.slug!r} не задан onec_warehouse_id")
     return wid
 
 
@@ -107,8 +97,7 @@ def ensure_onec_client_id(order, *, client: OneCClient | None = None) -> str:
 
     if order.onec_sync_status == Order.ONEC_SYNC_PENDING_REVIEW and not existing:
         raise OneCOrderSyncBlocked(
-            "Регистрация гостя в 1С требует сверки (неопределённый результат). "
-            "Автоповтор запрещён."
+            "Регистрация гостя в 1С требует сверки (неопределённый результат). " "Автоповтор запрещён."
         )
 
     if order.user_id:
@@ -118,9 +107,7 @@ def ensure_onec_client_id(order, *, client: OneCClient | None = None) -> str:
             return partner
         result = register_user_in_onec(user, client=client)
         if not result.partner_id:
-            raise OneCOrderSyncBlocked(
-                result.message or "Нет ClientId у пользователя (сверка с 1С)"
-            )
+            raise OneCOrderSyncBlocked(result.message or "Нет ClientId у пользователя (сверка с 1С)")
         return result.partner_id
 
     last_name, first_name, middle_name = split_full_name(order.full_name)
@@ -181,9 +168,7 @@ def build_order_items_payload(order) -> list[dict[str, Any]]:
         if not code and item.product_id:
             code = (getattr(item.product, "onec_code", None) or "").strip()
         if not code:
-            raise OneCOrderSyncBlocked(
-                f"У позиции «{item.product_title}» нет кода номенклатуры 1С"
-            )
+            raise OneCOrderSyncBlocked(f"У позиции «{item.product_title}» нет кода номенклатуры 1С")
         series_raw = (item.onec_series_id or "").strip()
         row: dict[str, Any] = {
             "productCode": code,
@@ -193,8 +178,8 @@ def build_order_items_payload(order) -> list[dict[str, Any]]:
         }
         # Информационные поля витрины (не заменяют productCode/seriesId)
         if color is not None or getattr(item, "color_label", ""):
-            row["colorLabel"] = (getattr(item, "color_label", None) or getattr(color, "label", "") or "")
-            row["colorSlug"] = (getattr(item, "color_slug", None) or getattr(color, "slug", "") or "")
+            row["colorLabel"] = getattr(item, "color_label", None) or getattr(color, "label", "") or ""
+            row["colorSlug"] = getattr(item, "color_slug", None) or getattr(color, "slug", "") or ""
             row["colorId"] = str(item.color_id) if item.color_id else None
             char_ref = (getattr(color, "onec_characteristic_ref", None) or "").strip() if color else ""
             if char_ref:
@@ -282,12 +267,8 @@ def plan_and_reserve_at_store(
         .order_by("onec_series_id", "pk")
     )
 
-    serial_with_stock = [
-        r for r in rows if (r.onec_series_id or "").strip() and _available(r) > 0
-    ]
-    blank_available = sum(
-        _available(r) for r in rows if not (r.onec_series_id or "").strip()
-    )
+    serial_with_stock = [r for r in rows if (r.onec_series_id or "").strip() and _available(r) > 0]
+    blank_available = sum(_available(r) for r in rows if not (r.onec_series_id or "").strip())
 
     remaining = int(quantity)
     picked_serials: list[str] = []
@@ -352,9 +333,7 @@ class InsufficientStockAtStore(Exception):
     """Недостаточно остатка в выбранном магазине."""
 
 
-def release_order_item_reservations(
-    order, *, reason: str = "order_release"
-) -> None:
+def release_order_item_reservations(order, *, reason: str = "order_release") -> None:
     """
     Снимает резерв по позициям в магазине заказа (без подмены склада).
     Идемпотентно: ключ release:order:{order}:item:{item} — один раз за жизнь позиции.
@@ -452,9 +431,7 @@ def plan_order_item_lines(
     Резерв при оформлении — через plan_and_reserve_at_store.
     """
     code = (getattr(product, "onec_code", None) or "").strip()
-    series_ids = allocate_series_for_quantity(
-        product.pk, quantity, preferred_store_id=preferred_store_id
-    )
+    series_ids = allocate_series_for_quantity(product.pk, quantity, preferred_store_id=preferred_store_id)
     if series_ids and len(series_ids) == quantity:
         return [
             {
@@ -499,44 +476,66 @@ def _prepare_sync_claim(
         )
 
         if order.status == Order.STATUS_CANCELLED and not force:
-            return {"skip": True, "result": {
-                "ok": False, "skipped": True, "reason": "order_cancelled",
-                "order_id": str(order.pk),
-            }}
+            return {
+                "skip": True,
+                "result": {
+                    "ok": False,
+                    "skipped": True,
+                    "reason": "order_cancelled",
+                    "order_id": str(order.pk),
+                },
+            }
 
         if paid and order.onec_paid and order.onec_sync_status == Order.ONEC_SYNC_PAID:
-            return {"skip": True, "result": {
-                "ok": True, "skipped": True, "reason": "already_paid_synced",
-                "order_id": str(order.pk), "documentId": order.onec_document_id,
-            }}
+            return {
+                "skip": True,
+                "result": {
+                    "ok": True,
+                    "skipped": True,
+                    "reason": "already_paid_synced",
+                    "order_id": str(order.pk),
+                    "documentId": order.onec_document_id,
+                },
+            }
 
         if (
             not paid
-            and order.onec_sync_status
-            in (Order.ONEC_SYNC_SYNCED, Order.ONEC_SYNC_PAID)
+            and order.onec_sync_status in (Order.ONEC_SYNC_SYNCED, Order.ONEC_SYNC_PAID)
             and order.onec_document_id
             and not force
         ):
-            return {"skip": True, "result": {
-                "ok": True, "skipped": True, "reason": "already_synced",
-                "order_id": str(order.pk), "documentId": order.onec_document_id,
-            }}
+            return {
+                "skip": True,
+                "result": {
+                    "ok": True,
+                    "skipped": True,
+                    "reason": "already_synced",
+                    "order_id": str(order.pk),
+                    "documentId": order.onec_document_id,
+                },
+            }
 
         if order.onec_sync_status == Order.ONEC_SYNC_PENDING_REVIEW and not force:
-            return {"skip": True, "result": {
-                "ok": False, "skipped": True, "reason": "pending_review",
-                "order_id": str(order.pk),
-            }}
+            return {
+                "skip": True,
+                "result": {
+                    "ok": False,
+                    "skipped": True,
+                    "reason": "pending_review",
+                    "order_id": str(order.pk),
+                },
+            }
 
-        if (
-            order.onec_sync_status == Order.ONEC_SYNC_PENDING
-            and (order.onec_sync_claim or "").strip()
-            and not force
-        ):
-            return {"skip": True, "result": {
-                "ok": False, "skipped": True, "reason": "sync_in_flight",
-                "order_id": str(order.pk),
-            }}
+        if order.onec_sync_status == Order.ONEC_SYNC_PENDING and (order.onec_sync_claim or "").strip() and not force:
+            return {
+                "skip": True,
+                "result": {
+                    "ok": False,
+                    "skipped": True,
+                    "reason": "sync_in_flight",
+                    "order_id": str(order.pk),
+                },
+            }
 
         if not order_sync_enabled() and client is None:
             _save_order_fields(
@@ -544,10 +543,15 @@ def _prepare_sync_claim(
                 onec_sync_status=Order.ONEC_SYNC_DISABLED,
                 onec_last_error="ONE_C_ORDER_SYNC_ENABLED/ONE_C_API_ENABLED выключены",
             )
-            return {"skip": True, "result": {
-                "ok": False, "skipped": True, "reason": "sync_disabled",
-                "order_id": str(order.pk),
-            }}
+            return {
+                "skip": True,
+                "result": {
+                    "ok": False,
+                    "skipped": True,
+                    "reason": "sync_disabled",
+                    "order_id": str(order.pk),
+                },
+            }
 
         try:
             assert_onec_base_url_configured()
@@ -557,20 +561,22 @@ def _prepare_sync_claim(
                 onec_sync_status=Order.ONEC_SYNC_BLOCKED,
                 onec_last_error=str(exc)[:512],
             )
-            return {"skip": True, "result": {
-                "ok": False, "blocked": True, "reason": str(exc),
-                "order_id": str(order.pk),
-            }}
+            return {
+                "skip": True,
+                "result": {
+                    "ok": False,
+                    "blocked": True,
+                    "reason": str(exc),
+                    "order_id": str(order.pk),
+                },
+            }
 
         has_client = bool((order.onec_client_id or "").strip())
         if not has_client and order.user_id:
             partner = (getattr(order.user, "onec_partner_id", None) or "").strip()
             has_client = bool(partner)
 
-        needs_external_reg = (
-            not has_client
-            and not order.onec_payload_snapshot
-        )
+        needs_external_reg = not has_client and not order.onec_payload_snapshot
         if needs_external_reg:
             return {
                 "skip": False,
@@ -590,24 +596,25 @@ def _prepare_sync_claim(
                 # Только уже известный ClientId (HTTP регистрации — снаружи)
                 client_id = (order.onec_client_id or "").strip()
                 if not client_id and order.user_id:
-                    client_id = (
-                        getattr(order.user, "onec_partner_id", None) or ""
-                    ).strip()
+                    client_id = (getattr(order.user, "onec_partner_id", None) or "").strip()
                 if not client_id:
                     raise OneCOrderSyncBlocked("Нет ClientId для заказа")
-                payload = build_order_payload(
-                    order, paid=paid, client_id=client_id, warehouse_id=warehouse_id
-                )
+                payload = build_order_payload(order, paid=paid, client_id=client_id, warehouse_id=warehouse_id)
         except OneCOrderSyncBlocked as exc:
             _save_order_fields(
                 order,
                 onec_sync_status=Order.ONEC_SYNC_BLOCKED,
                 onec_last_error=str(exc)[:512],
             )
-            return {"skip": True, "result": {
-                "ok": False, "blocked": True, "reason": str(exc),
-                "order_id": str(order.pk),
-            }}
+            return {
+                "skip": True,
+                "result": {
+                    "ok": False,
+                    "blocked": True,
+                    "reason": str(exc),
+                    "order_id": str(order.pk),
+                },
+            }
 
         claim = uuid.uuid4().hex
         if not order.onec_payload_snapshot:
@@ -638,11 +645,7 @@ def _finish_guest_registration(order_id, *, client: OneCClient | None) -> dict[s
     from apps.orders.models import Order
 
     with transaction.atomic():
-        order = (
-            Order.objects.select_for_update()
-            .select_related("user")
-            .get(pk=order_id)
-        )
+        order = Order.objects.select_for_update().select_related("user").get(pk=order_id)
         if (order.onec_client_id or "").strip():
             return {"ok": True, "client_id": order.onec_client_id}
         # снимок полей для HTTP
@@ -729,26 +732,17 @@ def _apply_sync_result(
         if http_error is not None:
             msg = str(http_error)[:512]
             # Таймаут/сеть: документ мог создаться — статус error, повтор orderId допустим
-            retryable = (
-                http_error.status_code is None
-                or http_error.status_code in _ORDER_RETRYABLE_STATUS
-            )
+            retryable = http_error.status_code is None or http_error.status_code in _ORDER_RETRYABLE_STATUS
             if http_error.status_code in _FATAL_STATUS:
                 retryable = False
-            status = (
-                Order.ONEC_SYNC_PENDING_REVIEW
-                if http_error.status_code is None
-                else Order.ONEC_SYNC_ERROR
-            )
+            status = Order.ONEC_SYNC_PENDING_REVIEW if http_error.status_code is None else Order.ONEC_SYNC_ERROR
             _save_order_fields(
                 order,
                 onec_last_error=msg,
                 onec_sync_status=status,
                 onec_sync_claim="",
             )
-            raise OneCOrderSyncError(
-                msg, retryable=retryable, status_code=http_error.status_code
-            )
+            raise OneCOrderSyncError(msg, retryable=retryable, status_code=http_error.status_code)
 
         assert result is not None
         doc_id = str(result.get("documentId") or "").strip()
@@ -820,9 +814,7 @@ def sync_order_to_onec(
     Создаёт/обновляет документ заказа в 1С.
     HTTP вне длительного select_for_update.
     """
-    prepared = _prepare_sync_claim(
-        order_id, paid=paid, force=force, client=client
-    )
+    prepared = _prepare_sync_claim(order_id, paid=paid, force=force, client=client)
     if prepared.get("skip"):
         return prepared["result"]
 
@@ -842,11 +834,7 @@ def sync_order_to_onec(
             from apps.orders.models import Order
 
             with transaction.atomic():
-                order = (
-                    Order.objects.select_for_update()
-                    .select_related("user", "user__profile")
-                    .get(pk=order_id)
-                )
+                order = Order.objects.select_for_update().select_related("user", "user__profile").get(pk=order_id)
                 user = order.user
             if user is None:
                 return {
@@ -888,9 +876,7 @@ def sync_order_to_onec(
                 order = Order.objects.select_for_update().get(pk=order_id)
                 _save_order_fields(order, onec_client_id=result.partner_id)
 
-        prepared = _prepare_sync_claim(
-            order_id, paid=paid, force=force, client=client
-        )
+        prepared = _prepare_sync_claim(order_id, paid=paid, force=force, client=client)
         if prepared.get("skip"):
             return prepared["result"]
         if prepared.get("needs_guest_reg") or prepared.get("needs_user_reg"):
@@ -970,10 +956,7 @@ def cancel_order_in_onec(
                 "order_id": str(order.pk),
             }
 
-        if (
-            order.onec_sync_status == Order.ONEC_SYNC_PENDING
-            and (order.onec_sync_claim or "").strip()
-        ):
+        if order.onec_sync_status == Order.ONEC_SYNC_PENDING and (order.onec_sync_claim or "").strip():
             return {
                 "ok": False,
                 "skipped": True,
@@ -982,9 +965,7 @@ def cancel_order_in_onec(
             }
 
         paid = bool(order.onec_paid)
-        order_id_1c = str(
-            (order.onec_payload_snapshot or {}).get("orderId") or order.pk
-        )
+        order_id_1c = str((order.onec_payload_snapshot or {}).get("orderId") or order.pk)
         claim = uuid.uuid4().hex
         _save_order_fields(
             order,
@@ -1010,10 +991,7 @@ def cancel_order_in_onec(
                 "order_id": str(order.pk),
             }
         if http_error is not None:
-            retryable = (
-                http_error.status_code is None
-                or http_error.status_code in _ORDER_RETRYABLE_STATUS
-            )
+            retryable = http_error.status_code is None or http_error.status_code in _ORDER_RETRYABLE_STATUS
             if http_error.status_code in _FATAL_STATUS:
                 retryable = False
             _save_order_fields(
@@ -1052,6 +1030,4 @@ def cancel_order_in_onec(
 
 
 def push_order_to_onec(order: Any, *, client: Any = None) -> dict[str, Any]:
-    return sync_order_to_onec(
-        order.pk if hasattr(order, "pk") else order, client=client
-    )
+    return sync_order_to_onec(order.pk if hasattr(order, "pk") else order, client=client)

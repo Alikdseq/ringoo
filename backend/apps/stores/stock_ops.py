@@ -48,10 +48,7 @@ def build_onec_import_idempotency_key(
     key = f"onec:{digest}"
     if len(key) > _ONEC_IDEMPOTENCY_MAX_LEN:
         # Защита от будущих изменений формата; текущий ключ всегда 69.
-        raise ValueError(
-            f"onec idempotency key length {len(key)} exceeds "
-            f"{_ONEC_IDEMPOTENCY_MAX_LEN}"
-        )
+        raise ValueError(f"onec idempotency key length {len(key)} exceeds " f"{_ONEC_IDEMPOTENCY_MAX_LEN}")
     return key
 
 
@@ -60,9 +57,7 @@ def _require_idempotency_key(key: str) -> str:
     if not key:
         raise ValueError("idempotency_key required")
     if len(key) > _ONEC_IDEMPOTENCY_MAX_LEN:
-        raise ValueError(
-            f"idempotency_key length {len(key)} exceeds {_ONEC_IDEMPOTENCY_MAX_LEN}"
-        )
+        raise ValueError(f"idempotency_key length {len(key)} exceeds {_ONEC_IDEMPOTENCY_MAX_LEN}")
     return key
 
 
@@ -113,9 +108,7 @@ def reserve_at_store(
     else:
         before = _sum_reserved(product_id, store_id, "")
         ok = Stock.reserve_atomic(product_id, store_id, amount)
-    after = _sum_reserved(
-        product_id, store_id, series if series else ""
-    )
+    after = _sum_reserved(product_id, store_id, series if series else "")
     record_stock_movement(
         operation=StockMovement.OP_RESERVE,
         idempotency_key=key,
@@ -308,9 +301,7 @@ def restock_at_store(
     if StockMovement.objects.filter(idempotency_key=key, success=True).exists():
         return True
     series = (series_id or "").strip()
-    qs = Stock.objects.select_for_update().filter(
-        product_id=product_id, store_id=store_id, onec_series_id=series
-    )
+    qs = Stock.objects.select_for_update().filter(product_id=product_id, store_id=store_id, onec_series_id=series)
     stock = qs.first()
     qty_before = int(stock.quantity) if stock else 0
     res_before = int(stock.reserved_quantity) if stock else 0
@@ -369,9 +360,7 @@ def apply_onec_stock_upsert(
     if idempotency_key:
         key = _require_idempotency_key(idempotency_key)
     elif run_id:
-        key = build_onec_import_idempotency_key(
-            run_id, product_id, store_id, series_id
-        )
+        key = build_onec_import_idempotency_key(run_id, product_id, store_id, series_id)
     else:
         # Прямой вызов без контекста плана: всегда новая операция (не кэшируем по qty).
         key = f"onec_stock:{uuid.uuid4().hex}"
@@ -382,15 +371,11 @@ def apply_onec_stock_upsert(
     prior = StockMovement.objects.filter(idempotency_key=key).first()
     if prior is not None:
         if prior.success:
-            row = Stock.objects.filter(
-                product_id=product_id, store_id=store_id, onec_series_id=series_id
-            ).first()
+            row = Stock.objects.filter(product_id=product_id, store_id=store_id, onec_series_id=series_id).first()
             return row, False
         prior.delete()
 
-    existing = Stock.objects.filter(
-        product_id=product_id, store_id=store_id, onec_series_id=series_id
-    ).first()
+    existing = Stock.objects.filter(product_id=product_id, store_id=store_id, onec_series_id=series_id).first()
     qty_before = int(existing.quantity) if existing else 0
     res_before = int(existing.reserved_quantity) if existing else 0
     row, created = Stock.objects.update_or_create(
@@ -468,9 +453,7 @@ def apply_onec_stock_upserts_batch(
         series_id = (raw.series_id or "").strip()
         series_name = (raw.series_name or "")[:255]
         qty = max(0, int(raw.quantity))
-        key = build_onec_import_idempotency_key(
-            run, raw.product_id, raw.store_id, series_id
-        )
+        key = build_onec_import_idempotency_key(run, raw.product_id, raw.store_id, series_id)
         prepared.append((key, raw, series_id, series_name, qty))
 
     keys = [k for k, *_ in prepared]
@@ -479,11 +462,7 @@ def apply_onec_stock_upserts_batch(
         for mov in StockMovement.objects.filter(idempotency_key__in=list(chunk)):
             prior_by_key[mov.idempotency_key] = mov
 
-    failed_ids = [
-        mov.pk
-        for mov in prior_by_key.values()
-        if not mov.success
-    ]
+    failed_ids = [mov.pk for mov in prior_by_key.values() if not mov.success]
     if failed_ids:
         for chunk in _chunked(failed_ids, _BATCH_IN_CHUNK):
             StockMovement.objects.filter(pk__in=list(chunk)).delete()
@@ -512,13 +491,9 @@ def apply_onec_stock_upserts_batch(
     product_ids = {p.product_id for _, p, *_ in pending}
     store_ids = {p.store_id for _, p, *_ in pending}
     existing_map: dict[tuple[str, str, str], Stock] = {}
-    for row in Stock.objects.filter(
-        product_id__in=product_ids, store_id__in=store_ids
-    ).iterator():
+    for row in Stock.objects.filter(product_id__in=product_ids, store_id__in=store_ids).iterator():
         # Нормализуем UUID/str: stocks_to_zero несёт site_* как str из плана.
-        existing_map[
-            (str(row.product_id), str(row.store_id), row.onec_series_id or "")
-        ] = row
+        existing_map[(str(row.product_id), str(row.store_id), row.onec_series_id or "")] = row
 
     to_create: list[Stock] = []
     to_update: list[Stock] = []
@@ -591,7 +566,7 @@ def apply_onec_stock_upserts_batch(
 
 def sum_available_quantity(qs) -> int:
     """SQL-сумма max(0, quantity - reserved) без выгрузки строк в Python."""
-    result = qs.annotate(
-        avail=Greatest(F("quantity") - F("reserved_quantity"), Value(0))
-    ).aggregate(total=Coalesce(Sum("avail"), Value(0)))
+    result = qs.annotate(avail=Greatest(F("quantity") - F("reserved_quantity"), Value(0))).aggregate(
+        total=Coalesce(Sum("avail"), Value(0))
+    )
     return int(result["total"] or 0)

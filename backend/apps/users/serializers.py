@@ -3,9 +3,10 @@
 """
 
 from django.utils import timezone
+
 from rest_framework import serializers
 
-from .models import CustomUser, UserProfile, DeliveryAddress
+from .models import CustomUser, DeliveryAddress, UserProfile
 from .services import is_valid_phone, normalize_phone
 
 

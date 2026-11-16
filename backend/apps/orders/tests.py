@@ -8,20 +8,21 @@ from unittest.mock import patch
 
 from django.test import TestCase, TransactionTestCase
 from django.urls import reverse
+
 from rest_framework.test import APIClient
 
 from apps.products.models import Category, Product
-from apps.stores.models import Store, Stock
+from apps.stores.models import Stock, Store
 from apps.users.models import CustomUser
 
-from .models import Order, OrderItem
-from .tasks import send_order_notifications
 from .delivery_address import normalize_delivery_address
+from .models import Order, OrderItem
 from .serializers import (
     OrderCreateSerializer,
     OrderItemSerializer,
     OrderSerializer,
 )
+from .tasks import send_order_notifications
 
 
 class TestOrderItemSerializer(TestCase):

@@ -85,17 +85,13 @@ class BonusAccountAdminListView(ListAPIView):
         if search:
             from django.db.models import Q
 
-            qs = qs.filter(
-                Q(user__phone__icontains=search) | Q(user__email__icontains=search)
-            )
+            qs = qs.filter(Q(user__phone__icontains=search) | Q(user__email__icontains=search))
         return qs
 
 
 class BonusAccountAdminDetailView(RetrieveAPIView):
     permission_classes = admin_permissions(RINGOO_GROUP_BONUS)
-    queryset = BonusAccount.objects.select_related("user").prefetch_related(
-        "transactions"
-    )
+    queryset = BonusAccount.objects.select_related("user").prefetch_related("transactions")
     serializer_class = BonusAccountDetailSerializer
     lookup_url_kwarg = "pk"
     lookup_field = "pk"
@@ -107,13 +103,9 @@ class BonusAccountAdjustView(APIView):
     permission_classes = admin_permissions(RINGOO_GROUP_BONUS)
 
     def post(self, request, pk):
-        account = (
-            BonusAccount.objects.filter(pk=pk).select_related("user").first()
-        )
+        account = BonusAccount.objects.filter(pk=pk).select_related("user").first()
         if not account:
-            return Response(
-                {"detail": "Счёт не найден."}, status=status.HTTP_404_NOT_FOUND
-            )
+            return Response({"detail": "Счёт не найден."}, status=status.HTTP_404_NOT_FOUND)
         amount = request.data.get("amount")
         description = (request.data.get("description") or "").strip() or None
         if amount is None:
@@ -130,11 +122,7 @@ class BonusAccountAdjustView(APIView):
             )
         actor = request.user
         actor_tag = f"[admin:{actor.pk}]"
-        full_description = (
-            f"{actor_tag} {description}".strip()
-            if description
-            else actor_tag
-        )
+        full_description = f"{actor_tag} {description}".strip() if description else actor_tag
         try:
             txn = admin_adjust(account, amount_dec, full_description)
             log_admin_action(

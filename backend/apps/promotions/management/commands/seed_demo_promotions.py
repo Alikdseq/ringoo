@@ -1,6 +1,7 @@
 """
 Демо-акции для витрины и ngrok (идемпотентно по title).
 """
+
 from datetime import timedelta
 from decimal import Decimal
 
@@ -93,7 +94,5 @@ class Command(BaseCommand):
 
         total = Promotion.objects.filter(is_active=True).count()
         self.stdout.write(
-            self.style.SUCCESS(
-                f"Demo promotions: created={created}, updated={updated}, active_total={total}"
-            )
+            self.style.SUCCESS(f"Demo promotions: created={created}, updated={updated}, active_total={total}")
         )

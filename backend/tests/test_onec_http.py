@@ -101,9 +101,7 @@ class OneCHttpClientTests(TestCase):
 
     def test_build_url(self):
         client = OneCClient(enabled=False, base_url="http://localhost/razrab/hs")
-        self.assertTrue(
-            client.build_url("CatalogFolders/folders").endswith("CatalogFolders/folders")
-        )
+        self.assertTrue(client.build_url("CatalogFolders/folders").endswith("CatalogFolders/folders"))
 
     def test_fetch_folders_success_and_basic_auth(self):
         client = OneCClient(
@@ -159,9 +157,7 @@ class OneCHttpClientTests(TestCase):
             password="p",
         )
 
-        err = urllib.error.HTTPError(
-            "http://example.test/x", 401, "Unauthorized", hdrs=None, fp=io.BytesIO(b"deny")
-        )
+        err = urllib.error.HTTPError("http://example.test/x", 401, "Unauthorized", hdrs=None, fp=io.BytesIO(b"deny"))
         with patch.object(OneCClient, "_http_open", side_effect=err):
             with self.assertRaises(OneCClientError) as ctx:
                 client.fetch_folders_xml()
@@ -177,9 +173,7 @@ class OneCHttpClientTests(TestCase):
             password="p",
         )
         for code in (404, 405, 500):
-            err = urllib.error.HTTPError(
-                "http://example.test/x", code, "err", hdrs=None, fp=io.BytesIO(b"x")
-            )
+            err = urllib.error.HTTPError("http://example.test/x", code, "err", hdrs=None, fp=io.BytesIO(b"x"))
             with patch.object(OneCClient, "_http_open", side_effect=err):
                 with self.assertRaises(OneCClientError) as ctx:
                     client.fetch_products_xml()
@@ -255,9 +249,7 @@ class OneCParserHttpShapeTests(TestCase):
 
     def test_multi_warehouse_one_card_zero_vs_empty(self):
         ensure_confirmed_stores()
-        plan = plan_catalog_import_from_xml_strings(
-            FOLDERS_XML, PRODUCTS_XML, mode=ImportMode.DRY_RUN
-        )
+        plan = plan_catalog_import_from_xml_strings(FOLDERS_XML, PRODUCTS_XML, mode=ImportMode.DRY_RUN)
         codes = [p.onec_code for p in plan.products]
         self.assertEqual(codes.count("00-00000126"), 1)
         stocks_126 = [s for s in plan.stocks if s.onec_code == "00-00000126"]
@@ -274,9 +266,7 @@ class OneCParserHttpShapeTests(TestCase):
         from apps.products.models import Category, Product
 
         ensure_confirmed_stores()
-        plan = plan_catalog_import_from_xml_strings(
-            FOLDERS_XML, PRODUCTS_XML_APPLY, mode=ImportMode.APPLY
-        )
+        plan = plan_catalog_import_from_xml_strings(FOLDERS_XML, PRODUCTS_XML_APPLY, mode=ImportMode.APPLY)
         self.assertTrue(plan.apply_allowed, plan.apply_blockers)
         result = apply_catalog_import(plan)
         self.assertGreater(result["categories"], 0)
@@ -307,16 +297,12 @@ class OneCRegistrationTests(TestCase):
             username="u",
             password="p",
         )
-        body = json.dumps(
-            {"ClientId": "7d29c3b4-7d95-4e25-9dd9-4cb35c236b7c", "created": True}
-        ).encode()
+        body = json.dumps({"ClientId": "7d29c3b4-7d95-4e25-9dd9-4cb35c236b7c", "created": True}).encode()
 
         with patch.object(
             OneCClient,
             "_http_open",
-            return_value=_FakeHTTPResponse(
-                body, status=201, content_type="application/json"
-            ),
+            return_value=_FakeHTTPResponse(body, status=201, content_type="application/json"),
         ):
             result = register_user_in_onec(user, client=client)
 
@@ -333,15 +319,11 @@ class OneCRegistrationTests(TestCase):
             username="u",
             password="p",
         )
-        body = json.dumps(
-            {"partnerId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", "created": False}
-        ).encode()
+        body = json.dumps({"partnerId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", "created": False}).encode()
         with patch.object(
             OneCClient,
             "_http_open",
-            return_value=_FakeHTTPResponse(
-                body, status=200, content_type="application/json"
-            ),
+            return_value=_FakeHTTPResponse(body, status=200, content_type="application/json"),
         ):
             result = register_user_in_onec(user, client=client)
         user.refresh_from_db()

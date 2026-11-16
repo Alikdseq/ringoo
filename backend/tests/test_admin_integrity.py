@@ -6,6 +6,7 @@ from decimal import Decimal
 
 from django.contrib.auth.models import Group
 from django.test import TestCase, override_settings
+
 from rest_framework import status
 from rest_framework.test import APIClient
 
@@ -34,16 +35,10 @@ class TestAdminIntegrityChains(TestCase):
         for name in ALL_ADMIN_GROUPS:
             Group.objects.get_or_create(name=name)
         self.client = APIClient()
-        self.superuser = CustomUser.objects.create_superuser(
-            "79990000001", password="secretpass123"
-        )
-        self.staff_orders = CustomUser.objects.create_user(
-            "79990000002", password="secretpass123", is_staff=True
-        )
+        self.superuser = CustomUser.objects.create_superuser("79990000001", password="secretpass123")
+        self.staff_orders = CustomUser.objects.create_user("79990000002", password="secretpass123", is_staff=True)
         self.staff_orders.groups.add(Group.objects.get(name=RINGOO_GROUP_ORDERS))
-        self.staff_full = CustomUser.objects.create_user(
-            "79990000003", password="secretpass123", is_staff=True
-        )
+        self.staff_full = CustomUser.objects.create_user("79990000003", password="secretpass123", is_staff=True)
         for name in ALL_ADMIN_GROUPS:
             self.staff_full.groups.add(Group.objects.get(name=name))
 
@@ -96,9 +91,7 @@ class TestAdminIntegrityChains(TestCase):
         self.assertEqual(pub.status_code, 200)
         self.assertEqual(pub.json()["price"], "99990.00")
 
-        Stock.objects.create(
-            product=product, store=self.store, quantity=5, reserved_quantity=0
-        )
+        Stock.objects.create(product=product, store=self.store, quantity=5, reserved_quantity=0)
         stock = self.client.get(f"/api/v1/products/products/{product_id}/stock/")
         self.assertEqual(stock.status_code, 200)
         rows = stock.json()["results"]
@@ -229,9 +222,7 @@ class TestAdminIntegrityChains(TestCase):
         self.assertEqual(r2.status_code, 200)
 
     def test_superuser_assigns_groups(self):
-        target = CustomUser.objects.create_user(
-            "79990000030", password="secretpass123", is_staff=True
-        )
+        target = CustomUser.objects.create_user("79990000030", password="secretpass123", is_staff=True)
         self.client.force_authenticate(user=self.superuser)
         r = self.client.patch(
             f"/api/v1/admin/users/{target.id}/patch/",

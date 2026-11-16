@@ -8,7 +8,6 @@ from unittest.mock import patch
 from django.test import TestCase
 
 from apps.stores.models import Store
-
 from integrations.maps_service import (
     _validate_yandex_geocode_response,
     distance_km,

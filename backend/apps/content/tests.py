@@ -6,6 +6,7 @@ from decimal import Decimal
 
 from django.test import TestCase, override_settings
 from django.urls import reverse
+
 from rest_framework import status
 from rest_framework.test import APIClient
 
@@ -88,9 +89,7 @@ class TestContentSerializers(TestCase):
         self.assertTrue(data["is_approved"])
 
 
-@override_settings(
-    DEBUG_TOOLBAR_CONFIG={"SHOW_TOOLBAR_CALLBACK": lambda request: False}
-)
+@override_settings(DEBUG_TOOLBAR_CONFIG={"SHOW_TOOLBAR_CALLBACK": lambda request: False})
 class TestContentAPI(TestCase):
     """Тесты API контента (задача 2.2.6)."""
 
@@ -197,9 +196,7 @@ class TestContentAPI(TestCase):
             is_approved=False,
         )
         url = reverse("api_v1:content:review-list")
-        response = self.client.get(
-            url, {"product": str(product.id), "is_approved": "false"}
-        )
+        response = self.client.get(url, {"product": str(product.id), "is_approved": "false"})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         results = response.json().get("results", response.json())
         self.assertEqual(len(results), 1)

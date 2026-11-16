@@ -24,11 +24,7 @@ from tests.onec_test_utils import (
     ensure_confirmed_stores,
 )
 
-
-FOLDERS = (
-    '<ПапкиНоменклатуры><Папка code="F1" parentCode="" name="Phones"/>'
-    "</ПапкиНоменклатуры>"
-)
+FOLDERS = '<ПапкиНоменклатуры><Папка code="F1" parentCode="" name="Phones"/>' "</ПапкиНоменклатуры>"
 
 
 def _products_xml(
@@ -55,15 +51,9 @@ def _products_xml(
 
 class OneCStockIdempotencyKeyTests(TestCase):
     def test_key_is_stable_and_under_128_without_qty(self):
-        key_a = build_onec_import_idempotency_key(
-            "run-1", "prod-1", "store-1", "series-1"
-        )
-        key_b = build_onec_import_idempotency_key(
-            "run-1", "prod-1", "store-1", "series-1"
-        )
-        key_other_qty_same_dims = build_onec_import_idempotency_key(
-            "run-1", "prod-1", "store-1", "series-1"
-        )
+        key_a = build_onec_import_idempotency_key("run-1", "prod-1", "store-1", "series-1")
+        key_b = build_onec_import_idempotency_key("run-1", "prod-1", "store-1", "series-1")
+        key_other_qty_same_dims = build_onec_import_idempotency_key("run-1", "prod-1", "store-1", "series-1")
         self.assertEqual(key_a, key_b)
         self.assertEqual(key_a, key_other_qty_same_dims)
         self.assertTrue(key_a.startswith("onec:"))
@@ -72,15 +62,9 @@ class OneCStockIdempotencyKeyTests(TestCase):
 
     def test_key_differs_by_run_series_store(self):
         base = build_onec_import_idempotency_key("r1", "p", "s", "ser")
-        self.assertNotEqual(
-            base, build_onec_import_idempotency_key("r2", "p", "s", "ser")
-        )
-        self.assertNotEqual(
-            base, build_onec_import_idempotency_key("r1", "p", "s", "ser2")
-        )
-        self.assertNotEqual(
-            base, build_onec_import_idempotency_key("r1", "p", "s2", "ser")
-        )
+        self.assertNotEqual(base, build_onec_import_idempotency_key("r2", "p", "s", "ser"))
+        self.assertNotEqual(base, build_onec_import_idempotency_key("r1", "p", "s", "ser2"))
+        self.assertNotEqual(base, build_onec_import_idempotency_key("r1", "p", "s2", "ser"))
 
     def test_long_series_id_does_not_truncate_or_collide(self):
         series_64 = "s" * 64
@@ -138,9 +122,7 @@ class OneCStockUpsertOscillationTests(TestCase):
             self.assertEqual(self.stock.reserved_quantity, 2)
 
         self.assertEqual(
-            StockMovement.objects.filter(
-                operation=StockMovement.OP_RECONCILIATION, success=True
-            ).count(),
+            StockMovement.objects.filter(operation=StockMovement.OP_RECONCILIATION, success=True).count(),
             3,
         )
 
@@ -167,17 +149,13 @@ class OneCStockUpsertOscillationTests(TestCase):
         self.assertEqual(self.stock.quantity, 5)
         self.assertEqual(self.stock.reserved_quantity, 2)
         self.assertEqual(
-            StockMovement.objects.filter(
-                operation=StockMovement.OP_RECONCILIATION
-            ).count(),
+            StockMovement.objects.filter(operation=StockMovement.OP_RECONCILIATION).count(),
             1,
         )
 
     def test_failed_prior_movement_allows_retry_same_key(self):
         """ONEC-024: success=False с тем же ключом не блокирует повторный apply."""
-        key = build_onec_import_idempotency_key(
-            "retry-run", self.product.pk, self.store.pk, ""
-        )
+        key = build_onec_import_idempotency_key("retry-run", self.product.pk, self.store.pk, "")
         StockMovement.objects.create(
             operation=StockMovement.OP_RECONCILIATION,
             idempotency_key=key,
@@ -226,9 +204,7 @@ class OneCStockUpsertOscillationTests(TestCase):
         self.stock.refresh_from_db()
         self.assertEqual(self.stock.quantity, 5)
         self.assertEqual(
-            StockMovement.objects.filter(
-                operation=StockMovement.OP_RECONCILIATION
-            ).count(),
+            StockMovement.objects.filter(operation=StockMovement.OP_RECONCILIATION).count(),
             2,
         )
 
@@ -272,9 +248,7 @@ class OneCStockUpsertOscillationTests(TestCase):
             quantity=1,
             run_id="ser-run-3",
         )
-        serial = Stock.objects.get(
-            product=self.product, store=self.store, onec_series_id=series_64
-        )
+        serial = Stock.objects.get(product=self.product, store=self.store, onec_series_id=series_64)
         self.assertEqual(serial.quantity, 1)
         self.stock.refresh_from_db()
         self.assertEqual(self.stock.quantity, 0)  # blank-series row untouched qty
@@ -306,15 +280,9 @@ class OneCStockUpsertOscillationTests(TestCase):
             quantity=9,
             run_id="multi-1",
         )
-        a = Stock.objects.get(
-            product=self.product, store=self.store, onec_series_id="ser-A"
-        )
-        b = Stock.objects.get(
-            product=self.product, store=self.store, onec_series_id="ser-B"
-        )
-        c = Stock.objects.get(
-            product=self.product, store=store2, onec_series_id="ser-A"
-        )
+        a = Stock.objects.get(product=self.product, store=self.store, onec_series_id="ser-A")
+        b = Stock.objects.get(product=self.product, store=self.store, onec_series_id="ser-B")
+        c = Stock.objects.get(product=self.product, store=store2, onec_series_id="ser-A")
         self.assertEqual(a.quantity, 3)
         self.assertEqual(b.quantity, 7)
         self.assertEqual(c.quantity, 9)
@@ -323,9 +291,7 @@ class OneCStockUpsertOscillationTests(TestCase):
 class OneCCatalogPlanReapplyTests(TestCase):
     def setUp(self):
         stores = ensure_confirmed_stores()
-        self.category = Category.objects.create(
-            title="Phones", slug="phones-idem", onec_code="F1"
-        )
+        self.category = Category.objects.create(title="Phones", slug="phones-idem", onec_code="F1")
         self.product = Product.objects.create(
             title="Phone",
             slug="phone-idem",
@@ -366,9 +332,7 @@ class OneCCatalogPlanReapplyTests(TestCase):
         self.assertEqual(r1b["stocks_upserted"], 0)
         self.assertEqual(r1b["stocks_skipped_idempotent"], 1)
         self.assertEqual(
-            StockMovement.objects.filter(
-                operation=StockMovement.OP_RECONCILIATION, success=True
-            ).count(),
+            StockMovement.objects.filter(operation=StockMovement.OP_RECONCILIATION, success=True).count(),
             1,
         )
 
@@ -385,9 +349,7 @@ class OneCCatalogPlanReapplyTests(TestCase):
         self.assertNotEqual(plan5.run_id, plan5b.run_id)
         self.assertEqual(r3["stocks_upserted"], 1)
         self.assertEqual(
-            StockMovement.objects.filter(
-                operation=StockMovement.OP_RECONCILIATION, success=True
-            ).count(),
+            StockMovement.objects.filter(operation=StockMovement.OP_RECONCILIATION, success=True).count(),
             3,
         )
 

@@ -94,12 +94,8 @@ class CompletedReleasesReserveTests(TestCase):
 
     def test_completed_twice_idempotent(self):
         order, stock, _p, _s = _make_order_with_reserve(qty=1, reserved=1)
-        transition_order_status(
-            order, Order.STATUS_CLOSED, closure_result=Order.CLOSURE_COMPLETED
-        )
-        transition_order_status(
-            order, Order.STATUS_CLOSED, closure_result=Order.CLOSURE_COMPLETED
-        )
+        transition_order_status(order, Order.STATUS_CLOSED, closure_result=Order.CLOSURE_COMPLETED)
+        transition_order_status(order, Order.STATUS_CLOSED, closure_result=Order.CLOSURE_COMPLETED)
         stock.refresh_from_db()
         self.assertEqual(stock.reserved_quantity, 0)
         self.assertEqual(stock.quantity, 10)
@@ -140,8 +136,7 @@ class CompletedReleasesReserveTests(TestCase):
         self.assertEqual(stock.reserved_quantity, 0)
         self.assertEqual(
             StockMovement.objects.filter(
-                idempotency_key=f"release:order:{order.pk}:item:"
-                f"{order.items.get().pk}",
+                idempotency_key=f"release:order:{order.pk}:item:" f"{order.items.get().pk}",
                 success=True,
             ).count(),
             1,
@@ -150,14 +145,10 @@ class CompletedReleasesReserveTests(TestCase):
 
 class IdempotencyKeyLengthTests(TestCase):
     def test_key_fixed_69_no_truncate_long_series(self):
-        key = build_onec_import_idempotency_key(
-            "run-x", "prod", "store", "S" * 64
-        )
+        key = build_onec_import_idempotency_key("run-x", "prod", "store", "S" * 64)
         self.assertEqual(len(key), 69)
         self.assertTrue(key.startswith("onec:"))
-        key2 = build_onec_import_idempotency_key(
-            "run-y", "prod", "store", "S" * 64
-        )
+        key2 = build_onec_import_idempotency_key("run-y", "prod", "store", "S" * 64)
         self.assertNotEqual(key, key2)
 
 

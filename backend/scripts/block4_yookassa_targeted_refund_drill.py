@@ -16,6 +16,7 @@ Safety:
   - refuses identical FULL/PARTIAL UUIDs
   - never uses live_ keys
 """
+
 from __future__ import annotations
 
 import argparse
@@ -108,9 +109,7 @@ def main() -> int:
         except error.HTTPError as exc:
             raw = exc.read() if exc.fp else b""
             payload = json.loads(raw.decode("utf-8") or "{}")
-            raise RuntimeError(
-                f"HTTP {exc.code}: {payload.get('description') or payload.get('code')}"
-            ) from exc
+            raise RuntimeError(f"HTTP {exc.code}: {payload.get('description') or payload.get('code')}") from exc
         except error.URLError as exc:
             raise RuntimeError(f"unreachable: {exc.reason}") from exc
         return json.loads(raw.decode("utf-8") or "{}") if raw else {}

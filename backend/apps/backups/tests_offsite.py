@@ -62,9 +62,7 @@ class OffsiteBackupTests(TestCase):
             BACKUP_RETENTION_MONTHLY_MONTHS=0,
         )
         self.override.enable()
-        self.user = User.objects.create_user(
-            phone="+79001110001", password="x", is_staff=True, is_superuser=True
-        )
+        self.user = User.objects.create_user(phone="+79001110001", password="x", is_staff=True, is_superuser=True)
 
     def tearDown(self):
         self.override.disable()
@@ -103,9 +101,7 @@ class OffsiteBackupTests(TestCase):
         self.assertTrue(out.offsite_verified_at)
 
     def test_upload_checksum_mismatch_fails(self):
-        archive, _ = create_backup_archive(
-            user=self.user, encrypt_with_env_key=True
-        )
+        archive, _ = create_backup_archive(user=self.user, encrypt_with_env_key=True)
         stored: dict[str, bytes] = {}
 
         def fake_put(*, key, body, content_type="application/octet-stream"):
@@ -140,9 +136,7 @@ class OffsiteBackupTests(TestCase):
             offsite_key="old/key",
             filename="old.zip.enc",
         )
-        BackupArchive.objects.filter(pk=a.pk).update(
-            offsite_uploaded_at=timezone.now() - timedelta(days=400)
-        )
+        BackupArchive.objects.filter(pk=a.pk).update(offsite_uploaded_at=timezone.now() - timedelta(days=400))
         with patch("apps.backups.offsite.delete_object") as delete_mock:
             result = apply_retention_policy()
         self.assertGreaterEqual(

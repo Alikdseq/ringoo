@@ -14,20 +14,21 @@ from django.core.files.base import ContentFile
 from django.db import transaction
 from django.utils.text import slugify
 
-from apps.products.utils import slugify_product_title, unique_product_slug
-
 from apps.products.models import Category, Product, ProductColor, ProductImage
 from apps.products.services.image_pipeline import bytes_to_webp_on_white
+from apps.products.utils import slugify_product_title, unique_product_slug
 
-ALLOWED_CATEGORY_SLUGS = frozenset({
-    "iphone",
-    "samsung",
-    "huawei",
-    "infinix",
-    "realme",
-    "tecno",
-    "xiaomi",
-})
+ALLOWED_CATEGORY_SLUGS = frozenset(
+    {
+        "iphone",
+        "samsung",
+        "huawei",
+        "infinix",
+        "realme",
+        "tecno",
+        "xiaomi",
+    }
+)
 
 REQUIRED_HEADERS = {"sku", "title", "category_slug", "price"}
 
@@ -41,6 +42,7 @@ def _safe_zip_entry_path(name: str) -> bool:
     if not parts or any(p == ".." for p in parts):
         return False
     return True
+
 
 # Русские и английские заголовки → внутреннее имя колонки
 COLUMN_ALIASES: dict[str, str] = {

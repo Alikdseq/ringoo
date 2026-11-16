@@ -7,7 +7,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.audit.services import log_admin_action
-from apps.promotions.models import Promotion, PromoCode
+from apps.promotions.models import PromoCode, Promotion
 
 from ..permissions import RINGOO_GROUP_CATALOG, admin_permissions
 

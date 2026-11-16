@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 from django.test import TestCase, override_settings
 from django.urls import reverse
+
 from rest_framework.test import APIClient
 
 from apps.users.models import ConsentRecord, CustomUser
@@ -59,9 +60,7 @@ class MissingProductRequestCreateAPITest(TestCase):
         }
         response = self.client.post(self.url, data, format="json")
         self.assertEqual(response.status_code, 201)
-        self.assertTrue(
-            ConsentRecord.objects.filter(consent_type=ConsentRecord.TYPE_CRM_LEAD).exists()
-        )
+        self.assertTrue(ConsentRecord.objects.filter(consent_type=ConsentRecord.TYPE_CRM_LEAD).exists())
         self.assertIn("id", response.data)
         self.assertEqual(response.data["product_name"], data["product_name"])
         self.assertEqual(response.data["contact_phone"], data["contact_phone"])

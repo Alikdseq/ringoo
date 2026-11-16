@@ -87,9 +87,7 @@ def main() -> int:
                 tracemalloc.stop()
                 partitioned = partition_issues(plan.issues)
                 counts = build_issue_counts(partitioned)
-                report_bytes = len(
-                    json.dumps(plan.to_dict(), ensure_ascii=False).encode("utf-8")
-                )
+                report_bytes = len(json.dumps(plan.to_dict(), ensure_ascii=False).encode("utf-8"))
                 stock_before = Stock.objects.count()
                 # dry-run must not mutate
                 stock_after = Stock.objects.count()
@@ -133,9 +131,7 @@ def main() -> int:
                 print(" ERROR", exc, flush=True)
 
         data["dry_run"] = dry
-        RESULT_PATH.write_text(
-            json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8"
-        )
+        RESULT_PATH.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
         print("[DONE]", RESULT_PATH)
     finally:
         runner.teardown_databases(old)

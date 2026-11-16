@@ -3,9 +3,11 @@ Unit-тесты промокодов: сервис (2.3.3), API (2.3.4).
 """
 
 from decimal import Decimal
+
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
+
 from rest_framework import status
 from rest_framework.test import APIClient
 
@@ -130,9 +132,7 @@ class TestApplyPromoCode(TestCase):
         self.assertIsNone(result)
 
 
-@override_settings(
-    DEBUG_TOOLBAR_CONFIG={"SHOW_TOOLBAR_CALLBACK": lambda request: False}
-)
+@override_settings(DEBUG_TOOLBAR_CONFIG={"SHOW_TOOLBAR_CALLBACK": lambda request: False})
 class TestPromoCodeValidateAPI(TestCase):
     """Тесты API валидации промокода (задача 2.3.4)."""
 

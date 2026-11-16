@@ -53,12 +53,8 @@ class BackupArchive(models.Model):
         blank=True,
         related_name="backup_archives",
     )
-    status = models.CharField(
-        max_length=16, choices=STATUS_CHOICES, default=STATUS_PENDING, db_index=True
-    )
-    source = models.CharField(
-        max_length=16, choices=SOURCE_CHOICES, default=SOURCE_MANUAL, db_index=True
-    )
+    status = models.CharField(max_length=16, choices=STATUS_CHOICES, default=STATUS_PENDING, db_index=True)
+    source = models.CharField(max_length=16, choices=SOURCE_CHOICES, default=SOURCE_MANUAL, db_index=True)
     filename = models.CharField(max_length=255, blank=True, default="")
     relative_path = models.CharField(max_length=512, blank=True, default="")
     size_bytes = models.BigIntegerField(default=0)

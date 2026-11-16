@@ -9,9 +9,7 @@ from typing import Any
 
 from rest_framework.exceptions import ValidationError
 
-ALLOWED_DELIVERY_ADDRESS_KEYS = frozenset(
-    {"city", "street", "house", "apartment", "postal_code"}
-)
+ALLOWED_DELIVERY_ADDRESS_KEYS = frozenset({"city", "street", "house", "apartment", "postal_code"})
 
 DELIVERY_ADDRESS_MAX_LEN: dict[str, int] = {
     "city": 255,
@@ -33,9 +31,7 @@ def normalize_delivery_address(value: Any) -> dict[str, str]:
         raise ValidationError("Адрес доставки должен быть объектом JSON.")
     unknown = set(value) - ALLOWED_DELIVERY_ADDRESS_KEYS
     if unknown:
-        raise ValidationError(
-            f"Недопустимые поля в адресе: {', '.join(sorted(unknown))}."
-        )
+        raise ValidationError(f"Недопустимые поля в адресе: {', '.join(sorted(unknown))}.")
 
     out: dict[str, str] = {}
     for key in ALLOWED_DELIVERY_ADDRESS_KEYS:

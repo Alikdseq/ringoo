@@ -5,6 +5,7 @@ from decimal import Decimal, InvalidOperation
 
 from django.db.models import Prefetch, Q
 from django.http import HttpResponse
+
 from rest_framework import serializers, status
 from rest_framework.generics import CreateAPIView, ListAPIView, RetrieveAPIView, UpdateAPIView
 from rest_framework.pagination import PageNumberPagination
@@ -50,9 +51,21 @@ class ProductAdminListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
         fields = (
-            "id", "title", "slug", "sku", "category", "price", "old_price",
-            "is_active", "is_featured", "brand", "onec_code", "onec_type",
-            "created_at", "updated_at", "available_quantity_total",
+            "id",
+            "title",
+            "slug",
+            "sku",
+            "category",
+            "price",
+            "old_price",
+            "is_active",
+            "is_featured",
+            "brand",
+            "onec_code",
+            "onec_type",
+            "created_at",
+            "updated_at",
+            "available_quantity_total",
         )
         read_only_fields = fields
 
@@ -340,9 +353,7 @@ class ProductAdminBulkSetActiveView(APIView):
             )
 
         is_active_bool = (
-            is_active
-            if isinstance(is_active, bool)
-            else str(is_active).strip().lower() in {"true", "1", "yes"}
+            is_active if isinstance(is_active, bool) else str(is_active).strip().lower() in {"true", "1", "yes"}
         )
 
         updated = Product.objects.filter(id__in=product_ids).update(is_active=is_active_bool)
@@ -445,9 +456,7 @@ class ProductAdminBulkUpdatePricesView(APIView):
                 "updated": len(to_update),
                 "skipped_onec_managed": len(skipped_onec),
                 "skipped_onec_ids": skipped_onec[:50],
-                "code": (
-                    "onec_managed_prices_skipped" if skipped_onec else None
-                ),
+                "code": ("onec_managed_prices_skipped" if skipped_onec else None),
             }
         )
 
@@ -553,9 +562,7 @@ class CategoryAdminUpdateView(UpdateAPIView):
         if not getattr(settings, "CATEGORY_MANUAL_MUTATIONS_ENABLED", False):
             return Response(
                 {
-                    "detail": (
-                        "Ручное удаление категорий отключено: иерархия управляется из 1С."
-                    ),
+                    "detail": ("Ручное удаление категорий отключено: иерархия управляется из 1С."),
                     "code": "category_manual_mutations_disabled",
                 },
                 status=status.HTTP_403_FORBIDDEN,
@@ -592,9 +599,7 @@ class CategoryAdminCreateView(CreateAPIView):
         if not getattr(settings, "CATEGORY_MANUAL_MUTATIONS_ENABLED", False):
             return Response(
                 {
-                    "detail": (
-                        "Ручное создание категорий отключено: иерархия управляется из 1С."
-                    ),
+                    "detail": ("Ручное создание категорий отключено: иерархия управляется из 1С."),
                     "code": "category_manual_mutations_disabled",
                 },
                 status=status.HTTP_403_FORBIDDEN,
@@ -712,10 +717,7 @@ class ProductSpecAdminUpdateDeleteView(UpdateAPIView):
 def _xlsx_import_disabled_response():
     return Response(
         {
-            "detail": (
-                "Импорт товаров из XLSX временно отключён. "
-                "Каталог синхронизируется из 1С."
-            ),
+            "detail": ("Импорт товаров из XLSX временно отключён. " "Каталог синхронизируется из 1С."),
             "code": "xlsx_import_temporarily_disabled",
         },
         status=status.HTTP_403_FORBIDDEN,
@@ -737,9 +739,7 @@ class ProductImportTemplateDownloadView(APIView):
             data,
             content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         )
-        response["Content-Disposition"] = (
-            'attachment; filename="ringoo_products_import_template.xlsx"'
-        )
+        response["Content-Disposition"] = 'attachment; filename="ringoo_products_import_template.xlsx"'
         return response
 
 
@@ -779,9 +779,5 @@ class ProductBulkImportView(APIView):
                 )
             zip_bytes = archive.read()
         result = run_bulk_import(xlsx_bytes, zip_bytes)
-        code = (
-            status.HTTP_200_OK
-            if result["ok"]
-            else status.HTTP_400_BAD_REQUEST
-        )
+        code = status.HTTP_200_OK if result["ok"] else status.HTTP_400_BAD_REQUEST
         return Response(result, status=code)

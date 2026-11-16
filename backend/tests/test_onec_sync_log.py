@@ -6,6 +6,7 @@ from pathlib import Path
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
+
 from rest_framework.test import APIClient
 
 from apps.products.sync_models import OneCCatalogSyncLog
@@ -18,9 +19,7 @@ FIXTURES = Path(__file__).resolve().parents[1] / "integrations" / "onec" / "fixt
 @override_settings(ADMIN_OTP_ENABLED=False, ONE_C_API_ENABLED=False)
 class OneCSyncLogTests(TestCase):
     def setUp(self):
-        self.admin = User.objects.create_user(
-            phone="79004445566", password="pass", is_staff=True, is_superuser=True
-        )
+        self.admin = User.objects.create_user(phone="79004445566", password="pass", is_staff=True, is_superuser=True)
         self.client = APIClient()
         self.client.force_authenticate(user=self.admin)
 

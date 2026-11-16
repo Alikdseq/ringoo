@@ -6,6 +6,7 @@
 """
 
 from django.core.exceptions import ImproperlyConfigured
+
 from rest_framework.settings import api_settings
 from rest_framework.throttling import AnonRateThrottle, UserRateThrottle
 
@@ -19,9 +20,7 @@ class DynamicThrottleRatesMixin:
 
     def get_rate(self):
         if not getattr(self, "scope", None):
-            msg = "You must set either `.scope` or `.rate` for '%s' throttle" % (
-                self.__class__.__name__,
-            )
+            msg = "You must set either `.scope` or `.rate` for '%s' throttle" % (self.__class__.__name__,)
             raise ImproperlyConfigured(msg)
         try:
             return api_settings.DEFAULT_THROTTLE_RATES[self.scope]
@@ -193,4 +192,3 @@ class GuestAccessRecoverConfirmAnonThrottle(DynamicThrottleRatesMixin, AnonRateT
     """SEC-006: подтверждение recovery-токена гостевого заказа."""
 
     scope = "guest_access_recover_confirm"
-

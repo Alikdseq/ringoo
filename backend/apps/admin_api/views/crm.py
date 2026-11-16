@@ -24,7 +24,15 @@ class MissingProductRequestSerializer(serializers.ModelSerializer):
             "status",
             "created_at",
         )
-        read_only_fields = ("id", "product_name", "contact_name", "contact_phone", "contact_email", "comment", "created_at")
+        read_only_fields = (
+            "id",
+            "product_name",
+            "contact_name",
+            "contact_phone",
+            "contact_email",
+            "comment",
+            "created_at",
+        )
 
 
 class MissingProductRequestAdminUpdateSerializer(serializers.ModelSerializer):

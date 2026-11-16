@@ -67,12 +67,7 @@ def clear_cart_after_successful_payment(order: "Order") -> dict:
             )
             return report
 
-        cart = (
-            Cart.objects.select_for_update()
-            .filter(pk=cart_id)
-            .only("id", "user_id", "session_key")
-            .first()
-        )
+        cart = Cart.objects.select_for_update().filter(pk=cart_id).only("id", "user_id", "session_key").first()
         if cart is None:
             type(order).objects.filter(pk=locked.pk).update(checkout_cart_id=None)
             report["cart_missing"] = True
@@ -87,8 +82,7 @@ def clear_cart_after_successful_payment(order: "Order") -> dict:
             type(order).objects.filter(pk=locked.pk).update(checkout_cart_id=None)
             report["skipped_foreign"] = True
             logger.warning(
-                "cart_clear_failed order_id=%s reason=foreign_cart cart_id=%s "
-                "order_user=%s cart_user=%s",
+                "cart_clear_failed order_id=%s reason=foreign_cart cart_id=%s " "order_user=%s cart_user=%s",
                 locked.pk,
                 cart_id,
                 locked.user_id,
@@ -98,9 +92,7 @@ def clear_cart_after_successful_payment(order: "Order") -> dict:
 
         order_store_id = locked.store_id
         qty_by_key: dict[tuple, int] = defaultdict(int)
-        for row in OrderItem.objects.filter(order_id=locked.pk).only(
-            "product_id", "color_id", "quantity"
-        ):
+        for row in OrderItem.objects.filter(order_id=locked.pk).only("product_id", "color_id", "quantity"):
             if row.product_id:
                 key = _line_key(
                     product_id=row.product_id,
@@ -115,9 +107,7 @@ def clear_cart_after_successful_payment(order: "Order") -> dict:
         for key, need in qty_by_key.items():
             product_id, color_id, store_id = key
             remaining = need
-            qs = CartItem.objects.select_for_update().filter(
-                cart_id=cart.pk, product_id=product_id
-            )
+            qs = CartItem.objects.select_for_update().filter(cart_id=cart.pk, product_id=product_id)
             if color_id:
                 qs = qs.filter(color_id=color_id)
             else:
@@ -125,9 +115,7 @@ def clear_cart_after_successful_payment(order: "Order") -> dict:
             if store_id:
                 # Предпочитаем строки того же магазина; если нет — любые того же product+color
                 preferred = list(qs.filter(store_id=store_id).order_by("created_at"))
-                fallback = list(
-                    qs.exclude(store_id=store_id).order_by("created_at")
-                ) if not preferred else []
+                fallback = list(qs.exclude(store_id=store_id).order_by("created_at")) if not preferred else []
                 lines = preferred + fallback
             else:
                 lines = list(qs.order_by("created_at"))

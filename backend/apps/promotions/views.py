@@ -3,6 +3,7 @@ API промокодов и акций (валидация промокода, �
 """
 
 from django.utils import timezone
+
 from rest_framework import status
 from rest_framework.generics import ListAPIView
 from rest_framework.permissions import AllowAny
@@ -10,7 +11,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .models import Promotion
-from .serializers import PromotionListSerializer, PromoCodeValidateSerializer
+from .serializers import PromoCodeValidateSerializer, PromotionListSerializer
 from .services import apply_promo_code
 
 

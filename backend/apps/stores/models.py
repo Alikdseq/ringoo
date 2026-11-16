@@ -286,9 +286,7 @@ class Stock(models.Model):
         """Суммарный доступный остаток товара в конкретном магазине (все серии)."""
         from apps.stores.stock_ops import sum_available_quantity
 
-        return sum_available_quantity(
-            cls.objects.filter(product_id=product_id, store_id=store_id)
-        )
+        return sum_available_quantity(cls.objects.filter(product_id=product_id, store_id=store_id))
 
     @classmethod
     def available_quantity_retail(cls, product_id, store_id=None) -> int:
@@ -328,12 +326,8 @@ class Stock(models.Model):
                 }
                 order.append(sid)
             buckets[sid]["quantity"] += int(row.quantity)
-            buckets[sid]["available_quantity"] += max(
-                0, int(row.quantity) - int(row.reserved_quantity)
-            )
-        order.sort(
-            key=lambda sid: (buckets[sid]["_city"], buckets[sid]["_name"], sid)
-        )
+            buckets[sid]["available_quantity"] += max(0, int(row.quantity) - int(row.reserved_quantity))
+        order.sort(key=lambda sid: (buckets[sid]["_city"], buckets[sid]["_name"], sid))
         out = []
         for sid in order:
             row = buckets[sid]
@@ -371,9 +365,7 @@ class Stock(models.Model):
                 }
                 order.append(sid)
             buckets[sid]["quantity"] += int(row.quantity)
-            buckets[sid]["available_quantity"] += max(
-                0, int(row.quantity) - int(row.reserved_quantity)
-            )
+            buckets[sid]["available_quantity"] += max(0, int(row.quantity) - int(row.reserved_quantity))
         return [buckets[sid] for sid in order]
 
     @classmethod
@@ -404,9 +396,7 @@ class Stock(models.Model):
                 }
                 order.append(pid)
             buckets[pid]["quantity"] += int(row.quantity)
-            buckets[pid]["available_quantity"] += max(
-                0, int(row.quantity) - int(row.reserved_quantity)
-            )
+            buckets[pid]["available_quantity"] += max(0, int(row.quantity) - int(row.reserved_quantity))
         return [buckets[pid] for pid in order]
 
     @classmethod
@@ -536,11 +526,7 @@ class Stock(models.Model):
         if amount <= 0:
             return True
         need = int(amount)
-        rows = list(
-            cls.objects.select_for_update()
-            .filter(product_id=product_id)
-            .order_by("store_id", "pk")
-        )
+        rows = list(cls.objects.select_for_update().filter(product_id=product_id).order_by("store_id", "pk"))
         plan = []
         remaining = need
         for row in rows:

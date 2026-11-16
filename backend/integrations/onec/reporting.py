@@ -94,13 +94,8 @@ def issue_for_log(issue: dict[str, Any]) -> dict[str, Any]:
 def build_issue_counts(partitioned: dict[str, list]) -> dict[str, int]:
     return {
         "blockers_count": len(partitioned.get("blocker") or []),
-        "errors_count": len(partitioned.get("error") or [])
-        + len(partitioned.get("blocker") or []),
+        "errors_count": len(partitioned.get("error") or []) + len(partitioned.get("blocker") or []),
         "warnings_count": len(partitioned.get("warning") or []),
         "info_count": len(partitioned.get("info") or []),
-        "series_rows": sum(
-            1
-            for i in (partitioned.get("info") or [])
-            if (i.get("type") or "") == "series_present"
-        ),
+        "series_rows": sum(1 for i in (partitioned.get("info") or []) if (i.get("type") or "") == "series_present"),
     }

@@ -24,9 +24,7 @@ class StockLedgerCompleteTests(TestCase):
         self.product = Product.objects.create(
             title="P", slug="slc-p", price=Decimal("10"), category=cat, is_active=True
         )
-        self.store = Store.objects.create(
-            name="S", slug="slc-s", address="a", city="c"
-        )
+        self.store = Store.objects.create(name="S", slug="slc-s", address="a", city="c")
         self.stock = Stock.objects.create(
             product=self.product,
             store=self.store,
@@ -53,9 +51,7 @@ class StockLedgerCompleteTests(TestCase):
         )
 
     def test_admin_correction_ledger(self):
-        apply_quantity_correction(
-            self.stock, new_quantity=7, new_reserved=1, reason="admin_test"
-        )
+        apply_quantity_correction(self.stock, new_quantity=7, new_reserved=1, reason="admin_test")
         self.stock.refresh_from_db()
         self.assertEqual(self.stock.quantity, 7)
         self.assertEqual(self.stock.reserved_quantity, 1)
@@ -74,11 +70,7 @@ class StockLedgerCompleteTests(TestCase):
         )
         self.stock.refresh_from_db()
         self.assertEqual(self.stock.quantity, 42)
-        self.assertTrue(
-            StockMovement.objects.filter(
-                operation=StockMovement.OP_RECONCILIATION, success=True
-            ).exists()
-        )
+        self.assertTrue(StockMovement.objects.filter(operation=StockMovement.OP_RECONCILIATION, success=True).exists())
         # Повтор того же run_id — без второго движения
         _row, applied = apply_onec_stock_upsert(
             product_id=self.product.pk,
@@ -90,22 +82,16 @@ class StockLedgerCompleteTests(TestCase):
         )
         self.assertFalse(applied)
         self.assertEqual(
-            StockMovement.objects.filter(
-                operation=StockMovement.OP_RECONCILIATION
-            ).count(),
+            StockMovement.objects.filter(operation=StockMovement.OP_RECONCILIATION).count(),
             1,
         )
 
     def test_delivery_network_reserve_release(self):
-        ok = reserve_for_delivery(
-            self.product.pk, 3, idempotency_key="del-res-1", reason="delivery"
-        )
+        ok = reserve_for_delivery(self.product.pk, 3, idempotency_key="del-res-1", reason="delivery")
         self.assertTrue(ok)
         self.stock.refresh_from_db()
         self.assertEqual(self.stock.reserved_quantity, 3)
-        ok2 = release_for_delivery(
-            self.product.pk, 3, idempotency_key="del-rel-1", reason="delivery"
-        )
+        ok2 = release_for_delivery(self.product.pk, 3, idempotency_key="del-rel-1", reason="delivery")
         self.assertTrue(ok2)
         self.stock.refresh_from_db()
         self.assertEqual(self.stock.reserved_quantity, 0)

@@ -9,6 +9,7 @@ from __future__ import annotations
 from decimal import Decimal
 
 from django.test import TestCase, override_settings
+
 from rest_framework.test import APIClient
 
 from apps.products.models import Category, Product

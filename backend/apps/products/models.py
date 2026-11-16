@@ -414,9 +414,7 @@ def _product_image_ensure_single_main(sender, instance, created, **kwargs):
     """Оставляем только одно главное изображение у товара (is_main=True)."""
     if not instance.is_main:
         return
-    ProductImage.objects.filter(product=instance.product).exclude(pk=instance.pk).update(
-        is_main=False
-    )
+    ProductImage.objects.filter(product=instance.product).exclude(pk=instance.pk).update(is_main=False)
 
 
 post_save.connect(

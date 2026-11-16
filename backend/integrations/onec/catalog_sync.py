@@ -60,9 +60,7 @@ def reap_stale_running_applies() -> int:
         log.status = OneCCatalogSyncLog.STATUS_FAILED
         log.finished_at = timezone.now()
         if log.started_at:
-            log.duration_ms = int(
-                (log.finished_at - log.started_at).total_seconds() * 1000
-            )
+            log.duration_ms = int((log.finished_at - log.started_at).total_seconds() * 1000)
         msgs = list(log.error_messages or [])
         msgs.append(
             {
@@ -140,9 +138,7 @@ def _try_acquire_apply_lock(run_id: str) -> bool:
     ttl = max(60, STALE_RUNNING_MINUTES * 60)
     if _cache_persists_locks():
         return bool(cache.add(APPLY_LOCK_CACHE_KEY, run_id, timeout=ttl))
-    logger.warning(
-        "onec apply lock: cache backend does not persist; using SyncLog running check only"
-    )
+    logger.warning("onec apply lock: cache backend does not persist; using SyncLog running check only")
     return not _running_apply_in_db()
 
 
@@ -177,9 +173,7 @@ def probe_connection(*, user=None) -> dict[str, Any]:
         # HEAD/GET folders — минимальный smoke без записи
         xml = client.fetch_folders_xml()
         ok = bool(xml and len(xml) > 20)
-        log.status = (
-            OneCCatalogSyncLog.STATUS_SUCCESS if ok else OneCCatalogSyncLog.STATUS_FAILED
-        )
+        log.status = OneCCatalogSyncLog.STATUS_SUCCESS if ok else OneCCatalogSyncLog.STATUS_FAILED
         log.summary = {"folders_xml_bytes": len(xml or "")}
         if not ok:
             log.error_messages = ["Пустой ответ CatalogFolders/folders"]
@@ -234,11 +228,7 @@ def run_catalog_import(
             apply_lock_held = False
             raise RuntimeError("Уже выполняется apply каталога — дождитесь завершения")
 
-    source = (
-        OneCCatalogSyncLog.SOURCE_API
-        if from_api
-        else OneCCatalogSyncLog.SOURCE_FILE
-    )
+    source = OneCCatalogSyncLog.SOURCE_API if from_api else OneCCatalogSyncLog.SOURCE_FILE
     log = OneCCatalogSyncLog.objects.create(
         run_id=run_id,
         sync_type=OneCCatalogSyncLog.TYPE_CATALOG,
@@ -257,9 +247,7 @@ def run_catalog_import(
         else:
             from pathlib import Path
 
-            plan = plan_catalog_import(
-                Path(folders_path), Path(products_path), mode=mode
-            )
+            plan = plan_catalog_import(Path(folders_path), Path(products_path), mode=mode)
 
         from integrations.onec.reporting import (
             build_issue_counts,
@@ -274,9 +262,7 @@ def run_catalog_import(
         partitioned = partition_issues(plan.issues or [])
         issue_counts = build_issue_counts(partitioned)
 
-        log.records_received = int(plan.product_row_count or 0) + int(
-            plan.folder_count or 0
-        )
+        log.records_received = int(plan.product_row_count or 0) + int(plan.folder_count or 0)
         # Сначала — planned (dry-run и до apply). После APPLY перезапишем фактом.
         log.categories_created = int(s.get("categories_create") or 0)
         log.categories_updated = int(s.get("categories_update") or 0)
@@ -325,10 +311,7 @@ def run_catalog_import(
             if getattr(plan, "apply_blockers", None):
                 raise RuntimeError(
                     "Apply заблокирован: "
-                    + "; ".join(
-                        (b.get("message") or b.get("type") or "blocker")
-                        for b in plan.apply_blockers[:5]
-                    )
+                    + "; ".join((b.get("message") or b.get("type") or "blocker") for b in plan.apply_blockers[:5])
                 )
             with transaction.atomic():
                 apply_result = apply_catalog_import(plan)
@@ -419,35 +402,23 @@ def sync_status_payload() -> dict[str, Any]:
 
     last_ok = last_successful_apply()
     last_any = (
-        OneCCatalogSyncLog.objects.filter(sync_type=OneCCatalogSyncLog.TYPE_CATALOG)
-        .order_by("-created_at")
-        .first()
+        OneCCatalogSyncLog.objects.filter(sync_type=OneCCatalogSyncLog.TYPE_CATALOG).order_by("-created_at").first()
     )
     age_hours = None
     stale = True
     if last_ok and last_ok.finished_at:
-        age_hours = round(
-            (timezone.now() - last_ok.finished_at).total_seconds() / 3600.0, 2
-        )
-        threshold = int(
-            getattr(settings, "ONE_C_CATALOG_STALE_HOURS", 24) or 24
-        )
+        age_hours = round((timezone.now() - last_ok.finished_at).total_seconds() / 3600.0, 2)
+        threshold = int(getattr(settings, "ONE_C_CATALOG_STALE_HOURS", 24) or 24)
         stale = age_hours > threshold
 
     return {
         "api_enabled": bool(getattr(settings, "ONE_C_API_ENABLED", False)),
-        "catalog_sync_enabled": bool(
-            getattr(settings, "ONE_C_CATALOG_SYNC_ENABLED", False)
-        ),
-        "partner_sync_on_register": bool(
-            getattr(settings, "ONE_C_SYNC_PARTNER_ON_REGISTER", False)
-        ),
+        "catalog_sync_enabled": bool(getattr(settings, "ONE_C_CATALOG_SYNC_ENABLED", False)),
+        "partner_sync_on_register": bool(getattr(settings, "ONE_C_SYNC_PARTNER_ON_REGISTER", False)),
         "apply_running": has_running_apply(),
         "last_success": serialize_sync_log(last_ok) if last_ok else None,
         "last_run": serialize_sync_log(last_any) if last_any else None,
         "data_age_hours": age_hours,
         "data_stale": stale if last_ok else True,
-        "stale_threshold_hours": int(
-            getattr(settings, "ONE_C_CATALOG_STALE_HOURS", 24) or 24
-        ),
+        "stale_threshold_hours": int(getattr(settings, "ONE_C_CATALOG_STALE_HOURS", 24) or 24),
     }

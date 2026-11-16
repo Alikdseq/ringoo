@@ -77,9 +77,7 @@ class CartItemCreateSerializer(serializers.Serializer):
         from apps.stores.models import Store
 
         if not Store.objects.filter(pk=value, is_active=True).exists():
-            raise serializers.ValidationError(
-                "Магазин не найден или неактивен."
-            )
+            raise serializers.ValidationError("Магазин не найден или неактивен.")
         return value
 
     def validate(self, attrs):
@@ -94,9 +92,7 @@ class CartItemCreateSerializer(serializers.Serializer):
                 pk=color_id, is_active=True, product_id=product_id
             )
         except ProductColor.DoesNotExist:
-            raise serializers.ValidationError(
-                {"color": "Цвет не найден или не относится к этому товару."}
-            )
+            raise serializers.ValidationError({"color": "Цвет не найден или не относится к этому товару."})
         attrs["_color_obj"] = color
         return attrs
 

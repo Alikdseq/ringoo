@@ -7,7 +7,7 @@ ONEC-022: Stock в Django Admin — только просмотр.
 
 from django.contrib import admin
 
-from .models import Manager, Store, Stock, StoreImage
+from .models import Manager, Stock, Store, StoreImage
 
 
 class StoreImageInline(admin.TabularInline):

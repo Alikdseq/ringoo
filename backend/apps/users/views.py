@@ -13,24 +13,21 @@ import logging
 from typing import ClassVar
 
 from django.conf import settings
-from django.db import OperationalError, ProgrammingError
+from django.db import OperationalError, ProgrammingError, transaction
 from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
-from rest_framework import status
-from rest_framework.exceptions import AuthenticationFailed
+
+from rest_framework import serializers, status
+from rest_framework.exceptions import AuthenticationFailed, ValidationError
+from rest_framework.generics import ListCreateAPIView, RetrieveUpdateDestroyAPIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
-from rest_framework import serializers
-from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.generics import ListCreateAPIView, RetrieveUpdateDestroyAPIView
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
-
-from django.db import transaction
 
 from apps.cart.services import merge_guest_cart_into_user
 from config.throttling import (
@@ -57,13 +54,13 @@ from .jwt_cookies import (
     strip_tokens_from_response_data,
 )
 from .models import CustomUser, DeliveryAddress, UserProfile
+from .security_logging import log_login_failed, log_token_refresh_failed
 from .serializers import (
     DeliveryAddressSerializer,
     MarketingOptInSerializer,
     RegisterSerializer,
     UserSerializer,
 )
-from .security_logging import log_login_failed, log_token_refresh_failed
 from .services import normalize_phone, record_successful_password_login
 
 logger = logging.getLogger(__name__)
@@ -107,7 +104,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
     def validate(self, attrs):
         # Принимаем и "username", и "phone" (фронт может слать любое поле)
-        raw = (attrs.get("username") or attrs.get("phone") or "")
+        raw = attrs.get("username") or attrs.get("phone") or ""
         if isinstance(raw, str):
             raw = raw.strip()
         password = attrs.get("password")
@@ -214,11 +211,7 @@ class StaffAccessView(APIView):
         if user.is_superuser:
             groups = list(ALL_ADMIN_GROUPS)
         else:
-            groups = list(
-                user.groups.filter(name__in=ALL_ADMIN_GROUPS)
-                .order_by("name")
-                .values_list("name", flat=True)
-            )
+            groups = list(user.groups.filter(name__in=ALL_ADMIN_GROUPS).order_by("name").values_list("name", flat=True))
         return Response(
             {
                 "staff": True,
@@ -332,11 +325,7 @@ class UserMeView(APIView):
     permission_classes = (IsAuthenticated,)
 
     def get(self, request):
-        user = (
-            CustomUser.objects.select_related("profile")
-            .filter(pk=request.user.pk)
-            .first()
-        )
+        user = CustomUser.objects.select_related("profile").filter(pk=request.user.pk).first()
         if not user:
             return Response(
                 {"detail": "Пользователь не найден."},
@@ -359,11 +348,7 @@ class UserMeView(APIView):
         user.marketing_opt_in = opt
         user.marketing_opt_in_at = now if opt else None
         user.save(update_fields=["marketing_opt_in", "marketing_opt_in_at", "updated_at"])
-        refreshed = (
-            CustomUser.objects.select_related("profile")
-            .filter(pk=user.pk)
-            .first()
-        )
+        refreshed = CustomUser.objects.select_related("profile").filter(pk=user.pk).first()
         return Response(UserSerializer(refreshed).data)
 
 
@@ -378,24 +363,14 @@ class UserDataExportView(APIView):
     def get(self, request):
         from apps.orders.models import Order
 
-        user = (
-            CustomUser.objects.select_related("profile")
-            .filter(pk=request.user.pk)
-            .first()
-        )
+        user = CustomUser.objects.select_related("profile").filter(pk=request.user.pk).first()
         if not user:
             return Response(
                 {"detail": "Пользователь не найден."},
                 status=status.HTTP_404_NOT_FOUND,
             )
-        addresses = DeliveryAddress.objects.filter(user=user).order_by(
-            "-is_default", "-created_at"
-        )
-        orders = (
-            Order.objects.filter(user=user)
-            .prefetch_related("items")
-            .order_by("-created_at")[:500]
-        )
+        addresses = DeliveryAddress.objects.filter(user=user).order_by("-is_default", "-created_at")
+        orders = Order.objects.filter(user=user).prefetch_related("items").order_by("-created_at")[:500]
         order_payload = []
         for o in orders:
             order_payload.append(
@@ -597,9 +572,7 @@ class DeliveryAddressListCreateView(ListCreateAPIView):
     serializer_class = DeliveryAddressSerializer
 
     def get_queryset(self):
-        return DeliveryAddress.objects.filter(user=self.request.user).order_by(
-            "-is_default", "-created_at"
-        )
+        return DeliveryAddress.objects.filter(user=self.request.user).order_by("-is_default", "-created_at")
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
@@ -630,7 +603,7 @@ class DeleteAccountView(APIView):
         confirm = (request.data.get("confirm") or "").strip()
         if confirm != "DELETE_MY_ACCOUNT":
             return Response(
-                {"detail": "Отправьте confirm: \"DELETE_MY_ACCOUNT\" для подтверждения."},
+                {"detail": 'Отправьте confirm: "DELETE_MY_ACCOUNT" для подтверждения.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         user = request.user

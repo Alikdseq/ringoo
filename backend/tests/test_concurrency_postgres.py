@@ -19,9 +19,10 @@ import unittest
 from decimal import Decimal
 from unittest.mock import MagicMock
 
-import pytest
 from django.db import connection, connections
 from django.test import TransactionTestCase, override_settings
+
+import pytest
 
 from apps.orders.models import Order, OrderItem
 from apps.orders.services import cancel_order_and_release_stock
@@ -142,9 +143,7 @@ class PostgresPaymentConcurrencyTests(TransactionTestCase):
         for t in threads:
             t.join()
         self.assertEqual(errors, [])
-        self.assertEqual(
-            Payment.objects.filter(order=order, status=Payment.STATUS_PAID).count(), 1
-        )
+        self.assertEqual(Payment.objects.filter(order=order, status=Payment.STATUS_PAID).count(), 1)
 
     def test_two_parallel_callbacks_idempotent(self):
         order, _, _ = _base_order()
@@ -176,9 +175,7 @@ class PostgresPaymentConcurrencyTests(TransactionTestCase):
             t.start()
         for t in threads:
             t.join()
-        self.assertEqual(
-            Payment.objects.filter(order=order, status=Payment.STATUS_PAID).count(), 1
-        )
+        self.assertEqual(Payment.objects.filter(order=order, status=Payment.STATUS_PAID).count(), 1)
 
     def test_cancel_concurrent_with_bank_paid(self):
         order, _, _ = _base_order(qty=1, reserved=1)
@@ -281,9 +278,7 @@ class PostgresYooKassaConcurrencyTests(TransactionTestCase):
         def worker():
             try:
                 connections.close_all()
-                sync_payment_from_yookassa(
-                    Payment.objects.get(pk=payment.pk), client=mock
-                )
+                sync_payment_from_yookassa(Payment.objects.get(pk=payment.pk), client=mock)
             except BaseException as exc:  # noqa: BLE001
                 errors.append(exc)
 
@@ -293,21 +288,18 @@ class PostgresYooKassaConcurrencyTests(TransactionTestCase):
         for t in threads:
             t.join()
         self.assertEqual(errors, [])
-        self.assertEqual(
-            Payment.objects.filter(order=order, status=Payment.STATUS_PAID).count(), 1
-        )
+        self.assertEqual(Payment.objects.filter(order=order, status=Payment.STATUS_PAID).count(), 1)
 
     def test_expire_concurrent_with_yk_paid(self):
-        from django.utils import timezone
         from datetime import timedelta
+
+        from django.utils import timezone
 
         from apps.payments.services import expire_unpaid_online_orders
         from apps.payments.yookassa_service import sync_payment_from_yookassa
 
         order, product, store = _base_order(qty=1, reserved=1)
-        Order.objects.filter(pk=order.pk).update(
-            created_at=timezone.now() - timedelta(minutes=60)
-        )
+        Order.objects.filter(pk=order.pk).update(created_at=timezone.now() - timedelta(minutes=60))
         payment = Payment.objects.create(
             order=order,
             provider=Payment.PROVIDER_YOOKASSA,
@@ -350,9 +342,7 @@ class PostgresYooKassaConcurrencyTests(TransactionTestCase):
 
         def do_pay():
             connections.close_all()
-            sync_payment_from_yookassa(
-                Payment.objects.get(pk=pid), client=mock
-            )
+            sync_payment_from_yookassa(Payment.objects.get(pk=pid), client=mock)
 
         t1 = threading.Thread(target=do_expire)
         t2 = threading.Thread(target=do_pay)

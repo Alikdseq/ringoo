@@ -29,16 +29,10 @@ class Command(BaseCommand):
                 problems.append(f"hex_mismatch(api={hx}, guess={guessed})")
             label_key = (color.label or "").lower().replace(" ", "-")
             if color.slug and label_key and color.slug not in label_key and label_key not in color.slug:
-                if not any(
-                    tok in label_key
-                    for tok in color.slug.replace("-", " ").split()
-                    if len(tok) > 2
-                ):
+                if not any(tok in label_key for tok in color.slug.replace("-", " ").split() if len(tok) > 2):
                     problems.append("label_slug_drift")
             if problems:
-                issues.append(
-                    (color.product.title, color.slug, color.label, color.hex, "; ".join(problems))
-                )
+                issues.append((color.product.title, color.slug, color.label, color.hex, "; ".join(problems)))
         self.stdout.write(f"Проверено активных оттенков: {ProductColor.objects.filter(is_active=True).count()}")
         self.stdout.write(f"Замечаний: {len(issues)}")
         for row in issues[:limit]:

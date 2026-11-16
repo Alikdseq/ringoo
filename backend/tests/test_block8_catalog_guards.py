@@ -20,7 +20,6 @@ from tests.onec_test_utils import (
     ensure_confirmed_stores,
 )
 
-
 FOLDERS = '<ПапкиНоменклатуры><Папка code="F1" parentCode="" name="Phones"/></ПапкиНоменклатуры>'
 
 
@@ -58,9 +57,7 @@ class CatalogGuardTests(TestCase):
         )
 
     def _plan(self, products_xml):
-        return plan_catalog_import_from_xml_strings(
-            FOLDERS, products_xml, mode=ImportMode.DRY_RUN
-        )
+        return plan_catalog_import_from_xml_strings(FOLDERS, products_xml, mode=ImportMode.DRY_RUN)
 
     def test_negative_price_and_qty_do_not_overwrite_on_apply(self):
         plan = self._plan(_xml(_row("N-OLD", "-10", "-3")))
@@ -102,9 +99,7 @@ class CatalogGuardTests(TestCase):
         self.assertTrue(result["dry_run"])
         self.assertGreaterEqual(result["summary"].get("rejected_positions", 0), 1)
         price_rows = [
-            row
-            for row in result["error_messages"]
-            if row.get("field") == "price" and row.get("onec_code") == "N-OLD"
+            row for row in result["error_messages"] if row.get("field") == "price" and row.get("onec_code") == "N-OLD"
         ]
         self.assertEqual(price_rows[0]["reason"], "negative")
         self.assertEqual(price_rows[0]["value"], "-1")
@@ -142,9 +137,9 @@ class CatalogGuardTests(TestCase):
         )
         # N-BAD/N-BIG/N-PREC с битым qty → blocker; apply недоступен.
         self.assertFalse(plan.apply_allowed)
-        self.assertIn(("N-OLD", "price", "empty"), {
-            (i.get("onec_code"), i.get("field"), i.get("reason")) for i in plan.issues
-        })
+        self.assertIn(
+            ("N-OLD", "price", "empty"), {(i.get("onec_code"), i.get("field"), i.get("reason")) for i in plan.issues}
+        )
         # Существующий N-OLD: остаток планируется несмотря на пустую цену.
         old_stock = next(s for s in plan.stocks if s.onec_code == "N-OLD")
         self.assertEqual(old_stock.action, "upsert")

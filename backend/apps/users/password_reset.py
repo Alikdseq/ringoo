@@ -18,6 +18,7 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from django.core.mail import send_mail
 from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
+
 from rest_framework import serializers, status
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
@@ -34,10 +35,7 @@ logger = logging.getLogger("ringoo.security")
 
 token_generator = PasswordResetTokenGenerator()
 
-PUBLIC_REQUEST_DETAIL = (
-    "Если аккаунт с таким email существует, мы отправили инструкции "
-    "по восстановлению пароля."
-)
+PUBLIC_REQUEST_DETAIL = "Если аккаунт с таким email существует, мы отправили инструкции " "по восстановлению пароля."
 
 # Лимит писем на один email (не зависит от IP; не блокирует чужой аккаунт бесконечно).
 _EMAIL_RESET_LIMIT = 3
@@ -121,16 +119,12 @@ class PasswordResetRequestView(APIView):
                         "Если вы не запрашивали восстановление — просто "
                         "проигнорируйте это письмо."
                     ),
-                    from_email=getattr(
-                        settings, "DEFAULT_FROM_EMAIL", "noreply@ringoo.local"
-                    ),
+                    from_email=getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@ringoo.local"),
                     recipient_list=[user.email],
                     fail_silently=True,
                 )
             except Exception:
-                logger.exception(
-                    "password_reset_email_failed user_id=%s", user.pk
-                )
+                logger.exception("password_reset_email_failed user_id=%s", user.pk)
             else:
                 logger.info("password_reset_email_queued user_id=%s", user.pk)
         elif user is not None:

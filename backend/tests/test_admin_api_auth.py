@@ -6,6 +6,7 @@ from decimal import Decimal
 
 from django.contrib.auth.models import Group
 from django.test import TestCase
+
 from rest_framework.test import APIClient
 
 from apps.admin_api.permissions import RINGOO_GROUP_CATALOG, RINGOO_GROUP_ORDERS

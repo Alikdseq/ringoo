@@ -1,4 +1,5 @@
 """Dry-run audit of 1C Товары.xml for color/variant identity (no writes)."""
+
 from __future__ import annotations
 
 import sys
@@ -24,8 +25,7 @@ def main(path: str) -> int:
     print("UNIQUE_CODES", len([c for c in by_code if c]))
     print("ATTRS", ",".join(sorted(attrs_seen)))
     has_char = any(
-        a.lower() in ("characteristicguid", "characteristicaid", "характеристика", "charid")
-        for a in attrs_seen
+        a.lower() in ("characteristicguid", "characteristicaid", "характеристика", "charid") for a in attrs_seen
     )
     print("HAS_CHARACTERISTIC_ATTR", has_char)
     multi_sklad = 0
@@ -56,9 +56,9 @@ def main(path: str) -> int:
 
 
 if __name__ == "__main__":
-    p = sys.argv[1] if len(sys.argv) > 1 else str(
-        Path(__file__).resolve().parents[2]
-        / "integration1CandKassa"
-        / "Товары.xml"
+    p = (
+        sys.argv[1]
+        if len(sys.argv) > 1
+        else str(Path(__file__).resolve().parents[2] / "integration1CandKassa" / "Товары.xml")
     )
     raise SystemExit(main(p))

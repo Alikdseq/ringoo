@@ -6,10 +6,10 @@ from decimal import Decimal
 
 from django.test import TestCase, override_settings
 from django.urls import reverse
+
 from rest_framework.test import APIClient
 
 from apps.products.models import Category, Product
-
 
 _REST = {
     "DEFAULT_THROTTLE_CLASSES": [
@@ -47,9 +47,7 @@ class Sec004ReviewCreateThrottleTests(TestCase):
 
         caches["default"].clear()
         self.client = APIClient()
-        cat = Category.objects.create(
-            title="C", slug=f"sec4-c-{Category.objects.count()}"
-        )
+        cat = Category.objects.create(title="C", slug=f"sec4-c-{Category.objects.count()}")
         self.product = Product.objects.create(
             title="P",
             slug=f"sec4-p-{Product.objects.count()}",

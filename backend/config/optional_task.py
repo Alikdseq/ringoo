@@ -34,8 +34,7 @@ else:
                 if depth >= 1:
                     # Запрет синхронной рекурсии .delay() → .delay()
                     raise RuntimeError(
-                        "optional_task stub: nested delay() forbidden "
-                        "(no recursive retries in sync mode)"
+                        "optional_task stub: nested delay() forbidden " "(no recursive retries in sync mode)"
                     )
                 _stub_depth.n = depth + 1
                 try:

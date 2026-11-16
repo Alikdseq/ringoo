@@ -15,6 +15,7 @@ import logging
 from typing import Any
 
 from django.conf import settings
+
 from rest_framework_simplejwt.tokens import RefreshToken
 
 logger = logging.getLogger("ringoo.security")

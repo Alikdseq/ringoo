@@ -2,9 +2,9 @@
 API v1 URL configuration.
 """
 
-from django.urls import path, include
+from django.urls import include, path
 
-app_name = 'api_v1'
+app_name = "api_v1"
 
 urlpatterns = [
     path("auth/", include("apps.users.urls")),

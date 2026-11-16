@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Promotion, PromoCode
+from .models import PromoCode, Promotion
 
 
 @admin.register(Promotion)

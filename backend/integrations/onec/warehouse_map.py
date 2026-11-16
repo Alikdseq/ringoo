@@ -88,13 +88,9 @@ CONFIRMED_WAREHOUSES: tuple[ConfirmedWarehouse, ...] = (
     ),
 )
 
-CONFIRMED_WAREHOUSE_IDS: frozenset[str] = frozenset(
-    w.warehouse_id for w in CONFIRMED_WAREHOUSES
-)
+CONFIRMED_WAREHOUSE_IDS: frozenset[str] = frozenset(w.warehouse_id for w in CONFIRMED_WAREHOUSES)
 
-CONFIRMED_BY_ID: dict[str, ConfirmedWarehouse] = {
-    w.warehouse_id: w for w in CONFIRMED_WAREHOUSES
-}
+CONFIRMED_BY_ID: dict[str, ConfirmedWarehouse] = {w.warehouse_id: w for w in CONFIRMED_WAREHOUSES}
 
 
 def is_confirmed_warehouse_id(warehouse_id: str | None) -> bool:

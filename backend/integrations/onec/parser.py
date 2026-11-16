@@ -73,11 +73,7 @@ class OneCProductRow:
         raw = (self.price_raw or "").strip()
         if not raw:
             return None
-        normalized = (
-            raw.replace("\xa0", "")
-            .replace(" ", "")
-            .replace(",", ".")
-        )
+        normalized = raw.replace("\xa0", "").replace(" ", "").replace(",", ".")
         try:
             return Decimal(normalized)
         except InvalidOperation:
@@ -248,15 +244,9 @@ def parse_catalog_files(
     products = parse_products_xml(products_path)
     warnings: list[str] = []
     if not folders:
-        warnings.append(
-            "В XML категорий не найдено ни одной папки "
-            f"(ожидались теги {sorted(FOLDER_TAGS)})"
-        )
+        warnings.append("В XML категорий не найдено ни одной папки " f"(ожидались теги {sorted(FOLDER_TAGS)})")
     if not products:
-        warnings.append(
-            "В XML товаров не найдено ни одной строки "
-            f"(ожидались теги {sorted(PRODUCT_TAGS)})"
-        )
+        warnings.append("В XML товаров не найдено ни одной строки " f"(ожидались теги {sorted(PRODUCT_TAGS)})")
     return ParsedCatalog(
         folders=folders,
         product_rows=products,
@@ -276,15 +266,9 @@ def parse_catalog_xml_strings(
     products = parse_products_xml(products_xml)
     warnings: list[str] = []
     if not folders:
-        warnings.append(
-            "В XML категорий не найдено ни одной папки "
-            f"(ожидались теги {sorted(FOLDER_TAGS)})"
-        )
+        warnings.append("В XML категорий не найдено ни одной папки " f"(ожидались теги {sorted(FOLDER_TAGS)})")
     if not products:
-        warnings.append(
-            "В XML товаров не найдено ни одной строки "
-            f"(ожидались теги {sorted(PRODUCT_TAGS)})"
-        )
+        warnings.append("В XML товаров не найдено ни одной строки " f"(ожидались теги {sorted(PRODUCT_TAGS)})")
     return ParsedCatalog(
         folders=folders,
         product_rows=products,
