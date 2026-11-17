@@ -14,27 +14,27 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.AddField(
-            model_name="onecatalogimportplan",
+            model_name="oneccatalogimportplan",
             name="applying_at",
             field=models.DateTimeField(blank=True, null=True),
         ),
         migrations.AddField(
-            model_name="onecatalogimportplan",
+            model_name="oneccatalogimportplan",
             name="execution_token",
             field=models.CharField(blank=True, default="", max_length=64),
         ),
         migrations.AddField(
-            model_name="onecatalogimportplan",
+            model_name="oneccatalogimportplan",
             name="resolved_at",
             field=models.DateTimeField(blank=True, null=True),
         ),
         migrations.AddField(
-            model_name="onecatalogimportplan",
+            model_name="oneccatalogimportplan",
             name="resolution_note",
             field=models.TextField(blank=True, default=""),
         ),
         migrations.AddField(
-            model_name="onecatalogimportplan",
+            model_name="oneccatalogimportplan",
             name="resolved_by",
             field=models.ForeignKey(
                 blank=True,

@@ -68,7 +68,7 @@ class Migration(migrations.Migration):
                         null=True,
                         on_delete=django.db.models.deletion.SET_NULL,
                         related_name="saved_import_plans",
-                        to="products.onecatalogsynclog",
+                        to="products.oneccatalogsynclog",
                     ),
                 ),
             ],
@@ -80,14 +80,14 @@ class Migration(migrations.Migration):
             },
         ),
         migrations.AddIndex(
-            model_name="onecatalogimportplan",
+            model_name="oneccatalogimportplan",
             index=models.Index(
                 fields=["status", "expires_at"],
                 name="products_on_status_exp_idx",
             ),
         ),
         migrations.AddIndex(
-            model_name="onecatalogimportplan",
+            model_name="oneccatalogimportplan",
             index=models.Index(
                 fields=["-created_at"],
                 name="products_on_created_desc_idx",
