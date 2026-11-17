@@ -21,6 +21,7 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Loading } from '@/components/ui/Loading';
 import { isPromoCodesUiEnabled } from '@/lib/features/storefront';
+import { formatRuDateAdmin, formatRuDateTime } from '@/lib/format-date';
 
 type TabKey = 'promotions' | 'promocodes';
 
@@ -199,9 +200,6 @@ function PromotionsTab() {
               </thead>
               <tbody>
                 {promotions.map(promo => {
-                  const start = promo.start_date ? new Date(promo.start_date) : null;
-                  const end = promo.end_date ? new Date(promo.end_date) : null;
-                  const created = promo.created_at ? new Date(promo.created_at) : null;
                   return (
                     <tr key={promo.id} className="border-b border-zinc-100 last:border-0">
                       <td className="px-3 py-2 text-sm text-zinc-900">{promo.title}</td>
@@ -212,8 +210,7 @@ function PromotionsTab() {
                         {promo.discount_value}
                       </td>
                       <td className="px-3 py-2 text-xs text-zinc-600">
-                        {start && !Number.isNaN(start.getTime()) ? start.toLocaleDateString() : '—'}{' '}
-                        — {end && !Number.isNaN(end.getTime()) ? end.toLocaleDateString() : '—'}
+                        {formatRuDateAdmin(promo.start_date)} — {formatRuDateAdmin(promo.end_date)}
                       </td>
                       <td className="px-3 py-2 text-xs">
                         {promo.is_active ? (
@@ -227,9 +224,7 @@ function PromotionsTab() {
                         )}
                       </td>
                       <td className="px-3 py-2 text-xs text-zinc-600">
-                        {created && !Number.isNaN(created.getTime())
-                          ? created.toLocaleString()
-                          : '—'}
+                        {formatRuDateTime(promo.created_at)}
                       </td>
                       <td className="px-3 py-2 text-right text-xs">
                         <button
@@ -503,8 +498,6 @@ function PromoCodesTab() {
               </thead>
               <tbody>
                 {items.map(code => {
-                  const start = code.start_date ? new Date(code.start_date) : null;
-                  const end = code.end_date ? new Date(code.end_date) : null;
                   return (
                     <tr key={code.id} className="border-b border-zinc-100 last:border-0">
                       <td className="px-3 py-2 text-sm text-zinc-900">{code.code}</td>
@@ -521,8 +514,7 @@ function PromoCodesTab() {
                         {code.max_uses ?? '—'}
                       </td>
                       <td className="px-3 py-2 text-xs text-zinc-600">
-                        {start && !Number.isNaN(start.getTime()) ? start.toLocaleDateString() : '—'}{' '}
-                        — {end && !Number.isNaN(end.getTime()) ? end.toLocaleDateString() : '—'}
+                        {formatRuDateAdmin(code.start_date)} — {formatRuDateAdmin(code.end_date)}
                       </td>
                       <td className="px-3 py-2 text-xs">
                         {code.is_active ? (

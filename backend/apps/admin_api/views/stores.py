@@ -109,3 +109,8 @@ class StoreImageAdminUpdateDeleteView(UpdateAPIView):
     http_method_names = ["patch", "delete"]
     lookup_url_kwarg = "pk"
     lookup_field = "pk"
+
+    def delete(self, request, *args, **kwargs):
+        instance = self.get_object()
+        instance.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)

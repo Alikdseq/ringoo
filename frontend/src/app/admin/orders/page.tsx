@@ -22,6 +22,7 @@ import {
   orderStatusLabel,
   paymentStatusLabel,
 } from '@/lib/orders/status-labels';
+import { formatRuDateTime } from '@/lib/format-date';
 
 const STATUS_LABELS = ORDER_STATUS_LABELS;
 
@@ -321,7 +322,7 @@ export default function AdminOrdersPage() {
                       {PAYMENT_LABELS[order.payment_type] ?? order.payment_type}
                     </td>
                     <td className="px-3 py-2 text-zinc-700">
-                      {new Date(order.created_at).toLocaleString('ru-RU')}
+                      {formatRuDateTime(order.created_at)}
                     </td>
                   </tr>
                 ))}
@@ -369,7 +370,7 @@ export default function AdminOrdersPage() {
                 {selectedOrder && (
                   <p className="text-sm text-zinc-500">
                     №{selectedOrder.order_number} от{' '}
-                    {new Date(selectedOrder.created_at).toLocaleString('ru-RU')}
+                    {formatRuDateTime(selectedOrder.created_at)}
                   </p>
                 )}
               </div>

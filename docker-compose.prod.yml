@@ -30,6 +30,9 @@ x-backend-prod-env: &backend-prod-env
   CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:?set CORS_ALLOWED_ORIGINS}
   CSRF_TRUSTED_ORIGINS: ${CSRF_TRUSTED_ORIGINS:?set CSRF_TRUSTED_ORIGINS}
   DEBUG: "False"
+  # Next rewrites /media → web; Django must serve MEDIA_ROOT when DEBUG=False.
+  # Set SERVE_MEDIA=0 only if an external proxy serves the media volume instead.
+  SERVE_MEDIA: ${SERVE_MEDIA:-1}
   ADMIN_OTP_ENABLED: "1"
   TRUST_PROXY: ${TRUST_PROXY:-1}
   AXES_IPWARE_PROXY_COUNT: ${AXES_IPWARE_PROXY_COUNT:-1}

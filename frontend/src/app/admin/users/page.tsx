@@ -13,6 +13,7 @@ import {
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Loading } from '@/components/ui/Loading';
+import { formatRuDateAdmin } from '@/lib/format-date';
 
 export default function AdminUsersPage() {
   const [page, setPage] = useState(1);
@@ -111,11 +112,7 @@ export default function AdminUsersPage() {
               </thead>
               <tbody>
                 {users.map(user => {
-                  const createdAt = new Date(user.created_at);
-                  const created =
-                    Number.isNaN(createdAt.getTime()) === false
-                      ? createdAt.toLocaleDateString()
-                      : '';
+                  const created = formatRuDateAdmin(user.created_at);
                   return (
                     <tr
                       key={user.id}

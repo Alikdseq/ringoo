@@ -25,6 +25,7 @@ import { AdminQueryError } from '@/components/admin/AdminQueryError';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Loading, Spinner } from '@/components/ui/Loading';
+import { formatRuDateTime } from '@/lib/format-date';
 
 interface RouteParams {
   id: string;
@@ -275,7 +276,7 @@ export default function AdminProductEditPage() {
           <div className="mb-4 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-900">
             Управляется 1С (код <span className="font-mono">{product.onec_code}</span>). Цена,
             название, артикул и категория — только просмотр. SEO и описания можно править.
-            Обновлено: {product.updated_at ? new Date(product.updated_at).toLocaleString('ru-RU') : '—'}
+            Обновлено: {formatRuDateTime(product.updated_at)}
           </div>
         ) : null}
         <form className="space-y-4" onSubmit={handleSubmit}>

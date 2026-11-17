@@ -13,6 +13,7 @@ import {
   RINGOO_ADMIN_GROUPS,
 } from '@/lib/api/services/adminUsers.service';
 import { useState } from 'react';
+import { formatRuDateTime } from '@/lib/format-date';
 
 interface RouteParams {
   id: string;
@@ -77,8 +78,7 @@ export default function AdminUserDetailPage() {
     .filter(Boolean)
     .join(' ');
 
-  const createdAt = new Date(user.created_at);
-  const created = Number.isNaN(createdAt.getTime()) === false ? createdAt.toLocaleString() : '';
+  const created = formatRuDateTime(user.created_at);
   const groups = draftGroups ?? user.groups ?? [];
   const groupsDirty =
     [...(user.groups ?? [])].sort().join(',') !== [...groups].sort().join(',');
@@ -154,7 +154,7 @@ export default function AdminUserDetailPage() {
               </p>
               {user.onec_partner_synced_at ? (
                 <p className="mt-1 text-xs text-zinc-500">
-                  Обновлено: {new Date(user.onec_partner_synced_at).toLocaleString('ru-RU')}
+                  Обновлено: {formatRuDateTime(user.onec_partner_synced_at)}
                 </p>
               ) : null}
               {user.onec_partner_last_error ? (

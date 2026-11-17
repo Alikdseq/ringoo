@@ -13,6 +13,7 @@ import {
   probeOneCSync,
 } from '@/lib/api/services/adminOnecSync.service';
 import { getFriendlyErrorMessage } from '@/lib/errors';
+import { formatRuDateTime } from '@/lib/format-date';
 
 export default function AdminOneCSyncPage() {
   const statusQuery = useQuery({
@@ -165,7 +166,7 @@ export default function AdminOneCSyncPage() {
                   </td>
                   <td className="px-3 py-2">{row.errors_count}</td>
                   <td className="px-3 py-2 text-xs text-zinc-500">
-                    {row.started_at ? new Date(row.started_at).toLocaleString('ru-RU') : '—'}
+                    {formatRuDateTime(row.started_at)}
                     {row.duration_ms != null ? ` (${row.duration_ms} мс)` : ''}
                   </td>
                 </tr>

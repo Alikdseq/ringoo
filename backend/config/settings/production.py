@@ -246,6 +246,16 @@ if ON_VERCEL:
     _public_host = os.getenv("VERCEL_PROJECT_PRODUCTION_URL", "").strip() or os.getenv("VERCEL_URL", "").strip()
     if _public_host:
         PUBLIC_API_ORIGIN = f"https://{_public_host}".rstrip("/")
+else:
+    # Docker / gunicorn: Next proxy.ts rewrites /media → web:8000.
+    # Without SERVE_MEDIA, DEBUG=False leaves no /media route → 404 for uploaded files.
+    # Opt-in via env (docker-compose.prod.yml sets SERVE_MEDIA=1). Disable with SERVE_MEDIA=0
+    # if an external reverse proxy serves MEDIA_ROOT instead.
+    SERVE_MEDIA = os.getenv("SERVE_MEDIA", "0").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+    )
 
 # Integrations remain opt-in (defaults false in base). Documented for ops.
 # Sber callback token required when enabled:
@@ -321,6 +331,8 @@ if USE_S3:
         "default": {"BACKEND": "storages.backends.s3boto3.S3Boto3Storage"},
         "staticfiles": {"BACKEND": "storages.backends.s3boto3.S3Boto3Storage"},
     }
+    # Media lives on S3 — do not expose local MEDIA_ROOT via Django.
+    SERVE_MEDIA = False
 else:
     INSTALLED_APPS = ["whitenoise.runserver_nostatic"] + INSTALLED_APPS
     MIDDLEWARE = ["whitenoise.middleware.WhiteNoiseMiddleware"] + MIDDLEWARE

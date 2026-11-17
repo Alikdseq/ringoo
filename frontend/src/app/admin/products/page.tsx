@@ -16,6 +16,7 @@ import { getAdminCategories, type AdminCategory } from '@/lib/api/services/admin
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Loading } from '@/components/ui/Loading';
+import { formatRuDateAdmin } from '@/lib/format-date';
 
 export default function AdminProductsPage() {
   const [page, setPage] = useState(1);
@@ -349,11 +350,7 @@ export default function AdminProductsPage() {
                     (product.category?.id ? categoriesMap[product.category.id]?.title : '') ??
                     '';
                   const inStock = (product.available_quantity_total ?? 0) > 0;
-                  const createdAt = new Date(product.created_at);
-                  const created =
-                    Number.isNaN(createdAt.getTime()) === false
-                      ? createdAt.toLocaleDateString()
-                      : '';
+                  const created = formatRuDateAdmin(product.created_at);
                   const isSelected = selected.has(product.id);
                   return (
                     <tr

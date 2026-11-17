@@ -7,6 +7,7 @@ import { apiClient } from '@/lib/api/client';
 import { Card } from '@/components/ui/Card';
 import { Loading } from '@/components/ui/Loading';
 import { isReturnsUiEnabled } from '@/lib/features/returns';
+import { formatRuDateTime } from '@/lib/format-date';
 
 type ReturnRow = {
   id: string;
@@ -70,7 +71,7 @@ export default function AdminReturnsPage() {
                 <td className="px-4 py-3">{row.ground}</td>
                 <td className="px-4 py-3">{row.requested_refund_amount}</td>
                 <td className="px-4 py-3">{row.status}</td>
-                <td className="px-4 py-3">{new Date(row.created_at).toLocaleString('ru-RU')}</td>
+                <td className="px-4 py-3">{formatRuDateTime(row.created_at)}</td>
               </tr>
             ))}
           </tbody>

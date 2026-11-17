@@ -25,6 +25,7 @@ import {
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Loading } from '@/components/ui/Loading';
+import { formatRuDateTime } from '@/lib/format-date';
 
 import {
   createAdminPageGallery,
@@ -204,8 +205,8 @@ function ArticlesTab() {
               </thead>
               <tbody>
                 {articles.map(article => {
-                  const publishedAt = article.published_at ? new Date(article.published_at) : null;
-                  const createdAt = new Date(article.created_at);
+                  const publishedAt = article.published_at;
+                  const createdAt = article.created_at;
                   return (
                     <tr key={article.id} className="border-b border-zinc-100 last:border-0">
                       <td className="px-3 py-2 text-sm text-zinc-900">{article.title}</td>
@@ -223,12 +224,10 @@ function ArticlesTab() {
                         )}
                       </td>
                       <td className="px-3 py-2 text-xs text-zinc-600">
-                        {publishedAt && !Number.isNaN(publishedAt.getTime())
-                          ? publishedAt.toLocaleString()
-                          : '—'}
+                        {formatRuDateTime(publishedAt)}
                       </td>
                       <td className="px-3 py-2 text-xs text-zinc-600">
-                        {!Number.isNaN(createdAt.getTime()) ? createdAt.toLocaleString() : ''}
+                        {formatRuDateTime(createdAt)}
                       </td>
                       <td className="px-3 py-2 text-right text-xs">
                         <button
@@ -522,8 +521,6 @@ function NewsTab() {
               </thead>
               <tbody>
                 {items.map(item => {
-                  const publishedAt = item.published_at ? new Date(item.published_at) : null;
-                  const createdAt = new Date(item.created_at);
                   return (
                     <tr key={item.id} className="border-b border-zinc-100 last:border-0">
                       <td className="px-3 py-2 text-sm text-zinc-900">{item.title}</td>
@@ -552,12 +549,10 @@ function NewsTab() {
                         )}
                       </td>
                       <td className="px-3 py-2 text-xs text-zinc-600">
-                        {publishedAt && !Number.isNaN(publishedAt.getTime())
-                          ? publishedAt.toLocaleString()
-                          : '—'}
+                        {formatRuDateTime(item.published_at)}
                       </td>
                       <td className="px-3 py-2 text-xs text-zinc-600">
-                        {!Number.isNaN(createdAt.getTime()) ? createdAt.toLocaleString() : ''}
+                        {formatRuDateTime(item.created_at)}
                       </td>
                       <td className="px-3 py-2 text-right text-xs">
                         <button
@@ -809,10 +804,7 @@ function ReviewsTab() {
               </thead>
               <tbody>
                 {items.map(review => {
-                  const createdAt = new Date(review.created_at);
-                  const created = !Number.isNaN(createdAt.getTime())
-                    ? createdAt.toLocaleString()
-                    : '';
+                  const created = formatRuDateTime(review.created_at);
                   return (
                     <tr key={review.id} className="border-b border-zinc-100 last:border-0">
                       <td className="px-3 py-2 text-sm text-zinc-900">{review.name}</td>

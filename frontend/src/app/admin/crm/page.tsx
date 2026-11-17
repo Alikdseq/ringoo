@@ -12,6 +12,7 @@ import {
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Loading } from '@/components/ui/Loading';
+import { formatRuDateTime } from '@/lib/format-date';
 
 export default function AdminCrmPage() {
   const [page, setPage] = useState(1);
@@ -100,10 +101,7 @@ export default function AdminCrmPage() {
               </thead>
               <tbody>
                 {requests.map(req => {
-                  const createdAt = new Date(req.created_at);
-                  const created = !Number.isNaN(createdAt.getTime())
-                    ? createdAt.toLocaleString()
-                    : '';
+                  const created = formatRuDateTime(req.created_at);
                   return (
                     <tr key={req.id} className="border-b border-zinc-100 last:border-0">
                       <td className="px-3 py-2 text-sm text-zinc-900">{req.product_name}</td>
