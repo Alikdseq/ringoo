@@ -12,10 +12,17 @@ logger = logging.getLogger(__name__)
 
 
 @shared_task(bind=True, max_retries=1, default_retry_delay=120)
-def run_onec_catalog_sync_task(self, *, dry_run: bool = True, user_id: str | None = None):
+def run_onec_catalog_sync_task(
+    self,
+    *,
+    dry_run: bool = True,
+    user_id: str | None = None,
+    plan_id: str | None = None,
+    full_snapshot_acknowledged: bool = False,
+):
     """
     Асинхронный dry-run/apply каталога.
-    Live HTTP только при ONE_C_API_ENABLED.
+    APPLY только с plan_id (D.2.1). full_snapshot требует ack (D.2.3).
     """
     from django.contrib.auth import get_user_model
 
@@ -26,33 +33,29 @@ def run_onec_catalog_sync_task(self, *, dry_run: bool = True, user_id: str | Non
         User = get_user_model()
         user = User.objects.filter(pk=user_id).first()
 
+    if not dry_run and not plan_id:
+        raise RuntimeError("Celery APPLY требует plan_id")
+
     return run_catalog_import(
         dry_run=dry_run,
-        from_api=True,
+        from_api=True if dry_run else False,
         user=user,
         celery_task_id=getattr(self.request, "id", "") or "",
+        plan_id=plan_id if not dry_run else None,
+        full_snapshot_acknowledged=bool(full_snapshot_acknowledged),
     )
 
 
 @shared_task
 def scheduled_onec_catalog_sync_task():
     """
-    Beat-задача. Выполняет apply только если ONE_C_CATALOG_SYNC_ENABLED и API on.
-    По умолчанию флаги OFF — no-op.
+    Beat-задача. D.2.1/D.2.3: автоматический APPLY отключён.
     """
-    if not getattr(settings, "ONE_C_CATALOG_SYNC_ENABLED", False):
-        logger.info("scheduled catalog sync skipped: ONE_C_CATALOG_SYNC_ENABLED=false")
-        return {"skipped": True, "reason": "flag_off"}
-    if not getattr(settings, "ONE_C_API_ENABLED", False):
-        logger.info("scheduled catalog sync skipped: ONE_C_API_ENABLED=false")
-        return {"skipped": True, "reason": "api_disabled"}
-    from integrations.onec.catalog_sync import (
-        has_running_apply,
-        reap_stale_running_applies,
-        run_catalog_import,
+    logger.info(
+        "scheduled catalog sync skipped: D.2.1 requires plan_id; Beat APPLY disabled"
     )
-
-    reaped = reap_stale_running_applies()
-    if has_running_apply():
-        return {"skipped": True, "reason": "already_running", "reaped_stale": reaped}
-    return run_catalog_import(dry_run=False, from_api=True, user=None)
+    return {
+        "skipped": True,
+        "reason": "d2_plan_id_required",
+        "note": "Automatic APPLY via Beat is disabled; use dry-run → plan_id → apply",
+    }

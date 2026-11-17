@@ -48,6 +48,34 @@ class ImportMode(str, Enum):
     APPLY = "apply"
 
 
+class SnapshotPolicy(str, Enum):
+    """
+    present_only — обновлять только строки из XML; отсутствующие остатки не трогать.
+    full_snapshot — полный снимок: отсутствующие на confirmed складах → zero.
+    """
+
+    PRESENT_ONLY = "present_only"
+    FULL_SNAPSHOT = "full_snapshot"
+
+
+SNAPSHOT_POLICY_VALUES = frozenset(p.value for p in SnapshotPolicy)
+
+
+def normalize_snapshot_policy(value: str | SnapshotPolicy | None = None) -> str:
+    """Default present_only. Unknown value → ValueError (no silent fallback)."""
+    if value is None or value == "":
+        return SnapshotPolicy.PRESENT_ONLY.value
+    if isinstance(value, SnapshotPolicy):
+        return value.value
+    text = str(value).strip()
+    if text not in SNAPSHOT_POLICY_VALUES:
+        raise ValueError(
+            f"Unknown snapshot_policy={value!r}; "
+            f"allowed: {sorted(SNAPSHOT_POLICY_VALUES)}"
+        )
+    return text
+
+
 @dataclass
 class CategoryAction:
     onec_code: str
@@ -96,6 +124,7 @@ class CatalogImportPlan:
     # Уникальный id запуска плана: стабилен при повторном APPLY того же объекта плана,
     # новый UUID при каждом plan_from_parsed (новый прогон синхронизации).
     run_id: str = ""
+    snapshot_policy: str = SnapshotPolicy.PRESENT_ONLY.value
     folder_count: int = 0
     product_row_count: int = 0
     unique_product_count: int = 0
@@ -117,6 +146,7 @@ class CatalogImportPlan:
             "mode": self.mode,
             "generated_at": self.generated_at,
             "run_id": self.run_id,
+            "snapshot_policy": self.snapshot_policy,
             "source_folders_path": self.source_folders_path,
             "source_products_path": self.source_products_path,
             "folder_count": self.folder_count,
@@ -776,6 +806,78 @@ def _stores_by_confirmed_warehouse_id() -> dict[str, Store]:
     }
 
 
+def _narrow_stock_skip_missing_category(
+    *,
+    issues: list[dict[str, Any]],
+    stock_actions: list[StockAction],
+    product_actions: list[ProductAction],
+) -> int:
+    """
+    Узкое исключение этапа C (один CatalogImportPlan, строго по onec_code):
+
+    Если для кода одновременно есть product_missing_category и stock_without_product,
+    и карточка в плане — ProductAction(action=skip) с parent_code (не ambiguous),
+    то складские строки этого кода не блокируют APPLY:
+      stock_without_product → stock_skipped_missing_category (severity=False).
+
+    Eligibility не зависит от текста notes.
+    Любая другая причина stock_without_product остаётся blocker.
+    Category автоматически не создаём.
+    """
+    missing_cat_codes = {
+        (i.get("onec_code") or "").strip()
+        for i in issues
+        if (i.get("type") or "") == "product_missing_category" and (i.get("onec_code") or "").strip()
+    }
+    if not missing_cat_codes:
+        return 0
+
+    ambiguous_codes = {a.onec_code for a in product_actions if a.action == "ambiguous"}
+    # Структурно (без текста notes): skip + parent_code + issue product_missing_category,
+    # не ambiguous. Другие skip (цена и т.п.) не попадают в missing_cat_codes.
+    skip_missing_codes = {
+        a.onec_code
+        for a in product_actions
+        if a.action == "skip"
+        and a.onec_code in missing_cat_codes
+        and a.onec_code not in ambiguous_codes
+        and (a.parent_code or "").strip()
+    }
+    eligible = missing_cat_codes & skip_missing_codes
+    if not eligible:
+        return 0
+
+    converted = 0
+    for issue in issues:
+        if (issue.get("type") or "") != "stock_without_product":
+            continue
+        code = (issue.get("onec_code") or "").strip()
+        if code not in eligible:
+            continue
+        issue["type"] = "stock_skipped_missing_category"
+        issue["severity"] = False
+        issue.pop("blocker", None)
+        issue["reason"] = "product_missing_category"
+        issue["message"] = (
+            "Остаток пропущен: карточка не создана из‑за отсутствующей "
+            f"родительской категории (onec_code={code})"
+        )
+        converted += 1
+
+    if converted:
+        for st in stock_actions:
+            if st.action != "skip" or st.onec_code not in eligible:
+                continue
+            if "Нет Product для остатка" not in (st.notes or ""):
+                continue
+            st.notes = (
+                "Пропуск остатка: product_missing_category — карточка не создана, "
+                "Category автоматически не создаём"
+            )
+
+    return converted
+
+
 def _collect_apply_blockers(
     *,
     issues: list[dict[str, Any]],
@@ -883,8 +985,10 @@ def plan_from_parsed(
     parsed: ParsedCatalog,
     *,
     mode: ImportMode = ImportMode.DRY_RUN,
+    snapshot_policy: str | SnapshotPolicy | None = None,
 ) -> CatalogImportPlan:
     """Планирует импорт из уже разобранного XML (файл или HTTP). Без записи в БД."""
+    policy = normalize_snapshot_policy(snapshot_policy)
     if parsed.parse_warnings:
         # Пустая/непонятная выгрузка — не планируем apply-опасные действия молча
         raise OneCParseError("; ".join(parsed.parse_warnings))
@@ -893,6 +997,13 @@ def plan_from_parsed(
     cat_actions, cat_issues = _plan_categories(parsed.folders)
     prod_actions, stock_actions, warehouses, prod_issues = _plan_products(parsed.product_rows, folder_codes)
     all_issues = cat_issues + prod_issues
+
+    # Этап C: узкий skip остатков только при доказанном product_missing_category того же onec_code.
+    skipped_stocks_missing_category = _narrow_stock_skip_missing_category(
+        issues=all_issues,
+        stock_actions=stock_actions,
+        product_actions=prod_actions,
+    )
 
     store_by_wid = _stores_by_confirmed_warehouse_id()
     apply_blockers = _collect_apply_blockers(issues=all_issues, warehouses=warehouses, store_by_wid=store_by_wid)
@@ -920,8 +1031,9 @@ def plan_from_parsed(
         st.site_store_id = str(store.pk)
         seen_keys.add((str(product.pk), str(store.pk), (st.series_id or "").strip()))
 
+    # present_only: отсутствие в XML ≠ ноль. Zero-фаза только для full_snapshot.
     stocks_to_zero: list[StockAction] = []
-    if not apply_blockers:
+    if policy == SnapshotPolicy.FULL_SNAPSHOT.value and not apply_blockers:
         stocks_to_zero = _plan_stocks_to_zero(seen_keys=seen_keys, store_by_wid=store_by_wid)
 
     from integrations.onec.reporting import build_issue_counts, partition_issues
@@ -931,6 +1043,7 @@ def plan_from_parsed(
     series_stock_rows = sum(1 for a in stock_actions if a.action == "upsert" and (a.series_id or "").strip())
     summary = {
         # Planned (ожидаемые действия плана; для APPLY фактические — из apply_result)
+        "snapshot_policy": policy,
         "categories_create": sum(1 for a in cat_actions if a.action == "create"),
         "categories_update": sum(1 for a in cat_actions if a.action == "update"),
         "categories_skip": sum(1 for a in cat_actions if a.action == "skip"),
@@ -955,6 +1068,7 @@ def plan_from_parsed(
         ),
         "series_rows": issue_counts["series_rows"],
         "missing_category_products": sum(1 for i in all_issues if i.get("type") == "product_missing_category"),
+        "skipped_stocks_missing_category": skipped_stocks_missing_category,
         **issue_counts,
     }
 
@@ -962,6 +1076,7 @@ def plan_from_parsed(
         mode=mode.value,
         generated_at=_now_iso(),
         run_id=str(uuid.uuid4()),
+        snapshot_policy=policy,
         source_folders_path=parsed.source_folders_path,
         source_products_path=parsed.source_products_path,
         folder_count=len(parsed.folders),
@@ -983,9 +1098,10 @@ def plan_catalog_import(
     products_path: str | Path,
     *,
     mode: ImportMode = ImportMode.DRY_RUN,
+    snapshot_policy: str | SnapshotPolicy | None = None,
 ) -> CatalogImportPlan:
     parsed = parse_catalog_files(folders_path, products_path)
-    return plan_from_parsed(parsed, mode=mode)
+    return plan_from_parsed(parsed, mode=mode, snapshot_policy=snapshot_policy)
 
 
 def plan_catalog_import_from_xml_strings(
@@ -994,19 +1110,21 @@ def plan_catalog_import_from_xml_strings(
     *,
     mode: ImportMode = ImportMode.DRY_RUN,
     source_label: str = "http",
+    snapshot_policy: str | SnapshotPolicy | None = None,
 ) -> CatalogImportPlan:
     """
     Полный цикл: разбор XML-строк → план.
     При ошибке разбора исключение — БД не трогаем.
     """
     parsed = parse_catalog_xml_strings(folders_xml, products_xml, source_label=source_label)
-    return plan_from_parsed(parsed, mode=mode)
+    return plan_from_parsed(parsed, mode=mode, snapshot_policy=snapshot_policy)
 
 
 def fetch_and_plan_from_api(
     *,
     mode: ImportMode = ImportMode.DRY_RUN,
     client=None,
+    snapshot_policy: str | SnapshotPolicy | None = None,
 ) -> CatalogImportPlan:
     """
     GET folders → GET products → разбор → план.
@@ -1022,6 +1140,7 @@ def fetch_and_plan_from_api(
         products_xml,
         mode=mode,
         source_label=api.base_url.rstrip("/"),
+        snapshot_policy=snapshot_policy,
     )
 
 
@@ -1048,27 +1167,64 @@ def _unique_category_slug(base: str, *, exclude_id=None) -> str:
     return candidate
 
 
-@transaction.atomic
-def apply_catalog_import(plan: CatalogImportPlan) -> dict[str, Any]:
+def apply_catalog_import(*args, **kwargs):
     """
-    Применяет план к БД.
+    Устаревший вход закрыт (D.2.1/D.2.3).
+    Используйте integrations.onec.plan_store.apply_saved_plan(plan_id, ...).
+    """
+    raise PermissionError(
+        "apply_catalog_import(plan) закрыт. "
+        "APPLY только через plan_store.apply_saved_plan(plan_id) "
+        "после DRY-RUN с сохранённым plan_id."
+    )
+
+
+def apply_catalog_import_by_plan_id(
+    plan_id,
+    *,
+    full_snapshot_acknowledged: bool = False,
+) -> dict[str, Any]:
+    """Публичный APPLY — делегирует в plan_store.apply_saved_plan."""
+    from integrations.onec.plan_store import apply_saved_plan
+
+    return apply_saved_plan(
+        plan_id, full_snapshot_acknowledged=full_snapshot_acknowledged
+    )
+
+
+@transaction.atomic
+def _apply_catalog_import_plan(
+    plan: CatalogImportPlan,
+    *,
+    gate,
+    expected_plan_id,
+) -> dict[str, Any]:
+    """
+    Внутреннее применение плана после consume execution_token.
+    Вызывается только из plan_store.apply_saved_plan.
+
     Не удаляет/не деактивирует карточки Product.
     Store не создаёт — только склады с подтверждённым onec_warehouse_id.
-    После upsert выполняет zero-phase по отсутствующим в снимке позициям.
+    Zero-phase выполняется только при snapshot_policy=full_snapshot.
 
-    ONEC-014: одна atomic на весь apply сохраняет согласованность полного снимка
-    (upsert + zero). Дробить транзакцию без отдельного безопасного протокола
-    нельзя — иначе частичный apply + zero исказят наличие. Параллельный apply
-    сериализуется lock'ом catalog_sync (ONEC-013).
+    ONEC-014: одна atomic на весь apply.
     """
+    from integrations.onec.plan_store import validate_and_consume_execution_gate
+
+    validate_and_consume_execution_gate(gate, expected_plan_id=expected_plan_id)
     if plan.mode != ImportMode.APPLY.value:
-        raise ValueError("apply_catalog_import требует plan.mode=apply")
+        raise ValueError("apply требует plan.mode=apply")
     if plan.apply_blockers:
         raise ValueError(
-            "apply_catalog_import заблокирован: "
+            "apply заблокирован: "
             + "; ".join((b.get("message") or b.get("type") or "blocker") for b in plan.apply_blockers[:5])
         )
-
+    policy = normalize_snapshot_policy(getattr(plan, "snapshot_policy", None))
+    if plan.stocks_to_zero and policy != SnapshotPolicy.FULL_SNAPSHOT.value:
+        raise ValueError(
+            "stocks_to_zero допустимы только при snapshot_policy=full_snapshot "
+            f"(получено {policy!r})"
+        )
     # Создаём/обновляем категории в порядке плана (уже топологический из планировщика)
     code_to_category: dict[str, Category] = {}
     for action in plan.categories:
@@ -1189,22 +1345,24 @@ def apply_catalog_import(plan: CatalogImportPlan) -> dict[str, Any]:
         )
 
     zero_items: list[OnecStockUpsertItem] = []
-    for st in plan.stocks_to_zero:
-        if st.action != "zero":
-            continue
-        product_id = st.site_product_id
-        store_id = st.site_store_id
-        if not product_id or not store_id:
-            continue
-        zero_items.append(
-            OnecStockUpsertItem(
-                product_id=product_id,
-                store_id=store_id,
-                series_id=(st.series_id or "").strip(),
-                series_name=(st.series or "").strip(),
-                quantity=0,
+    # Defense: zero-фаза только full_snapshot (present_only план обязан иметь пустой stocks_to_zero).
+    if policy == SnapshotPolicy.FULL_SNAPSHOT.value:
+        for st in plan.stocks_to_zero:
+            if st.action != "zero":
+                continue
+            product_id = st.site_product_id
+            store_id = st.site_store_id
+            if not product_id or not store_id:
+                continue
+            zero_items.append(
+                OnecStockUpsertItem(
+                    product_id=product_id,
+                    store_id=store_id,
+                    series_id=(st.series_id or "").strip(),
+                    series_name=(st.series or "").strip(),
+                    quantity=0,
+                )
             )
-        )
 
     if upsert_items:
         up = apply_onec_stock_upserts_batch(upsert_items, run_id=run_id)

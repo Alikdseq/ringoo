@@ -23,6 +23,9 @@ WARNING_ISSUE_TYPES = frozenset(
         "product_name_variants",
         "product_price_variants",
         "product_missing_category",
+        # Этап C: узкий skip остатка при том же onec_code с product_missing_category.
+        # Не ослабляет глобальный stock_without_product (он остаётся severity blocker).
+        "stock_skipped_missing_category",
         "folder_missing_parent",
         "folder_duplicate_code",
         "category_slug_conflict",

@@ -104,8 +104,8 @@ class OneCSyncDryRunView(APIView):
 
 class OneCSyncApplyView(APIView):
     """
-    Постановка apply в очередь. Не вызывает live 1С, если API выключен.
-    Требует confirm=true в теле.
+    Постановка apply в очередь по plan_id (D.2.1).
+    Требует confirm=true и plan_id. Не пересобирает план из 1С.
     """
 
     permission_classes = admin_permissions(RINGOO_GROUP_CATALOG)
@@ -120,11 +120,24 @@ class OneCSyncApplyView(APIView):
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        plan_id = (request.data.get("plan_id") or "").strip()
+        if not plan_id:
+            return Response(
+                {
+                    "detail": "APPLY требует plan_id сохранённого DRY-RUN.",
+                    "code": "plan_id_required",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        # confirm=true ≠ full_snapshot ack (D.2.3)
+        fs_ack_raw = request.data.get("full_snapshot_acknowledged")
+        full_snapshot_acknowledged = fs_ack_raw in (True, "true", "1", 1, "yes")
         if not getattr(settings, "ONE_C_API_ENABLED", False):
             return Response(
                 {
                     "detail": (
-                        "Apply запрещён: ONE_C_API_ENABLED=false. " "Включите только на согласованном контуре 1С."
+                        "Apply запрещён: ONE_C_API_ENABLED=false. "
+                        "Включите только на согласованном контуре 1С."
                     ),
                     "code": "onec_api_disabled",
                 },
@@ -141,17 +154,27 @@ class OneCSyncApplyView(APIView):
 
         from apps.products.tasks import run_onec_catalog_sync_task
 
-        async_result = run_onec_catalog_sync_task.delay(dry_run=False, user_id=str(request.user.pk))
+        async_result = run_onec_catalog_sync_task.delay(
+            dry_run=False,
+            user_id=str(request.user.pk),
+            plan_id=plan_id,
+            full_snapshot_acknowledged=full_snapshot_acknowledged,
+        )
         return Response(
             {
                 "queued": True,
                 "celery_task_id": async_result.id,
                 "dry_run": False,
-                "warning": ("Задача поставлена в очередь. Успех = завершённый SyncLog, " "не факт принятия Celery."),
+                "plan_id": plan_id,
+                "full_snapshot_acknowledged": full_snapshot_acknowledged,
+                "warning": (
+                    "Задача поставлена в очередь. Успех = завершённый SyncLog, "
+                    "не факт принятия Celery. "
+                    "full_snapshot планы требуют full_snapshot_acknowledged=true."
+                ),
             },
             status=status.HTTP_202_ACCEPTED,
         )
-
 
 class OneCInboundStatusView(APIView):
     """Состояние входящей интеграции статусов/оплат (без значения токена)."""

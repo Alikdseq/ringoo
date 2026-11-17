@@ -1,4 +1,4 @@
-"""BLOCK 2 + сверка остатков + публичное наличие + корзина."""
+﻿"""BLOCK 2 + сверка остатков + публичное наличие + корзина."""
 
 from __future__ import annotations
 
@@ -12,9 +12,10 @@ from apps.products.models import Category, Product
 from apps.stores.models import Stock, Store
 from integrations.onec.importer import (
     ImportMode,
-    apply_catalog_import,
+    SnapshotPolicy,
     plan_catalog_import_from_xml_strings,
 )
+from tests.onec_plan_apply_helpers import persist_and_apply_for_tests
 from integrations.onec.warehouse_map import CONFIRMED_WAREHOUSE_IDS, CONFIRMED_WAREHOUSES
 from tests.onec_test_utils import (
     TEST_OTHER_WH_ID,
@@ -126,16 +127,22 @@ class StockReconciliationTests(TestCase):
             onec_series_id="",
         )
 
-    def _apply(self, *rows: str):
+    def _apply(self, *rows: str, snapshot_policy: str = SnapshotPolicy.PRESENT_ONLY.value):
         plan = plan_catalog_import_from_xml_strings(
-            FOLDERS, _xml(*rows), mode=ImportMode.APPLY
+            FOLDERS,
+            _xml(*rows),
+            mode=ImportMode.APPLY,
+            snapshot_policy=snapshot_policy,
         )
         self.assertTrue(plan.apply_allowed, plan.apply_blockers)
-        return plan, apply_catalog_import(plan)
+        return plan, persist_and_apply_for_tests(plan)
 
     def test_missing_from_snapshot_zeros_old_stock(self):
-        # Только склад A с qty=4 → B должен обнулиться
-        plan, result = self._apply(_row("N-1", "100", 4))
+        # full_snapshot: только склад A с qty=4 → B должен обнулиться
+        plan, result = self._apply(
+            _row("N-1", "100", 4),
+            snapshot_policy=SnapshotPolicy.FULL_SNAPSHOT.value,
+        )
         self.stock_a.refresh_from_db()
         self.stock_b.refresh_from_db()
         self.product.refresh_from_db()
@@ -145,16 +152,14 @@ class StockReconciliationTests(TestCase):
         self.assertTrue(self.product.is_active)
         self.assertGreaterEqual(result["stocks_zeroed"], 1)
         self.assertTrue(any(z.action == "zero" for z in plan.stocks_to_zero))
+        self.assertEqual(plan.snapshot_policy, SnapshotPolicy.FULL_SNAPSHOT.value)
 
     def test_product_returns_in_next_snapshot(self):
-        self._apply(_row("N-1", "100", 0))  # explicit zero path via upsert if present
-        # Полностью отсутствует → zero
-        plan = plan_catalog_import_from_xml_strings(
-            FOLDERS,
-            _xml(_row("N-OTHER", "50", 1, name="Other")),
-            mode=ImportMode.APPLY,
-        )
-        # N-OTHER new needs create - ensure category ok
+        self._apply(
+            _row("N-1", "100", 0),
+            snapshot_policy=SnapshotPolicy.FULL_SNAPSHOT.value,
+        )  # explicit zero path via upsert if present
+        # Полностью отсутствует → zero (только full_snapshot)
         Product.objects.create(
             title="Other",
             slug="rec-other",
@@ -166,12 +171,16 @@ class StockReconciliationTests(TestCase):
             FOLDERS,
             _xml(_row("N-OTHER", "50", 1, name="Other")),
             mode=ImportMode.APPLY,
+            snapshot_policy=SnapshotPolicy.FULL_SNAPSHOT.value,
         )
-        apply_catalog_import(plan)
+        persist_and_apply_for_tests(plan)
         self.stock_a.refresh_from_db()
         self.assertEqual(self.stock_a.quantity, 0)
 
-        self._apply(_row("N-1", "100", 7))
+        self._apply(
+            _row("N-1", "100", 7),
+            snapshot_policy=SnapshotPolicy.FULL_SNAPSHOT.value,
+        )
         self.stock_a.refresh_from_db()
         self.assertEqual(self.stock_a.quantity, 7)
         self.assertEqual(self.stock_a.reserved_quantity, 2)
@@ -202,6 +211,7 @@ class StockReconciliationTests(TestCase):
                 sklad="Беслан",
                 sklad_id=TEST_OTHER_WH_ID,
             ),
+            snapshot_policy=SnapshotPolicy.FULL_SNAPSHOT.value,
         )
         keep = Stock.objects.get(
             product=self.product, store=self.store_a, onec_series_id="ser-keep"
@@ -217,14 +227,20 @@ class StockReconciliationTests(TestCase):
         self.assertEqual(blank.quantity, 0)
 
     def test_empty_warehouse_in_xml_zeros_that_store(self):
-        # Склад B отсутствует в XML целиком
-        self._apply(_row("N-1", "100", 1))
+        # Склад B отсутствует в XML целиком — zero только в full_snapshot
+        self._apply(
+            _row("N-1", "100", 1),
+            snapshot_policy=SnapshotPolicy.FULL_SNAPSHOT.value,
+        )
         self.stock_b.refresh_from_db()
         self.assertEqual(self.stock_b.quantity, 0)
 
     def test_same_plan_reapply_idempotent(self):
-        plan, r1 = self._apply(_row("N-1", "100", 4))
-        r2 = apply_catalog_import(plan)
+        plan, r1 = self._apply(
+            _row("N-1", "100", 4),
+            snapshot_policy=SnapshotPolicy.FULL_SNAPSHOT.value,
+        )
+        r2 = persist_and_apply_for_tests(plan)
         self.assertEqual(r2["stocks_upserted"], 0)
         self.assertEqual(r2["stocks_zeroed"], 0)
         self.assertGreater(r2["stocks_skipped_idempotent"], 0)
@@ -316,11 +332,6 @@ class PublicAvailabilityAndCartTests(TestCase):
         Stock.objects.create(
             product=self.product, store=self.retail, quantity=5, reserved_quantity=1
         )
-        plan = plan_catalog_import_from_xml_strings(
-            FOLDERS,
-            _xml(_row("N-OTHER2", "10", 1, name="Other2")),
-            mode=ImportMode.APPLY,
-        )
         Product.objects.create(
             title="Other2",
             slug="pub-o2",
@@ -332,8 +343,9 @@ class PublicAvailabilityAndCartTests(TestCase):
             FOLDERS,
             _xml(_row("N-OTHER2", "10", 1, name="Other2")),
             mode=ImportMode.APPLY,
+            snapshot_policy=SnapshotPolicy.FULL_SNAPSHOT.value,
         )
-        apply_catalog_import(plan)
+        persist_and_apply_for_tests(plan)
         self.product.refresh_from_db()
         self.assertTrue(self.product.is_active)
         stock = Stock.objects.get(product=self.product, store=self.retail)
@@ -355,7 +367,7 @@ class PublicAvailabilityAndCartTests(TestCase):
             mode=ImportMode.APPLY,
         )
         self.assertTrue(plan.apply_allowed, plan.apply_blockers)
-        apply_catalog_import(plan)
+        persist_and_apply_for_tests(plan)
         tech_stock = Stock.objects.get(
             product=self.product, store=self.tech, onec_series_id=""
         )
@@ -391,7 +403,7 @@ class PublicAvailabilityAndCartTests(TestCase):
         # Пустая цена блокирует карточку, но не existing stock upsert
         upserts = [s for s in plan.stocks if s.action == "upsert"]
         self.assertTrue(upserts)
-        apply_catalog_import(plan)
+        persist_and_apply_for_tests(plan)
         stock = Stock.objects.get(product=self.product, store=self.retail)
         self.assertEqual(stock.quantity, 6)
 
@@ -410,6 +422,6 @@ class PublicAvailabilityAndCartTests(TestCase):
             side_effect=RuntimeError("boom"),
         ):
             with self.assertRaises(RuntimeError):
-                apply_catalog_import(plan)
+                persist_and_apply_for_tests(plan)
         stock = Stock.objects.get(product=self.product, store=self.retail)
         self.assertEqual(stock.quantity, 5)

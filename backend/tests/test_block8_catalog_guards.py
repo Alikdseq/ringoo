@@ -1,4 +1,4 @@
-"""INV-001: отрицательные цена и количество из XML 1С не перезаписывают каталог."""
+﻿"""INV-001: отрицательные цена и количество из XML 1С не перезаписывают каталог."""
 
 from __future__ import annotations
 
@@ -11,9 +11,9 @@ from apps.stores.models import Stock, Store
 from integrations.onec.catalog_sync import run_catalog_import
 from integrations.onec.importer import (
     ImportMode,
-    apply_catalog_import,
     plan_catalog_import_from_xml_strings,
 )
+from tests.onec_plan_apply_helpers import persist_and_apply_for_tests
 from tests.onec_test_utils import (
     TEST_RETAIL_WH_ID,
     TEST_RETAIL_WH_NAME,
@@ -74,7 +74,7 @@ class CatalogGuardTests(TestCase):
         self.assertFalse(plan.apply_allowed)
         plan.mode = ImportMode.APPLY.value
         with self.assertRaises(ValueError):
-            apply_catalog_import(plan)
+            persist_and_apply_for_tests(plan)
         self.product.refresh_from_db()
         self.stock.refresh_from_db()
         self.assertEqual(self.product.price, Decimal("100.00"))
@@ -118,7 +118,7 @@ class CatalogGuardTests(TestCase):
         self.assertEqual(product_action.action, "update")
         self.assertEqual(product_action.price, "0")
         plan.mode = ImportMode.APPLY.value
-        apply_catalog_import(plan)
+        persist_and_apply_for_tests(plan)
         self.product.refresh_from_db()
         self.stock.refresh_from_db()
         self.assertEqual(self.product.price, Decimal("0.00"))
@@ -150,7 +150,7 @@ class CatalogGuardTests(TestCase):
         plan = self._plan(_xml(_row("N-OLD", "-5", "9")))
         self.assertTrue(plan.apply_allowed)
         plan.mode = ImportMode.APPLY.value
-        apply_catalog_import(plan)
+        persist_and_apply_for_tests(plan)
         self.product.refresh_from_db()
         self.stock.refresh_from_db()
         self.assertEqual(self.product.price, Decimal("100.00"))
@@ -175,7 +175,7 @@ class CatalogGuardTests(TestCase):
         )
         self.assertTrue(plan.apply_allowed)
         plan.mode = ImportMode.APPLY.value
-        apply_catalog_import(plan)
+        persist_and_apply_for_tests(plan)
         self.product.refresh_from_db()
         self.stock.refresh_from_db()
         other.refresh_from_db()

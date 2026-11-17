@@ -4,6 +4,9 @@ Test settings for Ringoo project.
 
 from .base import *
 
+# Explicit test flag (Django 5 no longer sets settings.TESTING in setup_test_environment).
+TESTING = True
+
 # Тесты схемы/редиректов: документация доступна (как в dev)
 API_DOCS_PUBLIC = True
 

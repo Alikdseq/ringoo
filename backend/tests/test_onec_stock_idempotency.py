@@ -1,4 +1,4 @@
-"""BLOCK 1: идемпотентность импорта остатков 1С без qty в ключе."""
+﻿"""BLOCK 1: идемпотентность импорта остатков 1С без qty в ключе."""
 
 from __future__ import annotations
 
@@ -14,9 +14,9 @@ from apps.stores.stock_ops import (
 )
 from integrations.onec.importer import (
     ImportMode,
-    apply_catalog_import,
     plan_catalog_import_from_xml_strings,
 )
+from tests.onec_plan_apply_helpers import persist_and_apply_for_tests
 from tests.onec_test_utils import (
     TEST_OTHER_WH_ID,
     TEST_RETAIL_WH_ID,
@@ -316,7 +316,7 @@ class OneCCatalogPlanReapplyTests(TestCase):
             mode=ImportMode.APPLY,
         )
         self.assertTrue(plan.apply_allowed, plan.apply_blockers)
-        result = apply_catalog_import(plan)
+        result = persist_and_apply_for_tests(plan)
         return plan, result
 
     def test_plan_oscillation_and_reapply(self):
@@ -328,7 +328,7 @@ class OneCCatalogPlanReapplyTests(TestCase):
         self.assertTrue(plan5.run_id)
 
         # Повтор того же плана — без нового движения
-        r1b = apply_catalog_import(plan5)
+        r1b = persist_and_apply_for_tests(plan5)
         self.assertEqual(r1b["stocks_upserted"], 0)
         self.assertEqual(r1b["stocks_skipped_idempotent"], 1)
         self.assertEqual(

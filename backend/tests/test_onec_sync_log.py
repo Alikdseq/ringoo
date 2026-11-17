@@ -50,13 +50,22 @@ class OneCSyncLogTests(TestCase):
         self.assertFalse(resp.data["api_enabled"])
 
     def test_apply_blocked_when_api_disabled(self):
+        # D.2.1: plan_id required before API gate
         resp = self.client.post(
             "/api/v1/admin/onec/sync/apply/",
             {"confirm": True},
             format="json",
         )
-        self.assertEqual(resp.status_code, 403, resp.content)
-        self.assertEqual(resp.data.get("code"), "onec_api_disabled")
+        self.assertEqual(resp.status_code, 400, resp.content)
+        self.assertEqual(resp.data.get("code"), "plan_id_required")
+
+        resp2 = self.client.post(
+            "/api/v1/admin/onec/sync/apply/",
+            {"confirm": True, "plan_id": "00000000-0000-0000-0000-000000000001"},
+            format="json",
+        )
+        self.assertEqual(resp2.status_code, 403, resp2.content)
+        self.assertEqual(resp2.data.get("code"), "onec_api_disabled")
 
     def test_reap_stale_running_marks_failed(self):
         from datetime import timedelta

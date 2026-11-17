@@ -199,36 +199,52 @@ def run_catalog_import(
     folders_path: str = "",
     products_path: str = "",
     celery_task_id: str = "",
+    snapshot_policy: str | None = None,
+    plan_id: str | None = None,
+    full_snapshot_acknowledged: bool = False,
 ) -> dict[str, Any]:
     """
-    Dry-run или apply поверх существующего importer.
-    Apply требует ONE_C_API_ENABLED при from_api=True и отсутствие parallel apply.
+    Dry-run: строит план, сохраняет в PostgreSQL, возвращает plan_id.
+    Apply: только по plan_id (не пересобирает XML/API). D.2.1/D.2.3.
+    full_snapshot APPLY требует full_snapshot_acknowledged=True.
     """
     from apps.products.sync_models import OneCCatalogSyncLog
     from integrations.onec.importer import (
         ImportMode,
-        apply_catalog_import,
         fetch_and_plan_from_api,
+        normalize_snapshot_policy,
         plan_catalog_import,
     )
+    from integrations.onec.plan_store import (
+        PlanStoreError,
+        apply_saved_plan,
+        persist_plan_after_dry_run,
+    )
+    policy = normalize_snapshot_policy(snapshot_policy)
 
-    if not dry_run and from_api and not getattr(settings, "ONE_C_API_ENABLED", False):
-        raise RuntimeError("ONE_C_API_ENABLED=false — apply из API запрещён")
+    if not dry_run:
+        if not plan_id:
+            raise RuntimeError(
+                "APPLY требует plan_id сохранённого DRY-RUN плана "
+                "(нельзя пересобрать план из XML/API)."
+            )
+        if from_api and not getattr(settings, "ONE_C_API_ENABLED", False):
+            raise RuntimeError("ONE_C_API_ENABLED=false — apply из API запрещён")
 
     run_id = _new_run_id()
     apply_lock_held = False
     if not dry_run:
-        # Атомарный cache.add — иначе два Celery worker оба проходят .exists() и оба apply.
         if not _try_acquire_apply_lock(run_id):
             raise RuntimeError("Уже выполняется apply каталога — дождитесь завершения")
         apply_lock_held = True
-        # Зависшие SyncLog STATUS_RUNNING без активного lock всё ещё блокируют.
         if _running_apply_in_db(exclude_run_id=run_id):
             _release_apply_lock(run_id)
             apply_lock_held = False
             raise RuntimeError("Уже выполняется apply каталога — дождитесь завершения")
 
     source = OneCCatalogSyncLog.SOURCE_API if from_api else OneCCatalogSyncLog.SOURCE_FILE
+    if not dry_run:
+        source = OneCCatalogSyncLog.SOURCE_FILE  # apply by plan_id; XML/API not re-fetched
     log = OneCCatalogSyncLog.objects.create(
         run_id=run_id,
         sync_type=OneCCatalogSyncLog.TYPE_CATALOG,
@@ -241,101 +257,117 @@ def run_catalog_import(
     )
     started = timezone.now()
     try:
-        mode = ImportMode.DRY_RUN if dry_run else ImportMode.APPLY
-        if from_api:
-            plan = fetch_and_plan_from_api(mode=mode)
-        else:
-            from pathlib import Path
-
-            plan = plan_catalog_import(Path(folders_path), Path(products_path), mode=mode)
-
         from integrations.onec.reporting import (
             build_issue_counts,
             issue_for_log,
             partition_issues,
         )
 
-        # Корреляция SyncLog.run_id ↔ idempotency ключей apply
-        plan.run_id = run_id
-
-        s = plan.summary or {}
-        partitioned = partition_issues(plan.issues or [])
-        issue_counts = build_issue_counts(partitioned)
-
-        log.records_received = int(plan.product_row_count or 0) + int(plan.folder_count or 0)
-        # Сначала — planned (dry-run и до apply). После APPLY перезапишем фактом.
-        log.categories_created = int(s.get("categories_create") or 0)
-        log.categories_updated = int(s.get("categories_update") or 0)
-        log.categories_skipped = int(s.get("categories_skip") or 0)
-        log.products_created = int(s.get("products_create") or 0)
-        log.products_updated = int(s.get("products_update") or 0)
-        log.products_skipped = int(s.get("products_skip") or 0)
-        # ONEC-015: не писать planned stocks_upsert как «факт» до apply
-        log.stocks_upserted = 0 if not dry_run else int(s.get("stocks_upsert") or 0)
-        log.stocks_skipped = int(s.get("stocks_skip") or 0)
-
-        # ONEC-016: series_present / info не раздувают errors_count
-        log.errors_count = int(issue_counts["errors_count"])
-        log_msgs: list[Any] = []
-        for i in (partitioned["blocker"] + partitioned["error"])[:80]:
-            log_msgs.append(issue_for_log(i))
-        for i in partitioned["warning"][:40]:
-            log_msgs.append(issue_for_log(i))
-        # info (series_present): только счётчик + до 5 примеров
-        for i in partitioned["info"][:5]:
-            log_msgs.append(issue_for_log(i))
-        log.error_messages = log_msgs
-
-        log.summary = {
-            "folder_count": plan.folder_count,
-            "product_row_count": plan.product_row_count,
-            "unique_product_count": plan.unique_product_count,
-            "mode": plan.mode,
-            "plan_run_id": plan.run_id,
-            "counters_source": "planned",
-            "planned_stocks_upsert": int(s.get("stocks_upsert") or 0),
-            "planned_stocks_to_zero": int(s.get("stocks_to_zero") or 0),
-            "stock_series_rows": int(s.get("stock_series_rows") or 0),
-            "warnings_count": issue_counts["warnings_count"],
-            "info_count": issue_counts["info_count"],
-            "blockers_count": issue_counts["blockers_count"],
-            "anomalies_count": 0,
-            "stocks_zeroed": 0,
-            "stocks_skipped_idempotent": 0,
-            **{k: s.get(k) for k in s},
-            **issue_counts,
-        }
-
         apply_result: dict[str, Any] | None = None
-        if not dry_run:
-            if getattr(plan, "apply_blockers", None):
-                raise RuntimeError(
-                    "Apply заблокирован: "
-                    + "; ".join((b.get("message") or b.get("type") or "blocker") for b in plan.apply_blockers[:5])
-                )
-            with transaction.atomic():
-                apply_result = apply_catalog_import(plan)
+        saved_plan_meta: dict[str, Any] = {}
 
-            # Фактические счётчики batch apply (ONEC-015)
+        if dry_run:
+            mode = ImportMode.DRY_RUN
+            if from_api:
+                plan = fetch_and_plan_from_api(mode=mode, snapshot_policy=policy)
+            else:
+                from pathlib import Path
+
+                plan = plan_catalog_import(
+                    Path(folders_path),
+                    Path(products_path),
+                    mode=mode,
+                    snapshot_policy=policy,
+                )
+            plan.run_id = run_id
+
+            s = plan.summary or {}
+            partitioned = partition_issues(plan.issues or [])
+            issue_counts = build_issue_counts(partitioned)
+
+            log.records_received = int(plan.product_row_count or 0) + int(plan.folder_count or 0)
+            log.categories_created = int(s.get("categories_create") or 0)
+            log.categories_updated = int(s.get("categories_update") or 0)
+            log.categories_skipped = int(s.get("categories_skip") or 0)
+            log.products_created = int(s.get("products_create") or 0)
+            log.products_updated = int(s.get("products_update") or 0)
+            log.products_skipped = int(s.get("products_skip") or 0)
+            log.stocks_upserted = int(s.get("stocks_upsert") or 0)
+            log.stocks_skipped = int(s.get("stocks_skip") or 0)
+            log.errors_count = int(issue_counts["errors_count"])
+            log_msgs: list[Any] = []
+            for i in (partitioned["blocker"] + partitioned["error"])[:80]:
+                log_msgs.append(issue_for_log(i))
+            for i in partitioned["warning"][:40]:
+                log_msgs.append(issue_for_log(i))
+            for i in partitioned["info"][:5]:
+                log_msgs.append(issue_for_log(i))
+            log.error_messages = log_msgs
+
+            try:
+                saved = persist_plan_after_dry_run(
+                    plan, user=user, dry_run_sync_log=log
+                )
+                saved_plan_meta = {
+                    "plan_id": str(saved.plan_id),
+                    "plan_checksum": saved.checksum,
+                    "plan_expires_at": saved.expires_at.isoformat(),
+                    "plan_schema_version": saved.schema_version,
+                    "snapshot_policy": saved.snapshot_policy,
+                }
+            except PlanStoreError as exc:
+                raise RuntimeError(f"Не удалось сохранить план: {exc}") from exc
+
+            log.summary = {
+                "folder_count": plan.folder_count,
+                "product_row_count": plan.product_row_count,
+                "unique_product_count": plan.unique_product_count,
+                "mode": plan.mode,
+                "plan_run_id": plan.run_id,
+                "counters_source": "planned",
+                "planned_stocks_upsert": int(s.get("stocks_upsert") or 0),
+                "planned_stocks_to_zero": int(s.get("stocks_to_zero") or 0),
+                "stock_series_rows": int(s.get("stock_series_rows") or 0),
+                "warnings_count": issue_counts["warnings_count"],
+                "info_count": issue_counts["info_count"],
+                "blockers_count": issue_counts["blockers_count"],
+                "anomalies_count": 0,
+                "stocks_zeroed": 0,
+                "stocks_skipped_idempotent": 0,
+                **{k: s.get(k) for k in s},
+                **issue_counts,
+                **saved_plan_meta,
+            }
+        else:
+            # APPLY by plan_id only — no XML/API rebuild.
+            apply_result = apply_saved_plan(
+                plan_id,
+                full_snapshot_acknowledged=bool(full_snapshot_acknowledged),
+            )
+            saved_plan_meta = {
+                "plan_id": str(plan_id),
+                "counters_source": "applied",
+                "apply_run_id": apply_result.get("run_id") or run_id,
+                "full_snapshot_acknowledged": bool(full_snapshot_acknowledged),
+            }
             log.products_created = int(apply_result.get("products_created") or 0)
             log.products_updated = int(apply_result.get("products_updated") or 0)
             log.stocks_upserted = int(apply_result.get("stocks_upserted") or 0)
             stock_zeroed = int(apply_result.get("stocks_zeroed") or 0)
             stock_idem = int(apply_result.get("stocks_skipped_idempotent") or 0)
-            log.stocks_skipped = int(s.get("stocks_skip") or 0) + stock_idem
+            log.stocks_skipped = stock_idem
             anomalies = int(apply_result.get("reserved_over_quantity_count") or 0)
+            log.categories_created = int(apply_result.get("categories") or 0)
             log.summary = {
-                **(log.summary or {}),
                 "counters_source": "applied",
                 "stocks_zeroed": stock_zeroed,
                 "stocks_skipped_idempotent": stock_idem,
                 "stocks_upserted_applied": log.stocks_upserted,
                 "anomalies_count": anomalies,
                 "reserved_over_quantity_count": anomalies,
-                "apply_run_id": apply_result.get("run_id") or plan.run_id,
+                **saved_plan_meta,
             }
 
-        # Статус: blockers → уже exception; info/warnings не делают PARTIAL
         if log.errors_count > 0:
             log.status = OneCCatalogSyncLog.STATUS_PARTIAL
         else:
@@ -358,7 +390,13 @@ def run_catalog_import(
         if apply_lock_held:
             _release_apply_lock(run_id)
 
-    return serialize_sync_log(log)
+    payload = serialize_sync_log(log)
+    summary = log.summary or {}
+    if summary.get("plan_id"):
+        payload["plan_id"] = summary.get("plan_id")
+        payload["plan_checksum"] = summary.get("plan_checksum")
+        payload["plan_expires_at"] = summary.get("plan_expires_at")
+    return payload
 
 
 def serialize_sync_log(log) -> dict[str, Any]:

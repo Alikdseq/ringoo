@@ -88,3 +88,79 @@ class OneCCatalogSyncLog(models.Model):
 
     def __str__(self) -> str:
         return f"{self.run_id} {self.status} dry_run={self.dry_run}"
+
+
+class OneCCatalogImportPlan(models.Model):
+    """
+    Сохранённый CatalogImportPlan после DRY-RUN (RELEASE 46.1 D.2).
+    APPLY только через plan_id + verify checksum / TTL / status.
+    """
+
+    STATUS_READY = "ready"
+    STATUS_APPLYING = "applying"
+    STATUS_APPLIED = "applied"
+    STATUS_EXPIRED = "expired"
+    STATUS_REJECTED = "rejected"
+    STATUS_CHOICES = [
+        (STATUS_READY, "Готов"),
+        (STATUS_APPLYING, "Применяется"),
+        (STATUS_APPLIED, "Применён"),
+        (STATUS_EXPIRED, "Истёк"),
+        (STATUS_REJECTED, "Отклонён"),
+    ]
+
+    plan_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    checksum = models.CharField(max_length=64, db_index=True)
+    schema_version = models.PositiveSmallIntegerField()
+    storage_version = models.PositiveSmallIntegerField(default=1)
+    canonical_payload = models.JSONField()
+    snapshot_policy = models.CharField(max_length=32, db_index=True)
+    status = models.CharField(
+        max_length=16,
+        choices=STATUS_CHOICES,
+        default=STATUS_READY,
+        db_index=True,
+    )
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    expires_at = models.DateTimeField(db_index=True)
+    applied_at = models.DateTimeField(null=True, blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="onec_catalog_import_plans",
+    )
+    dry_run_sync_log = models.ForeignKey(
+        OneCCatalogSyncLog,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="saved_import_plans",
+    )
+    error_detail = models.TextField(blank=True, default="")
+    # D.2.3: server-side one-time execution right + stuck applying diagnostics
+    applying_at = models.DateTimeField(null=True, blank=True)
+    execution_token = models.CharField(max_length=64, blank=True, default="")
+    resolved_at = models.DateTimeField(null=True, blank=True)
+    resolution_note = models.TextField(blank=True, default="")
+    resolved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="onec_catalog_plan_resolutions",
+    )
+
+    class Meta:
+        db_table = "products_onec_catalog_import_plan"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["status", "expires_at"]),
+            models.Index(fields=["-created_at"]),
+        ]
+        verbose_name = "Сохранённый план импорта 1С"
+        verbose_name_plural = "Сохранённые планы импорта 1С"
+
+    def __str__(self) -> str:
+        return f"{self.plan_id} {self.status} checksum={self.checksum[:12]}"

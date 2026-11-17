@@ -1,4 +1,4 @@
-"""BLOCK 3: серии, корзина, агрегация наличия, reserved>qty, точка «Склад»."""
+﻿"""BLOCK 3: серии, корзина, агрегация наличия, reserved>qty, точка «Склад»."""
 
 from __future__ import annotations
 
@@ -14,10 +14,10 @@ from apps.stores.models import Stock, Store
 from apps.stores.stock_ops import apply_onec_stock_upsert, release_at_store, reserve_at_store
 from integrations.onec.importer import (
     ImportMode,
-    apply_catalog_import,
     diagnose_reserved_over_quantity,
     plan_catalog_import_from_xml_strings,
 )
+from tests.onec_plan_apply_helpers import persist_and_apply_for_tests
 from integrations.onec.orders import InsufficientStockAtStore, plan_and_reserve_at_store
 from tests.onec_test_utils import (
     TEST_RETAIL_WH_ID,
@@ -408,7 +408,7 @@ class SeriesIdImportTests(TestCase):
         )
         plan = plan_catalog_import_from_xml_strings(FOLDERS, products, mode=ImportMode.APPLY)
         self.assertTrue(plan.apply_allowed, plan.apply_blockers)
-        apply_catalog_import(plan)
+        persist_and_apply_for_tests(plan)
         store = Store.objects.get(onec_warehouse_id=TEST_RETAIL_WH_ID)
         stock = Stock.objects.get(product__onec_code="N-SER", store=store, onec_series_id="")
         self.assertEqual(stock.quantity, 2)
@@ -445,7 +445,7 @@ class ReservedOverQuantityTests(TestCase):
         )
         plan = plan_catalog_import_from_xml_strings(FOLDERS, products, mode=ImportMode.APPLY)
         self.assertTrue(plan.apply_allowed, plan.apply_blockers)
-        result = apply_catalog_import(plan)
+        result = persist_and_apply_for_tests(plan)
         self.stock.refresh_from_db()
         self.assertEqual(self.stock.quantity, 1)
         self.assertEqual(self.stock.reserved_quantity, 3)

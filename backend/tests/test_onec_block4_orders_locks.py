@@ -183,17 +183,24 @@ class CliApplyLockTests(TestCase):
             ppath = Path(tmp) / "products.xml"
             fpath.write_text(folders, encoding="utf-8")
             ppath.write_text(products, encoding="utf-8")
+            from integrations.onec.catalog_sync import run_catalog_import
+
+            dry = run_catalog_import(
+                dry_run=True,
+                from_api=False,
+                folders_path=str(fpath),
+                products_path=str(ppath),
+            )
+            plan_id = dry["plan_id"]
             held = _try_acquire_apply_lock("holder-run")
             self.assertTrue(held)
             try:
                 with self.assertRaises(CommandError) as ctx:
                     call_command(
                         "import_onec_catalog",
-                        "--folders",
-                        str(fpath),
-                        "--products",
-                        str(ppath),
                         "--apply",
+                        "--plan-id",
+                        plan_id,
                         "--i-understand-apply",
                     )
                 self.assertIn("Уже выполняется", str(ctx.exception))

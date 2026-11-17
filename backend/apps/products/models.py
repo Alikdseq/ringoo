@@ -424,4 +424,4 @@ post_save.connect(
 )
 
 # Журнал синхронизации каталога 1С (см. sync_models.py).
-from .sync_models import OneCCatalogSyncLog  # noqa: E402,F401
+from .sync_models import OneCCatalogImportPlan, OneCCatalogSyncLog  # noqa: E402,F401

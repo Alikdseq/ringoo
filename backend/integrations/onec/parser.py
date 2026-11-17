@@ -33,9 +33,130 @@ BASE_FOLDER_CODE = "00-00010097"
 FOLDER_TAGS = frozenset({"Папка", "folder", "Folder"})
 PRODUCT_TAGS = frozenset({"Товар", "product", "Product"})
 
+# Разделители тысяч в выгрузках 1С (не десятичные).
+_NUMERIC_SPACE_CHARS = (
+    "\u0020",  # ordinary space
+    "\u00a0",  # NBSP
+    "\u202f",  # narrow NBSP
+    "\u2007",  # figure space
+    "\u2009",  # thin space
+)
+
 
 class OneCParseError(ValueError):
     """Невалидный или неожиданный XML каталога 1С."""
+
+
+def _validate_thousand_groups(int_part: str, thousand_sep: str) -> str:
+    """
+    Проверяет группировку тысяч и возвращает только цифры целой части.
+    Первая группа: 1–3 цифры; последующие: ровно 3.
+    """
+    if thousand_sep not in int_part:
+        if not int_part.isdigit():
+            raise ValueError("invalid integer digits")
+        return int_part
+    parts = int_part.split(thousand_sep)
+    if any(p == "" for p in parts):
+        raise ValueError("empty thousand group")
+    if not parts[0].isdigit() or not (1 <= len(parts[0]) <= 3):
+        raise ValueError("invalid leading thousand group")
+    for part in parts[1:]:
+        if not part.isdigit() or len(part) != 3:
+            raise ValueError("invalid thousand group")
+    return "".join(parts)
+
+
+def _normalize_numeric_text(raw: str | None) -> str:
+    """
+    Нормализует числовой текст 1С к строке для Decimal (десятичная точка).
+
+    Контракт выгрузки: разделители тысяч — Unicode/обычные пробелы из
+    _NUMERIC_SPACE_CHARS; одиночная '.' или ',' после удаления пробелов —
+    десятичный разделитель (как в quantity='1.000', price='36990.00').
+
+    Пустая строка → ''. Некорректное/неоднозначное → ValueError.
+    Не использует float. Не удаляет точки/запятые безусловно.
+    """
+    if raw is None:
+        return ""
+    text = str(raw).strip()
+    if not text:
+        return ""
+
+    for space in _NUMERIC_SPACE_CHARS:
+        text = text.replace(space, "")
+    if any(ch.isspace() for ch in text):
+        raise ValueError("unsupported whitespace in numeric text")
+
+    sign = ""
+    if text[0] in "+-":
+        if text[0] == "+":
+            raise ValueError("leading plus not allowed")
+        sign = "-"
+        text = text[1:]
+    if not text:
+        raise ValueError("sign without digits")
+
+    if any(ch not in "0123456789.," for ch in text):
+        raise ValueError("invalid numeric characters")
+
+    has_dot = "." in text
+    has_comma = "," in text
+
+    if has_dot and has_comma:
+        last_dot = text.rfind(".")
+        last_comma = text.rfind(",")
+        if last_dot > last_comma:
+            decimal_sep, thousand_sep = ".", ","
+        else:
+            decimal_sep, thousand_sep = ",", "."
+        if text.count(decimal_sep) != 1:
+            raise ValueError("multiple decimal separators")
+        int_part, frac_part = text.split(decimal_sep)
+        if not frac_part.isdigit() or not frac_part:
+            raise ValueError("invalid fractional part")
+        int_digits = _validate_thousand_groups(int_part, thousand_sep)
+        if not int_digits:
+            raise ValueError("missing integer digits")
+        return f"{sign}{int_digits}.{frac_part}"
+
+    sep = "." if has_dot else ("," if has_comma else None)
+    if sep is None:
+        if not text.isdigit():
+            raise ValueError("invalid integer")
+        return f"{sign}{text}"
+
+    parts = text.split(sep)
+    if any(part == "" for part in parts):
+        raise ValueError("empty numeric segment")
+    if not all(part.isdigit() for part in parts):
+        raise ValueError("non-digit numeric segment")
+
+    if len(parts) == 1:
+        return f"{sign}{parts[0]}"
+
+    if len(parts) == 2:
+        # Один разделитель = десятичный (тысячи уже сняты пробелами).
+        int_part, frac_part = parts
+        if not int_part:
+            raise ValueError("missing integer digits")
+        return f"{sign}{int_part}.{frac_part}"
+
+    # Повтор одного разделителя: либо тысячи+дробь, либо только тысячи.
+    last = parts[-1]
+    head = parts[:-1]
+    if len(last) != 3:
+        int_digits = _validate_thousand_groups(sep.join(head), sep)
+        return f"{sign}{int_digits}.{last}"
+
+    # Все группы после первой длины 3 → целое с разрядами тысяч (напр. 1.000.000).
+    if not (1 <= len(parts[0]) <= 3):
+        raise ValueError("invalid leading thousand group")
+    for part in parts[1:]:
+        if len(part) != 3:
+            raise ValueError("invalid thousand group")
+    return f"{sign}{''.join(parts)}"
 
 
 @dataclass(frozen=True)
@@ -73,7 +194,12 @@ class OneCProductRow:
         raw = (self.price_raw or "").strip()
         if not raw:
             return None
-        normalized = raw.replace("\xa0", "").replace(" ", "").replace(",", ".")
+        try:
+            normalized = _normalize_numeric_text(raw)
+        except ValueError:
+            return None
+        if not normalized:
+            return None
         try:
             return Decimal(normalized)
         except InvalidOperation:
@@ -84,7 +210,12 @@ class OneCProductRow:
         raw = (self.quantity_raw or "").strip()
         if not raw:
             return None
-        normalized = raw.replace("\xa0", "").replace(" ", "").replace(",", ".")
+        try:
+            normalized = _normalize_numeric_text(raw)
+        except ValueError:
+            return None
+        if not normalized:
+            return None
         try:
             return Decimal(normalized)
         except InvalidOperation:

@@ -1,4 +1,4 @@
-"""
+﻿"""
 BLOCK 7 — отчётность SyncLog, ONEC-015/016, защита пустого снимка, dry-run/apply.
 """
 
@@ -16,9 +16,9 @@ from apps.stores.models import Stock
 from integrations.onec.catalog_sync import run_catalog_import
 from integrations.onec.importer import (
     ImportMode,
-    apply_catalog_import,
     plan_catalog_import_from_xml_strings,
 )
+from tests.onec_plan_apply_helpers import persist_and_apply_for_tests
 from integrations.onec.parser import OneCParseError, parse_catalog_files
 from integrations.onec.reporting import classify_issue, partition_issues
 from tests.onec_test_utils import (
@@ -105,47 +105,55 @@ class SyncLogCountersTests(TestCase):
     def test_apply_sync_log_uses_applied_not_planned_stocks(self):
         """ONEC-015: повтор apply → stocks_upserted=0, skipped_idempotent>0."""
         xml = _xml(_row("N-B7-A", "100", 5))
-        # Первый apply через SyncLog
+        # DRY-RUN → plan_id → APPLY (D.2.1)
         with TemporaryDirectory() as tmp:
             folders = Path(tmp) / "f.xml"
             products = Path(tmp) / "p.xml"
             folders.write_text(FOLDERS, encoding="utf-8")
             products.write_text(xml, encoding="utf-8")
-            r1 = run_catalog_import(
-                dry_run=False,
+            dry1 = run_catalog_import(
+                dry_run=True,
                 from_api=False,
                 folders_path=str(folders),
                 products_path=str(products),
+            )
+            self.assertTrue(dry1.get("plan_id"), dry1)
+            planned = int(dry1["summary"].get("planned_stocks_upsert") or 0)
+            self.assertGreaterEqual(planned, 1)
+            r1 = run_catalog_import(
+                dry_run=False,
+                from_api=False,
+                plan_id=dry1["plan_id"],
             )
         self.assertEqual(r1["status"], "success", r1)
         self.assertFalse(r1["dry_run"])
         self.assertGreaterEqual(r1["stocks_upserted"], 1)
         self.assertEqual(r1["summary"].get("counters_source"), "applied")
-        planned = int(r1["summary"].get("planned_stocks_upsert") or 0)
-        self.assertGreaterEqual(planned, 1)
 
-        # Повтор того же снимка (новый SyncLog run_id → новые ключи → снова applied)
-        # Для ONEC-015 нужен тот же plan.run_id. Проверяем apply_catalog_import напрямую:
+        # Для ONEC-015 нужен тот же plan.run_id.
         plan = plan_catalog_import_from_xml_strings(FOLDERS, xml, mode=ImportMode.APPLY)
         plan.run_id = "fixed-run-b7-idem"
-        a1 = apply_catalog_import(plan)
+        a1 = persist_and_apply_for_tests(plan)
         self.assertGreaterEqual(a1["stocks_upserted"], 1)
-        a2 = apply_catalog_import(plan)
+        a2 = persist_and_apply_for_tests(plan)
         self.assertEqual(a2["stocks_upserted"], 0)
         self.assertGreaterEqual(a2["stocks_skipped_idempotent"], 1)
 
-        # SyncLog повторного файла: новый run_id → снова upsert (другой ключ) — это OK.
-        # Главное: поле stocks_upserted на логе = apply_result, не planned.
         with TemporaryDirectory() as tmp:
             folders = Path(tmp) / "f.xml"
             products = Path(tmp) / "p.xml"
             folders.write_text(FOLDERS, encoding="utf-8")
             products.write_text(xml, encoding="utf-8")
-            r2 = run_catalog_import(
-                dry_run=False,
+            dry2 = run_catalog_import(
+                dry_run=True,
                 from_api=False,
                 folders_path=str(folders),
                 products_path=str(products),
+            )
+            r2 = run_catalog_import(
+                dry_run=False,
+                from_api=False,
+                plan_id=dry2["plan_id"],
             )
         self.assertEqual(r2["summary"].get("counters_source"), "applied")
         self.assertIn("stocks_zeroed", r2)
@@ -180,11 +188,17 @@ class SyncLogCountersTests(TestCase):
             products = Path(tmp) / "p.xml"
             folders.write_text(FOLDERS, encoding="utf-8")
             products.write_text(xml, encoding="utf-8")
-            result = run_catalog_import(
-                dry_run=False,
+            dry = run_catalog_import(
+                dry_run=True,
                 from_api=False,
                 folders_path=str(folders),
                 products_path=str(products),
+            )
+            self.assertTrue(dry.get("plan_id"), dry)
+            result = run_catalog_import(
+                dry_run=False,
+                from_api=False,
+                plan_id=dry["plan_id"],
             )
         self.assertEqual(result["status"], "failed")
         self.assertTrue(result.get("stop_reason") or result["errors_count"] >= 1)

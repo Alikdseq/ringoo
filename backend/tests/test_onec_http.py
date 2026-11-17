@@ -1,4 +1,4 @@
-"""Тесты HTTP-клиента 1С и регистрации партнёра (только моки, без реального сервера)."""
+﻿"""Тесты HTTP-клиента 1С и регистрации партнёра (только моки, без реального сервера)."""
 
 from __future__ import annotations
 
@@ -13,9 +13,9 @@ from apps.users.models import UserProfile
 from integrations.onec.client import OneCClient, OneCClientError
 from integrations.onec.importer import (
     ImportMode,
-    apply_catalog_import,
     plan_catalog_import_from_xml_strings,
 )
+from tests.onec_plan_apply_helpers import persist_and_apply_for_tests
 from integrations.onec.parser import BASE_FOLDER_CODE, OneCParseError, parse_folders_xml
 from integrations.onec.registration import register_user_in_onec
 from tests.onec_test_utils import (
@@ -268,7 +268,7 @@ class OneCParserHttpShapeTests(TestCase):
         ensure_confirmed_stores()
         plan = plan_catalog_import_from_xml_strings(FOLDERS_XML, PRODUCTS_XML_APPLY, mode=ImportMode.APPLY)
         self.assertTrue(plan.apply_allowed, plan.apply_blockers)
-        result = apply_catalog_import(plan)
+        result = persist_and_apply_for_tests(plan)
         self.assertGreater(result["categories"], 0)
         self.assertTrue(Product.objects.filter(onec_code="00-00000126").exists())
         self.assertTrue(Category.objects.filter(onec_code="00-00010100").exists())
