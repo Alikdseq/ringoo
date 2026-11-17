@@ -10,11 +10,97 @@ from django.test import TestCase
 from apps.products.models import Category, Product
 from integrations.onec.client import OneCClient, OneCClientError
 from integrations.onec.importer import ImportMode, plan_catalog_import, write_import_report
-from integrations.onec.parser import parse_catalog_files, parse_folders_xml, parse_products_xml
+from integrations.onec.parser import (
+    OneCParseError,
+    _root_from_source,
+    parse_catalog_files,
+    parse_folders_xml,
+    parse_products_xml,
+)
 
 FIXTURES = Path(__file__).resolve().parents[1] / "integrations" / "onec" / "fixtures"
 FOLDERS = FIXTURES / "sample_folders.xml"
 PRODUCTS = FIXTURES / "sample_products.xml"
+
+_MINI_FOLDERS_XML = (
+    '<?xml version="1.0"?>'
+    "<ПапкиНоменклатуры>"
+    '<Папка code="F1" parentCode="" name="Phones"/>'
+    "</ПапкиНоменклатуры>"
+)
+
+
+class RootFromSourceTests(TestCase):
+    """_root_from_source: XML string/bytes vs filesystem path (no Errno 36)."""
+
+    def test_xml_string(self):
+        root = _root_from_source(_MINI_FOLDERS_XML)
+        self.assertTrue(root.tag.endswith("ПапкиНоменклатуры") or "Папки" in root.tag)
+
+    def test_xml_bytes(self):
+        root = _root_from_source(_MINI_FOLDERS_XML.encode("utf-8"))
+        self.assertIsNotNone(root)
+
+    def test_xml_path_object(self):
+        root = _root_from_source(FOLDERS)
+        self.assertIsNotNone(root)
+
+    def test_xml_string_path_to_existing_file(self):
+        root = _root_from_source(str(FOLDERS))
+        self.assertIsNotNone(root)
+
+    def test_empty_string(self):
+        with self.assertRaises(OneCParseError) as ctx:
+            _root_from_source("   ")
+        self.assertIn("Пустой", str(ctx.exception))
+
+    def test_empty_bytes(self):
+        with self.assertRaises(OneCParseError) as ctx:
+            _root_from_source(b"  \n")
+        self.assertIn("Пустой", str(ctx.exception))
+
+    def test_invalid_xml_string(self):
+        with self.assertRaises(OneCParseError) as ctx:
+            _root_from_source("<root><unclosed>")
+        self.assertIn("Невалидный", str(ctx.exception))
+
+    def test_bom_and_leading_whitespace(self):
+        payload = "\ufeff  \n\t" + _MINI_FOLDERS_XML
+        root = _root_from_source(payload)
+        self.assertIsNotNone(root)
+
+    def test_large_xml_string_not_treated_as_filename(self):
+        # Longer than typical NAME_MAX (255); previously Path(source).is_file()
+        # raised OSError Errno 36 on Linux.
+        padding = "x" * 4000
+        huge = (
+            '<?xml version="1.0"?>'
+            f'<ПапкиНоменклатуры><!--{padding}-->'
+            '<Папка code="F1" parentCode="" name="Phones"/>'
+            "</ПапкиНоменклатуры>"
+        )
+        self.assertGreater(len(huge), 255)
+        root = _root_from_source(huge)
+        self.assertIsNotNone(root)
+
+    def test_xxe_rejected(self):
+        evil = (
+            '<?xml version="1.0"?>'
+            '<!DOCTYPE foo [<!ENTITY xxe SYSTEM "file:///etc/passwd">]>'
+            "<ПапкиНоменклатуры><Папка code='1' parentCode='' name='&xxe;'/></ПапкиНоменклатуры>"
+        )
+        with self.assertRaises(OneCParseError) as ctx:
+            _root_from_source(evil)
+        msg = str(ctx.exception).lower()
+        self.assertTrue(
+            "небезопас" in msg or "forbidden" in msg or "entity" in msg or " entit" in msg,
+            msg,
+        )
+
+    def test_missing_file_path_string(self):
+        with self.assertRaises(OneCParseError) as ctx:
+            _root_from_source("/tmp/ringoo_missing_onec_catalog_xyz.xml")
+        self.assertIn("не найден", str(ctx.exception).lower())
 
 
 class OneCParserTests(TestCase):
@@ -34,6 +120,11 @@ class OneCParserTests(TestCase):
         parsed = parse_catalog_files(FOLDERS, PRODUCTS)
         self.assertTrue(parsed.folders)
         self.assertTrue(parsed.product_rows)
+
+    def test_parse_folders_from_xml_string(self):
+        folders = parse_folders_xml(_MINI_FOLDERS_XML)
+        self.assertEqual(len(folders), 1)
+        self.assertEqual(folders[0].code, "F1")
 
 
 class OneCDryRunTests(TestCase):

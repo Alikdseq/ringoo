@@ -284,21 +284,46 @@ def _local_tag(el: ET.Element) -> str:
     return el.tag.split("}")[-1]
 
 
+def _looks_like_xml_text(text: str) -> bool:
+    """True if string is an XML document payload, not a filesystem path."""
+    return text.lstrip("\ufeff \t\r\n").startswith("<")
+
+
 def _root_from_source(source: str | Path | bytes) -> ET.Element:
+    """
+    source: XML string (e.g. HTTP body), filesystem path (str|Path), or bytes.
+    XML strings must be detected before Path(...).is_file() — a large XML
+    payload as a Path name raises OSError Errno 36 (File name too long).
+    """
     try:
-        if isinstance(source, (str, Path)) and not isinstance(source, bytes):
-            path = Path(source)
-            if path.is_file():
-                return ET.parse(path).getroot()
-            # строка XML
-            text = source if isinstance(source, str) else str(source)
-            if not text.strip():
-                raise OneCParseError("Пустой XML")
-            return ET.fromstring(text)
         if isinstance(source, bytes):
             if not source.strip():
                 raise OneCParseError("Пустой XML")
             return ET.fromstring(source)
+
+        if isinstance(source, Path):
+            if not source.is_file():
+                raise OneCParseError(f"XML-файл не найден: {source}")
+            return ET.parse(source).getroot()
+
+        if isinstance(source, str):
+            if not source.strip():
+                raise OneCParseError("Пустой XML")
+            # HTTP API / in-memory XML: never pass the whole body to Path().
+            if _looks_like_xml_text(source):
+                # Strip BOM/leading whitespace so <?xml ...?> is at the start.
+                return ET.fromstring(source.lstrip("\ufeff \t\r\n"))
+            path = Path(source)
+            try:
+                is_file = path.is_file()
+            except OSError as exc:
+                raise OneCParseError(
+                    f"Не удалось открыть источник XML как файл: {exc}"
+                ) from exc
+            if is_file:
+                return ET.parse(path).getroot()
+            raise OneCParseError(f"XML-файл не найден: {source}")
+
     except DefusedXmlException as exc:
         raise OneCParseError(f"Небезопасный XML отклонён: {exc}") from exc
     except ET.ParseError as exc:
