@@ -131,6 +131,7 @@ INSTALLED_APPS = [
     "apps.audit",
     "apps.backups",
     "apps.returns",
+    "apps.storefront_taxonomy",
 ]
 
 if ADMIN_OTP_ENABLED:
