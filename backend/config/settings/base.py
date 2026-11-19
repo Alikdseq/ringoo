@@ -514,6 +514,13 @@ _onec_cat_sync = os.getenv("ONE_C_CATALOG_SYNC_ENABLED", "").strip().lower()
 ONE_C_CATALOG_SYNC_ENABLED = _onec_cat_sync in ("1", "true", "yes")
 ONE_C_CATALOG_SYNC_INTERVAL_SECONDS = int(os.getenv("ONE_C_CATALOG_SYNC_INTERVAL_SECONDS", str(60 * 60)))  # 1 час
 ONE_C_CATALOG_STALE_HOURS = int(os.getenv("ONE_C_CATALOG_STALE_HOURS", "24"))
+# Beat auto-apply completeness vs last applied plan (heuristic; 1C has no TotalCount yet).
+# Requires django_redis.cache.RedisCache + applied plan with positive counts (no absolute-only).
+# Ratios must be in (0, 1]; mins >= 1. Explicit 0 is invalid (not silently replaced).
+ONE_C_CATALOG_AUTO_MIN_PRODUCT_RATIO = float(os.getenv("ONE_C_CATALOG_AUTO_MIN_PRODUCT_RATIO", "0.90"))
+ONE_C_CATALOG_AUTO_MIN_CATEGORY_RATIO = float(os.getenv("ONE_C_CATALOG_AUTO_MIN_CATEGORY_RATIO", "0.90"))
+ONE_C_CATALOG_AUTO_MIN_UNIQUE_PRODUCTS = int(os.getenv("ONE_C_CATALOG_AUTO_MIN_UNIQUE_PRODUCTS", "1"))
+ONE_C_CATALOG_AUTO_MIN_FOLDERS = int(os.getenv("ONE_C_CATALOG_AUTO_MIN_FOLDERS", "1"))
 if ONE_C_CATALOG_SYNC_ENABLED:
     CELERY_BEAT_SCHEDULE["onec-catalog-sync"] = {
         "task": "apps.products.tasks.scheduled_onec_catalog_sync_task",

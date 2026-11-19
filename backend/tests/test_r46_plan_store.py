@@ -440,11 +440,16 @@ class StuckApplyingTests(TestCase):
 
 
 class BypassPathTests(TestCase):
-    def test_beat_skips_apply(self):
+    def test_beat_delegates_to_auto_sync_helper(self):
         from apps.products.tasks import scheduled_onec_catalog_sync_task
 
-        result = scheduled_onec_catalog_sync_task()
-        self.assertEqual(result.get("reason"), "d2_plan_id_required")
+        with patch(
+            "integrations.onec.catalog_sync.run_scheduled_catalog_auto_sync",
+            return_value={"skipped": True, "reason": "catalog_sync_disabled"},
+        ) as mock_helper:
+            result = scheduled_onec_catalog_sync_task.run()
+        self.assertEqual(result.get("reason"), "catalog_sync_disabled")
+        mock_helper.assert_called_once()
 
     def test_celery_apply_requires_plan_id(self):
         from apps.products.tasks import run_onec_catalog_sync_task

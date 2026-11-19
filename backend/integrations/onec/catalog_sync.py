@@ -22,6 +22,10 @@ logger = logging.getLogger(__name__)
 # Глобальный ключ «последний успешный apply» храним как успешный SyncLog.
 STALE_RUNNING_MINUTES = 120
 APPLY_LOCK_CACHE_KEY = "onec:catalog:apply_lock"
+# Весь Beat-цикл dry-run → plan → apply (между Worker/Beat).
+AUTO_SYNC_LOCK_CACHE_KEY = "onec:catalog:auto_sync_lock"
+# Auto-sync lock допускается только с этим backend (общий Redis).
+REQUIRED_AUTO_SYNC_CACHE_BACKEND = "django_redis.cache.RedisCache"
 
 
 def _new_run_id() -> str:
@@ -146,6 +150,247 @@ def _release_apply_lock(run_id: str) -> None:
     current = cache.get(APPLY_LOCK_CACHE_KEY)
     if current == run_id:
         cache.delete(APPLY_LOCK_CACHE_KEY)
+
+
+def _auto_sync_lock_ttl() -> int:
+    return max(60, STALE_RUNNING_MINUTES * 60)
+
+
+def _is_django_redis_cache_backend() -> bool:
+    """True только если default cache — django_redis.cache.RedisCache."""
+    conf = (getattr(settings, "CACHES", None) or {}).get("default") or {}
+    backend = str(conf.get("BACKEND") or "").strip()
+    return backend == REQUIRED_AUTO_SYNC_CACHE_BACKEND
+
+
+def auto_sync_redis_lock_precheck() -> str | None:
+    """
+    Skip-reason до обращения к 1С, если распределённый Redis lock недоступен.
+    DummyCache / LocMemCache / неизвестный backend → отказ (без process-local fallback).
+    """
+    if not _is_django_redis_cache_backend():
+        conf = (getattr(settings, "CACHES", None) or {}).get("default") or {}
+        backend = str(conf.get("BACKEND") or "").strip() or "unset"
+        logger.warning(
+            "scheduled catalog sync refused: cache backend %s "
+            "(required %s)",
+            backend,
+            REQUIRED_AUTO_SYNC_CACHE_BACKEND,
+        )
+        return "redis_cache_required"
+    return None
+
+
+def _try_acquire_auto_sync_lock(token: str) -> bool:
+    """
+    Распределённый lock на весь auto-sync цикл через Redis cache.add (SET NX).
+    Без Redis backend — всегда False (см. auto_sync_redis_lock_precheck).
+    """
+    if not _is_django_redis_cache_backend():
+        return False
+    ttl = _auto_sync_lock_ttl()
+    return bool(cache.add(AUTO_SYNC_LOCK_CACHE_KEY, token, timeout=ttl))
+
+
+def _release_auto_sync_lock(token: str) -> None:
+    """Снимает lock только при совпадении token (не трогает чужой hold)."""
+    if not _is_django_redis_cache_backend():
+        return
+    current = cache.get(AUTO_SYNC_LOCK_CACHE_KEY)
+    if current == token:
+        cache.delete(AUTO_SYNC_LOCK_CACHE_KEY)
+
+
+def _parse_auto_sync_thresholds() -> tuple[dict[str, Any] | None, str]:
+    """
+    Читает пороги без silent fallback для явного 0.
+    ratio должен быть в (0, 1]; absolute mins >= 1.
+    """
+    try:
+        # Не использовать `x or default` — иначе 0.0 незаметно станет 0.90.
+        raw_min_products = getattr(settings, "ONE_C_CATALOG_AUTO_MIN_UNIQUE_PRODUCTS", 1)
+        raw_min_folders = getattr(settings, "ONE_C_CATALOG_AUTO_MIN_FOLDERS", 1)
+        raw_product_ratio = getattr(settings, "ONE_C_CATALOG_AUTO_MIN_PRODUCT_RATIO", 0.90)
+        raw_category_ratio = getattr(settings, "ONE_C_CATALOG_AUTO_MIN_CATEGORY_RATIO", 0.90)
+        min_products = int(raw_min_products)
+        min_folders = int(raw_min_folders)
+        product_ratio = float(raw_product_ratio)
+        category_ratio = float(raw_category_ratio)
+    except (TypeError, ValueError):
+        return None, "invalid_auto_sync_settings"
+
+    if min_products < 1 or min_folders < 1:
+        return None, "invalid_auto_sync_settings"
+    if not (0.0 < product_ratio <= 1.0) or not (0.0 < category_ratio <= 1.0):
+        return None, "invalid_auto_sync_settings"
+
+    return {
+        "min_unique_products": min_products,
+        "min_folders": min_folders,
+        "product_ratio": product_ratio,
+        "category_ratio": category_ratio,
+    }, ""
+
+
+def get_last_applied_catalog_baseline() -> dict[str, Any]:
+    """
+    Baseline из последнего успешно применённого плана.
+
+    Returns:
+      {"ok": True, "baseline": {...}} или
+      {"ok": False, "reason": "baseline_missing"|"baseline_invalid", ...}
+    """
+    from apps.products.sync_models import OneCCatalogImportPlan
+
+    row = (
+        OneCCatalogImportPlan.objects.filter(
+            status=OneCCatalogImportPlan.STATUS_APPLIED
+        )
+        .order_by("-applied_at", "-created_at")
+        .first()
+    )
+    if row is None:
+        return {"ok": False, "reason": "baseline_missing"}
+
+    payload = row.canonical_payload if isinstance(row.canonical_payload, dict) else None
+    if not isinstance(payload, dict):
+        return {
+            "ok": False,
+            "reason": "baseline_invalid",
+            "details": {"plan_id": str(row.plan_id), "error": "payload_not_dict"},
+        }
+
+    try:
+        folders = int(payload["folder_count"])
+        unique_products = int(payload["unique_product_count"])
+        product_rows = int(payload.get("product_row_count") or 0)
+    except (KeyError, TypeError, ValueError) as exc:
+        return {
+            "ok": False,
+            "reason": "baseline_invalid",
+            "details": {
+                "plan_id": str(row.plan_id),
+                "error": f"count_parse:{exc.__class__.__name__}",
+            },
+        }
+
+    if folders <= 0 or unique_products <= 0:
+        return {
+            "ok": False,
+            "reason": "baseline_invalid",
+            "details": {
+                "plan_id": str(row.plan_id),
+                "folder_count": folders,
+                "unique_product_count": unique_products,
+                "error": "non_positive_counts",
+            },
+        }
+
+    return {
+        "ok": True,
+        "baseline": {
+            "plan_id": str(row.plan_id),
+            "folder_count": folders,
+            "unique_product_count": unique_products,
+            "product_row_count": product_rows,
+            "applied_at": row.applied_at.isoformat() if row.applied_at else None,
+        },
+    }
+
+
+def assess_catalog_snapshot_completeness(
+    *,
+    current_unique_products: int,
+    current_folders: int,
+    baseline_result: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """
+    Полнота до auto-APPLY: обязательный валидный baseline + ratio.
+    Absolute-only без baseline не допускается. Не zero-fill.
+    """
+    import math
+
+    thresholds, thresh_reason = _parse_auto_sync_thresholds()
+    details: dict[str, Any] = {
+        "current_unique_products": int(current_unique_products),
+        "current_folders": int(current_folders),
+        "limitation": (
+            "Heuristic vs last applied plan only; 1C API has no TotalCount/"
+            "ETag/pagination proof of full export."
+        ),
+    }
+    if thresholds is None:
+        details["thresholds_error"] = thresh_reason
+        return {
+            "ok": False,
+            "reason": "invalid_auto_sync_settings",
+            "details": details,
+        }
+
+    details.update(thresholds)
+
+    if not baseline_result or not baseline_result.get("ok"):
+        reason = (
+            (baseline_result or {}).get("reason")
+            if isinstance(baseline_result, dict)
+            else "baseline_missing"
+        ) or "baseline_missing"
+        details["baseline_result"] = baseline_result
+        return {"ok": False, "reason": str(reason), "details": details}
+
+    baseline = baseline_result.get("baseline") or {}
+    try:
+        base_products = int(baseline["unique_product_count"])
+        base_folders = int(baseline["folder_count"])
+    except (KeyError, TypeError, ValueError):
+        return {
+            "ok": False,
+            "reason": "baseline_invalid",
+            "details": {**details, "baseline": baseline},
+        }
+
+    if base_products <= 0 or base_folders <= 0:
+        return {
+            "ok": False,
+            "reason": "baseline_invalid",
+            "details": {
+                **details,
+                "baseline": baseline,
+                "error": "non_positive_counts",
+            },
+        }
+
+    details["baseline"] = baseline
+    details["baseline_mode"] = "ratio_vs_applied_plan"
+
+    if int(current_unique_products) < thresholds["min_unique_products"] or int(
+        current_folders
+    ) < thresholds["min_folders"]:
+        return {
+            "ok": False,
+            "reason": "below_absolute_minimum",
+            "details": details,
+        }
+
+    required_products = max(
+        thresholds["min_unique_products"],
+        math.ceil(base_products * thresholds["product_ratio"]),
+    )
+    required_folders = max(
+        thresholds["min_folders"],
+        math.ceil(base_folders * thresholds["category_ratio"]),
+    )
+    details["required_unique_products"] = required_products
+    details["required_folders"] = required_folders
+
+    if int(current_unique_products) < required_products or int(current_folders) < required_folders:
+        return {
+            "ok": False,
+            "reason": "incomplete_snapshot",
+            "details": details,
+        }
+
+    return {"ok": True, "reason": "ok", "details": details}
 
 
 def probe_connection(*, user=None) -> dict[str, Any]:
@@ -358,6 +603,27 @@ def run_catalog_import(
             log.stocks_skipped = stock_idem
             anomalies = int(apply_result.get("reserved_over_quantity_count") or 0)
             log.categories_created = int(apply_result.get("categories") or 0)
+            # Snapshot size from applied plan (audit / next auto-sync baseline helper).
+            snapshot_counts: dict[str, Any] = {}
+            try:
+                from apps.products.sync_models import OneCCatalogImportPlan
+
+                plan_row = OneCCatalogImportPlan.objects.filter(pk=plan_id).first()
+                payload = (
+                    plan_row.canonical_payload
+                    if plan_row and isinstance(plan_row.canonical_payload, dict)
+                    else {}
+                )
+                if payload:
+                    snapshot_counts = {
+                        "folder_count": int(payload.get("folder_count") or 0),
+                        "product_row_count": int(payload.get("product_row_count") or 0),
+                        "unique_product_count": int(
+                            payload.get("unique_product_count") or 0
+                        ),
+                    }
+            except Exception:  # noqa: BLE001
+                snapshot_counts = {}
             log.summary = {
                 "counters_source": "applied",
                 "stocks_zeroed": stock_zeroed,
@@ -365,6 +631,7 @@ def run_catalog_import(
                 "stocks_upserted_applied": log.stocks_upserted,
                 "anomalies_count": anomalies,
                 "reserved_over_quantity_count": anomalies,
+                **snapshot_counts,
                 **saved_plan_meta,
             }
 
@@ -460,3 +727,152 @@ def sync_status_payload() -> dict[str, Any]:
         "data_stale": stale if last_ok else True,
         "stale_threshold_hours": int(getattr(settings, "ONE_C_CATALOG_STALE_HOURS", 24) or 24),
     }
+
+
+def run_scheduled_catalog_auto_sync(*, celery_task_id: str = "") -> dict[str, Any]:
+    """
+    Beat-оркестратор: lock → dry-run (API, present_only) → completeness → apply.
+
+    Не обходит D.2.1/D.2.3: APPLY только через сохранённый plan_id и
+    full_snapshot_acknowledged=False (full_snapshot через Beat не применяется).
+    """
+    if not getattr(settings, "ONE_C_CATALOG_SYNC_ENABLED", False):
+        return {"skipped": True, "reason": "catalog_sync_disabled"}
+    if not getattr(settings, "ONE_C_API_ENABLED", False):
+        return {"skipped": True, "reason": "api_disabled"}
+
+    # До 1С: только django_redis.RedisCache (без LocMem/Dummy/process-local).
+    redis_skip = auto_sync_redis_lock_precheck()
+    if redis_skip:
+        return {"skipped": True, "reason": redis_skip}
+
+    lock_token = celery_task_id or f"auto-{uuid.uuid4().hex}"
+    if not _try_acquire_auto_sync_lock(lock_token):
+        return {"skipped": True, "reason": "auto_sync_lock_held"}
+
+    try:
+        if has_running_apply():
+            return {"skipped": True, "reason": "apply_running"}
+
+        dry = run_catalog_import(
+            dry_run=True,
+            from_api=True,
+            celery_task_id=celery_task_id,
+            snapshot_policy="present_only",
+        )
+        summary = dry.get("summary") or {}
+        plan_id = dry.get("plan_id") or summary.get("plan_id")
+
+        if dry.get("status") == "failed" or not plan_id:
+            logger.info(
+                "scheduled catalog sync skip apply: dry_run_failed status=%s plan_id=%s",
+                dry.get("status"),
+                plan_id,
+            )
+            return {"skipped": True, "reason": "dry_run_failed", "dry_run": dry}
+
+        if dry.get("status") != "success" or int(dry.get("errors_count") or 0) > 0:
+            logger.info(
+                "scheduled catalog sync skip apply: dry_run_not_clean status=%s errors=%s plan_id=%s",
+                dry.get("status"),
+                dry.get("errors_count"),
+                plan_id,
+            )
+            return {
+                "skipped": True,
+                "reason": "dry_run_not_clean",
+                "plan_id": str(plan_id),
+                "dry_run": dry,
+            }
+
+        blockers_count = int(summary.get("blockers_count") or 0)
+        apply_blockers_meta = summary.get("apply_blockers") or 0
+        if isinstance(apply_blockers_meta, list):
+            apply_blockers_n = len(apply_blockers_meta)
+        else:
+            apply_blockers_n = int(apply_blockers_meta or 0)
+        if (
+            not summary.get("apply_allowed", False)
+            or blockers_count > 0
+            or apply_blockers_n > 0
+        ):
+            logger.info(
+                "scheduled catalog sync skip apply: apply_blockers plan_id=%s blockers=%s",
+                plan_id,
+                blockers_count or apply_blockers_n,
+            )
+            return {
+                "skipped": True,
+                "reason": "apply_blockers",
+                "plan_id": str(plan_id),
+                "dry_run": dry,
+            }
+
+        snapshot_policy = summary.get("snapshot_policy") or "present_only"
+        if snapshot_policy != "present_only":
+            logger.info(
+                "scheduled catalog sync skip apply: snapshot_policy=%s plan_id=%s",
+                snapshot_policy,
+                plan_id,
+            )
+            return {
+                "skipped": True,
+                "reason": "snapshot_policy_not_present_only",
+                "plan_id": str(plan_id),
+                "dry_run": dry,
+            }
+
+        current_unique = int(summary.get("unique_product_count") or 0)
+        current_folders = int(summary.get("folder_count") or 0)
+        baseline_result = get_last_applied_catalog_baseline()
+        completeness = assess_catalog_snapshot_completeness(
+            current_unique_products=current_unique,
+            current_folders=current_folders,
+            baseline_result=baseline_result,
+        )
+        if not completeness.get("ok"):
+            reason = str(completeness.get("reason") or "incomplete_snapshot")
+            logger.warning(
+                "scheduled catalog sync skip apply: %s plan_id=%s details=%s",
+                reason,
+                plan_id,
+                completeness.get("details"),
+            )
+            # План dry-run сохранён для диагностики; APPLY не выполняем.
+            return {
+                "skipped": True,
+                "reason": reason,
+                "plan_id": str(plan_id),
+                "dry_run": dry,
+                "completeness": completeness,
+            }
+
+        if has_running_apply():
+            return {
+                "skipped": True,
+                "reason": "apply_running",
+                "plan_id": str(plan_id),
+                "dry_run": dry,
+            }
+
+        applied = run_catalog_import(
+            dry_run=False,
+            from_api=False,
+            plan_id=str(plan_id),
+            full_snapshot_acknowledged=False,
+            celery_task_id=celery_task_id,
+        )
+        logger.info(
+            "scheduled catalog sync applied plan_id=%s apply_status=%s",
+            plan_id,
+            applied.get("status"),
+        )
+        return {
+            "skipped": False,
+            "plan_id": str(plan_id),
+            "dry_run": dry,
+            "apply": applied,
+            "completeness": completeness,
+        }
+    finally:
+        _release_auto_sync_lock(lock_token)

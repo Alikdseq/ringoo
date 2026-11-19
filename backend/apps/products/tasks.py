@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import logging
 
-from django.conf import settings
-
 from config.optional_task import shared_task
 
 logger = logging.getLogger(__name__)
@@ -46,16 +44,16 @@ def run_onec_catalog_sync_task(
     )
 
 
-@shared_task
-def scheduled_onec_catalog_sync_task():
+@shared_task(bind=True)
+def scheduled_onec_catalog_sync_task(self):
     """
-    Beat-задача. D.2.1/D.2.3: автоматический APPLY отключён.
+    Beat-задача: dry-run (API, present_only) → plan_id → apply.
+
+    Без обхода D.2.1/D.2.3: APPLY только по сохранённому plan_id,
+    full_snapshot через Beat не подтверждается.
     """
-    logger.info(
-        "scheduled catalog sync skipped: D.2.1 requires plan_id; Beat APPLY disabled"
+    from integrations.onec.catalog_sync import run_scheduled_catalog_auto_sync
+
+    return run_scheduled_catalog_auto_sync(
+        celery_task_id=getattr(self.request, "id", "") or "",
     )
-    return {
-        "skipped": True,
-        "reason": "d2_plan_id_required",
-        "note": "Automatic APPLY via Beat is disabled; use dry-run → plan_id → apply",
-    }
