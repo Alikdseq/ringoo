@@ -7,22 +7,30 @@ import { useCategories } from '@/lib/hooks/useProducts';
 import { Card } from '@/components/ui/Card';
 import { TYPOGRAPHY } from '@/lib/theme/typography';
 
-/** Дефолтные категории, если API пустой (референс nextphone) */
+/** Запасной список, если API пустой */
 const FALLBACK_CATEGORIES: { title: string; slug: string }[] = [
-  { title: 'iPhone', slug: 'iphone' },
-  { title: 'Samsung', slug: 'samsung' },
-  { title: 'Huawei', slug: 'huawei' },
-  { title: 'Xiaomi', slug: 'xiaomi' },
-  { title: 'Realme', slug: 'realme' },
-  { title: 'Tecno', slug: 'tecno' },
-  { title: 'Infinix', slug: 'infinix' },
+  { title: 'Каталог', slug: 'catalog' },
 ];
+
+function pickMainSections(categories: Category[]): Category[] {
+  const mains = categories
+    .filter(c => c.is_catalog_main)
+    .sort(
+      (a, b) =>
+        (a.catalog_main_sort ?? 0) - (b.catalog_main_sort ?? 0) ||
+        a.title.localeCompare(b.title, 'ru')
+    );
+  if (mains.length > 0) return mains;
+  // Пока флаги не проставлены — только корни 1С (parent=null), не всё дерево.
+  return categories.filter(c => !c.parent);
+}
 
 export function CategoriesGrid() {
   const { data: categories = [] } = useCategories();
+  const mains = pickMainSections(categories);
   const list =
-    categories.length > 0
-      ? categories.map((c: Category) => ({ title: c.title, slug: c.slug }))
+    mains.length > 0
+      ? mains.map(c => ({ title: c.title, slug: c.slug }))
       : FALLBACK_CATEGORIES;
 
   return (
@@ -33,7 +41,9 @@ export function CategoriesGrid() {
           {list.map(item => (
             <Link
               key={item.slug}
-              href={`/catalog?category=${item.slug}`}
+              href={
+                item.slug === 'catalog' ? '/catalog' : `/catalog/category/${encodeURIComponent(item.slug)}`
+              }
               prefetch={LINK_PREFETCH_DEFAULT}
             >
               <Card className="flex aspect-square flex-col items-center justify-center p-4 transition-all duration-200 hover:-translate-y-1 hover:shadow-md">

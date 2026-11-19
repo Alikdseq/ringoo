@@ -57,6 +57,20 @@ class Category(models.Model):
     )
     sort_order = models.IntegerField(default=0, verbose_name="Порядок сортировки")
     is_active = models.BooleanField(default=True, verbose_name="Активна")
+    is_catalog_main = models.BooleanField(
+        default=False,
+        db_index=True,
+        verbose_name="Главный раздел каталога",
+        help_text=(
+            "Если True — существующий узел 1С показывается на главной странице "
+            "каталога. Не создаёт новую иерархию и не меняет parent/товары."
+        ),
+    )
+    catalog_main_sort = models.IntegerField(
+        default=0,
+        verbose_name="Порядок главного раздела",
+        help_text="Сортировка среди is_catalog_main (меньше — выше).",
+    )
     meta_title = models.CharField(
         max_length=255,
         blank=True,
@@ -80,6 +94,10 @@ class Category(models.Model):
             models.Index(fields=["slug"]),
             models.Index(fields=["parent"]),
             models.Index(fields=["is_active"]),
+            models.Index(
+                fields=["is_catalog_main", "catalog_main_sort"],
+                name="products_cat_main_sort_idx",
+            ),
         ]
 
     def __str__(self):

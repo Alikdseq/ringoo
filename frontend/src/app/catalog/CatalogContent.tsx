@@ -155,10 +155,18 @@ function FilterFields({
 
   const inStockId = 'filter-in-stock';
 
-  const categoryOptions = useMemo(
-    () => categories.map((c: Category) => ({ value: c.slug, label: c.title })),
-    [categories]
-  );
+  const categoryOptions = useMemo(() => {
+    // В фильтре — главные разделы 1С, а не все вложенные папки/бренды/модели.
+    const mains = categories
+      .filter(c => c.is_catalog_main)
+      .sort(
+        (a, b) =>
+          (a.catalog_main_sort ?? 0) - (b.catalog_main_sort ?? 0) ||
+          a.title.localeCompare(b.title, 'ru')
+      );
+    const list = mains.length > 0 ? mains : categories.filter(c => !c.parent);
+    return list.map((c: Category) => ({ value: c.slug, label: c.title }));
+  }, [categories]);
 
   const brandOptions = useMemo(
     () => filteredBrands.map(b => ({ value: b, label: b })),
@@ -510,6 +518,28 @@ function CatalogInner({
   const pageTitle = activeCategory?.title ?? 'Каталог товаров';
   const categorySeoDescription = stripDescriptionHtml(activeCategory?.description);
 
+  const mainSections = useMemo(() => {
+    const mains = categories
+      .filter(c => c.is_catalog_main)
+      .sort(
+        (a, b) =>
+          (a.catalog_main_sort ?? 0) - (b.catalog_main_sort ?? 0) ||
+          a.title.localeCompare(b.title, 'ru')
+      );
+    if (mains.length > 0) return mains;
+    return categories.filter(c => !c.parent);
+  }, [categories]);
+
+  const childCategories = useMemo(() => {
+    if (!activeCategory) return [];
+    return categories
+      .filter(c => c.parent === activeCategory.id)
+      .sort(
+        (a, b) =>
+          (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.title.localeCompare(b.title, 'ru')
+      );
+  }, [categories, activeCategory]);
+
   const applySearch = useCallback(
     (query?: string) => {
       const trimmed = (query ?? searchInput).trim();
@@ -847,6 +877,50 @@ function CatalogInner({
           </aside>
 
           <main className="min-w-0 flex-1">
+            {!category && mainSections.length > 0 && (
+              <section className="mb-8" aria-label="Главные разделы каталога">
+                <h2 className="mb-3 text-base font-semibold text-foreground">Разделы</h2>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                  {mainSections.map(c => (
+                    <Link
+                      key={c.id}
+                      href={categoryPageHref(c.slug)}
+                      className="rounded-xl border border-border bg-white px-3 py-4 text-sm font-medium text-foreground shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+                    >
+                      <span className="line-clamp-2">{c.title}</span>
+                      {(c.children_count ?? 0) > 0 && (
+                        <span className="mt-1 block text-xs font-normal text-foreground-muted">
+                          {c.children_count} подразд.
+                        </span>
+                      )}
+                    </Link>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {category && childCategories.length > 0 && (
+              <section className="mb-8" aria-label="Подкатегории">
+                <h2 className="mb-3 text-base font-semibold text-foreground">Категории</h2>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                  {childCategories.map(c => (
+                    <Link
+                      key={c.id}
+                      href={categoryPageHref(c.slug)}
+                      className="rounded-xl border border-border bg-white px-3 py-4 text-sm font-medium text-foreground shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+                    >
+                      <span className="line-clamp-2">{c.title}</span>
+                      {(c.children_count ?? 0) > 0 && (
+                        <span className="mt-1 block text-xs font-normal text-foreground-muted">
+                          {c.children_count} подразд.
+                        </span>
+                      )}
+                    </Link>
+                  ))}
+                </div>
+              </section>
+            )}
+
             <p className="mb-4 text-sm text-foreground-muted">Найдено: {totalCount}</p>
 
             {(category || brand) && (

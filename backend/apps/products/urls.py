@@ -13,7 +13,7 @@ app_name = "products"
 urlpatterns = [
     path("categories/", views.CategoryViewSet.as_view({"get": "list"}), name="category-list"),
     path(
-        "categories/<uuid:pk>/",
+        "categories/<str:pk>/",
         views.CategoryViewSet.as_view({"get": "retrieve"}),
         name="category-detail",
     ),

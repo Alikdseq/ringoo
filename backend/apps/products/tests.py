@@ -176,7 +176,7 @@ class TestProductDetailSerializer(TestCase):
 
 @override_settings(DEBUG_TOOLBAR_CONFIG={"SHOW_TOOLBAR_CALLBACK": lambda request: False})
 class TestCategoryViewSet(TestCase):
-    """Тесты CategoryViewSet: list, retrieve, фильтр is_active, пагинация."""
+    """Тесты CategoryViewSet: list, retrieve, фильтр is_active (без пагинации)."""
 
     def setUp(self):
         self.client = APIClient()
@@ -196,8 +196,8 @@ class TestCategoryViewSet(TestCase):
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        self.assertIn("results", data)
-        slugs = [c["slug"] for c in data["results"]]
+        self.assertIsInstance(data, list)
+        slugs = [c["slug"] for c in data]
         self.assertIn("active", slugs)
         self.assertNotIn("inactive", slugs)
 
@@ -205,7 +205,7 @@ class TestCategoryViewSet(TestCase):
         url = reverse("api_v1:products:category-list")
         response = self.client.get(url, {"is_active": "false"})
         self.assertEqual(response.status_code, 200)
-        slugs = [c["slug"] for c in response.json()["results"]]
+        slugs = [c["slug"] for c in response.json()]
         self.assertIn("inactive", slugs)
 
     def test_retrieve_category(self):
@@ -217,11 +217,12 @@ class TestCategoryViewSet(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["slug"], "active")
 
-    def test_list_paginated(self):
+    def test_list_unpaginated_array(self):
         url = reverse("api_v1:products:category-list")
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
-        self.assertIn("results", response.json())
+        self.assertIsInstance(response.json(), list)
+        self.assertIn("is_catalog_main", response.json()[0])
 
 
 @override_settings(DEBUG_TOOLBAR_CONFIG={"SHOW_TOOLBAR_CALLBACK": lambda request: False})

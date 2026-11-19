@@ -73,8 +73,9 @@ Content-Type: application/json
 - `GET /api/v1/products/products/product-models/` - Линейки моделей в текущей выборке (те же фильтры, что у списка, **без** `model`). Ответ: `{ "results": [{ "key": "iphone-17-pro-max", "label": "iPhone 17 Pro Max", "count": 12 }] }`.
 - `GET /api/v1/products/products/{slug}/` - Детали товара
 - `GET /api/v1/products/products/{product_id}/stock/` - Наличие товара в магазинах (`product_id` — UUID)
-- `GET /api/v1/products/categories/` - Список категорий (префикс `products/`, не корневой `/categories/`). Опционально `?is_active=true|false` (по умолчанию только активные).
-- `GET /api/v1/products/categories/{id}/` - Детали категории (`id` — UUID, не slug)
+- `GET /api/v1/products/categories/` - Список категорий 1С (без пагинации; префикс `products/`). Query: `is_active=true|false` (по умолчанию активные), `main=1` (только главные разделы витрины — флаг на существующих узлах 1С), `parent=<uuid|slug>` (прямые дочерние), `roots=1` (parent IS NULL). Поля: `id`, `title`, `slug`, `parent`, `onec_code`, `sort_order`, `is_catalog_main`, `catalog_main_sort`, `children_count`, `products_count`, SEO/image.
+- `GET /api/v1/products/categories/{id_or_slug}/` - Детали категории (UUID или slug)
+- Фильтр товаров `category=<slug>` включает товары во всей ветке 1С (узел + потомки), без перераспределения `Product.category`.
 
 ### Корзина
 

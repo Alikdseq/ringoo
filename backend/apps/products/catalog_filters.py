@@ -11,6 +11,8 @@ from django.db.models import Exists, F, OuterRef, Q, QuerySet
 
 from apps.stores.models import Stock
 
+from .category_tree import filter_products_in_category_subtree
+from .models import Category
 from .search_synonyms import get_search_terms
 from .utils import model_key_from_title, normalize_model_label
 
@@ -24,7 +26,16 @@ def apply_catalog_filters(qs: QuerySet, params, *, exclude_model: bool = False) 
     """Применяет query-параметры каталога к queryset товаров."""
     category_slug = (params.get("category") or "").strip()
     if category_slug:
-        qs = qs.filter(category__slug=category_slug)
+        category = (
+            Category.objects.filter(slug=category_slug, is_active=True)
+            .only("id", "parent_id")
+            .first()
+        )
+        if category is not None:
+            # Товары листьев 1С внутри ветки (не только прямая привязка к узлу).
+            qs = filter_products_in_category_subtree(qs, category)
+        else:
+            qs = qs.filter(category__slug=category_slug)
 
     brand = (params.get("brand") or "").strip()
     if brand:

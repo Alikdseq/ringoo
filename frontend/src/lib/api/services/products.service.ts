@@ -5,12 +5,43 @@ import type { Category, PaginatedResponse, Product, ProductDetail } from '@/type
 
 const SERVER_REVALIDATE = 300;
 
-export async function getCategories(): Promise<Category[]> {
-  const { data } = await apiClient.get<PaginatedResponse<Category> | Category[]>(
-    '/products/categories/'
-  );
+export interface CategoryListParams {
+  /** Только главные разделы витрины (флаг на узлах 1С) */
+  main?: boolean;
+  /** Прямые дочерние: UUID или slug родителя */
+  parent?: string;
+  /** Только корни parent IS NULL */
+  roots?: boolean;
+  is_active?: boolean;
+}
+
+function unwrapCategoryList(data: PaginatedResponse<Category> | Category[]): Category[] {
   if (Array.isArray(data)) return data;
-  return data.results;
+  return data.results ?? [];
+}
+
+export async function getCategories(params: CategoryListParams = {}): Promise<Category[]> {
+  const query: Record<string, string> = {};
+  if (params.main) query.main = '1';
+  if (params.roots) query.roots = '1';
+  if (params.parent) query.parent = params.parent;
+  if (params.is_active === false) query.is_active = 'false';
+  const { data } = await apiClient.get<PaginatedResponse<Category> | Category[]>(
+    '/products/categories/',
+    { params: query }
+  );
+  return unwrapCategoryList(data);
+}
+
+export async function getCategoryBySlugOrId(slugOrId: string): Promise<Category | null> {
+  try {
+    const { data } = await apiClient.get<Category>(
+      `/products/categories/${encodeURIComponent(slugOrId)}/`
+    );
+    return data;
+  } catch {
+    return null;
+  }
 }
 
 const DEFAULT_PAGE_SIZE = 20;
@@ -96,13 +127,21 @@ export async function fetchProductDetailServer(slug: string): Promise<ProductDet
   );
 }
 
-export async function fetchCategoriesServer(): Promise<Category[]> {
+export async function fetchCategoriesServer(
+  params: CategoryListParams = {}
+): Promise<Category[]> {
   const base = getApiV1BaseUrl();
+  const qs = new URLSearchParams();
+  if (params.main) qs.set('main', '1');
+  if (params.roots) qs.set('roots', '1');
+  if (params.parent) qs.set('parent', params.parent);
+  if (params.is_active === false) qs.set('is_active', 'false');
+  const suffix = qs.toString() ? `?${qs.toString()}` : '';
   const data = await fetchServerJson<PaginatedResponse<Category> | Category[]>(
-    `${base}/products/categories/`,
+    `${base}/products/categories/${suffix}`,
     []
   );
-  return Array.isArray(data) ? data : (data.results ?? []);
+  return unwrapCategoryList(data);
 }
 
 export async function fetchBrandsServer(): Promise<string[]> {
@@ -112,6 +151,12 @@ export async function fetchBrandsServer(): Promise<string[]> {
 }
 
 export async function fetchCategoryBySlugServer(slug: string): Promise<Category | null> {
+  const base = getApiV1BaseUrl();
+  const byId = await fetchServerJson<Category | null>(
+    `${base}/products/categories/${encodeURIComponent(slug)}/`,
+    null
+  );
+  if (byId) return byId;
   const categories = await fetchCategoriesServer();
   return categories.find(c => c.slug === slug) ?? null;
 }

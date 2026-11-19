@@ -24,6 +24,14 @@ export interface Category {
   meta_description?: string | null;
   /** Устойчивый код папки 1С (если синхронизирована) */
   onec_code?: string | null;
+  sort_order?: number;
+  /** Существующий узел 1С, выбранный на главной каталога */
+  is_catalog_main?: boolean;
+  catalog_main_sort?: number;
+  children_count?: number;
+  /** Прямые товары узла (без потомков) */
+  products_count?: number;
+  image?: string | null;
 }
 
 export interface ProductColor {

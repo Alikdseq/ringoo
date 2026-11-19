@@ -1241,8 +1241,9 @@ def _apply_catalog_import_plan(
             cat = Category.objects.get(pk=action.site_id)
             cat.title = action.name
             cat.onec_code = action.onec_code
-            if parent:
-                cat.parent = parent
+            # Всегда синхронизируем parent с 1С, включая сброс в корень
+            # (parent_code пустой → parent=None). Иначе узел «залипает» под старым родителем.
+            cat.parent = parent
             cat.save(update_fields=["title", "onec_code", "parent", "updated_at"])
         else:
             slug = _unique_category_slug(action.site_slug or action.name)

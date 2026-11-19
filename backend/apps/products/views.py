@@ -3,11 +3,13 @@ ViewSet для Category и View для Product (задачи 1.2.6, 1.2.7, 2.5.2
 """
 
 import hashlib
+import uuid
 from typing import ClassVar
 
 from django.conf import settings
 from django.core.cache import cache
-from django.db.models import Exists, F, OuterRef, Prefetch, Q
+from django.db.models import Count, Exists, F, OuterRef, Prefetch, Q
+from django.shortcuts import get_object_or_404
 
 from rest_framework import viewsets
 from rest_framework.generics import ListAPIView, RetrieveAPIView
@@ -39,25 +41,37 @@ from .serializers import (
 
 
 def _category_list_cache_key(request):
-    """Ключ кэша списка категорий с учётом is_active."""
+    """Ключ кэша списка категорий с учётом фильтров дерева/главных разделов."""
     version = cache.get("category_list_version") or 0
-    is_active = request.query_params.get("is_active") or ""
-    raw = f"is_active={is_active}"
+    params = request.query_params
+    raw = (
+        f"is_active={params.get('is_active') or ''}"
+        f"|main={params.get('main') or ''}"
+        f"|parent={params.get('parent') or ''}"
+        f"|roots={params.get('roots') or ''}"
+    )
     h = hashlib.md5(raw.encode("utf-8"), usedforsecurity=False).hexdigest()
     return f"category_list:v{version}:{h}"
 
 
 class CategoryViewSet(viewsets.ReadOnlyModelViewSet):
     """
-    Список и детализация категорий.
-    Фильтрация по is_active (по умолчанию только активные).
-    Кэш списка на 10 минут (задача 2.5.3), инвалидация при изменении Category.
-    Throttle (2.6.2): повышенный лимит для read-only.
+    Категории 1С (adjacency list через parent).
+
+    Список без пагинации (полное дерево нужно для крошек/детей).
+    Query:
+      - is_active=true|false (по умолчанию только активные)
+      - main=1 — только is_catalog_main (главные разделы витрины)
+      - parent=<uuid|slug> — прямые дочерние узлы
+      - roots=1 — только parent IS NULL
+    Retrieve: UUID или slug.
     """
 
     permission_classes = [AllowAny]
     serializer_class = CategorySerializer
     throttle_classes = [AnonReadRateThrottle, UserReadRateThrottle]
+    pagination_class = None
+    lookup_value_regex = r"[^/]+"
 
     def list(self, request, *args, **kwargs):
         cache_key = _category_list_cache_key(request)
@@ -69,9 +83,43 @@ class CategoryViewSet(viewsets.ReadOnlyModelViewSet):
         cache.set(cache_key, response.data, timeout=timeout)
         return response
 
+    def get_object(self):
+        lookup = self.kwargs.get(self.lookup_field)
+        qs = self.filter_queryset(self.get_queryset())
+        try:
+            uuid.UUID(str(lookup))
+        except (ValueError, TypeError, AttributeError):
+            return get_object_or_404(qs, slug=lookup)
+        return get_object_or_404(qs, pk=lookup)
+
     def get_queryset(self):
-        qs = Category.objects.all().order_by("sort_order", "title")
-        is_active = self.request.query_params.get("is_active")
+        qs = Category.objects.all().annotate(
+            children_count=Count("children", distinct=True),
+            products_count=Count("products", distinct=True),
+        )
+        params = self.request.query_params
+        main = (params.get("main") or "").strip().lower()
+        if main in ("1", "true", "yes"):
+            qs = qs.filter(is_catalog_main=True).order_by(
+                "catalog_main_sort", "sort_order", "title"
+            )
+        else:
+            qs = qs.order_by("sort_order", "title")
+
+        roots = (params.get("roots") or "").strip().lower()
+        if roots in ("1", "true", "yes"):
+            qs = qs.filter(parent__isnull=True)
+
+        parent_raw = (params.get("parent") or "").strip()
+        if parent_raw:
+            try:
+                uuid.UUID(parent_raw)
+                qs = qs.filter(parent_id=parent_raw)
+            except ValueError:
+                parent = Category.objects.filter(slug=parent_raw).only("id").first()
+                qs = qs.filter(parent_id=parent.id) if parent else qs.none()
+
+        is_active = params.get("is_active")
         if is_active is not None:
             if is_active.lower() in ("true", "1", "yes"):
                 qs = qs.filter(is_active=True)

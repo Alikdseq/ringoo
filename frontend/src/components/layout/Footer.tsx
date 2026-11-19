@@ -43,15 +43,20 @@ const FOOTER_DOCS = [
 const FOOTER_SUBSCRIBE_PRODUCT = 'Подписка на новости (футер)';
 
 function buildFooterCatalogLinks(categories: Category[]) {
+  const mains = categories
+    .filter(c => c.is_catalog_main)
+    .sort(
+      (a, b) =>
+        (a.catalog_main_sort ?? 0) - (b.catalog_main_sort ?? 0) ||
+        a.title.localeCompare(b.title, 'ru')
+    );
   const roots = categories.filter(c => !c.parent);
-  const list = roots.length > 0 ? roots : categories;
+  const list = mains.length > 0 ? mains : roots.length > 0 ? roots : [];
   if (list.length === 0) return FOOTER_CATALOG_FALLBACK;
-  return [...list]
-    .sort((a, b) => a.title.localeCompare(b.title, 'ru'))
-    .map(c => ({
-      label: c.title,
-      href: `/catalog/category/${c.slug}`,
-    }));
+  return list.slice(0, 12).map(c => ({
+    label: c.title,
+    href: `/catalog/category/${c.slug}`,
+  }));
 }
 
 interface FooterProps {

@@ -10,7 +10,14 @@ from .models import Category, Product, ProductColor, ProductImage, ProductSpec
 
 
 class CategorySerializer(serializers.ModelSerializer):
-    """Категория: id, title, slug, parent, image, description, meta_title, meta_description (SEO)."""
+    """
+    Категория 1С: иерархия через parent, без параллельной витринной таксономии.
+
+    children_count / products_count — из annotate queryset; иначе 0.
+    """
+
+    children_count = serializers.SerializerMethodField()
+    products_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Category
@@ -23,8 +30,20 @@ class CategorySerializer(serializers.ModelSerializer):
             "description",
             "meta_title",
             "meta_description",
+            "onec_code",
+            "sort_order",
+            "is_catalog_main",
+            "catalog_main_sort",
+            "children_count",
+            "products_count",
         )
         read_only_fields = fields
+
+    def get_children_count(self, obj) -> int:
+        return int(getattr(obj, "children_count", 0) or 0)
+
+    def get_products_count(self, obj) -> int:
+        return int(getattr(obj, "products_count", 0) or 0)
 
 
 class ProductColorSerializer(serializers.ModelSerializer):
