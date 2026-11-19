@@ -584,7 +584,7 @@ YOOKASSA_TIMEOUT = int(os.getenv("YOOKASSA_TIMEOUT", "30"))
 
 # Redis Cache Configuration (задача 2.5.1)
 CACHE_TIMEOUT_PRODUCTS_LIST = 60  # список товаров; сигналы инвалидируют при сохранении в админке
-CACHE_TIMEOUT_CATEGORIES = 600  # 10 минут — дерево категорий
+CACHE_TIMEOUT_CATEGORIES = 60  # 1 минута — дерево категорий
 
 CACHES = {
     "default": {
